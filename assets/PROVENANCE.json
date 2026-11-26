@@ -1,0 +1,258 @@
+{
+  "character_art": [
+    {
+      "id": "c01",
+      "name": "灯里",
+      "path": "assets/c01-dengli.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c02",
+      "name": "小满",
+      "path": "assets/c02-xiaoman.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c06",
+      "name": "铃羽",
+      "path": "assets/c06-lingyu.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c08",
+      "name": "小椛",
+      "path": "assets/c08-xiaohua.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c12",
+      "name": "苺",
+      "path": "assets/c12-mei.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c20",
+      "name": "暖弦",
+      "path": "assets/c20-nuanxian.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c21",
+      "name": "柚芽",
+      "path": "assets/c21-youya.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c22",
+      "name": "榛果",
+      "path": "assets/c22-zhenguo.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c11",
+      "name": "剑华",
+      "path": "assets/c11-jianhua.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c05",
+      "name": "霜音",
+      "path": "assets/c05-shuangyin.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c13",
+      "name": "圣愈",
+      "path": "assets/c13-shengyu.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c10",
+      "name": "绯破",
+      "path": "assets/c10-feipo.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c14",
+      "name": "缚锁",
+      "path": "assets/c14-fusuo.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c17",
+      "name": "澄汐",
+      "path": "assets/c17-chengxi.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c18",
+      "name": "朱笺",
+      "path": "assets/c18-zhujian.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c19",
+      "name": "岚翎",
+      "path": "assets/c19-lanling.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c23",
+      "name": "夜萤",
+      "path": "assets/c23-yeying.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c24",
+      "name": "雨棠",
+      "path": "assets/c24-yutang.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c25",
+      "name": "苏兰",
+      "path": "assets/c25-sulan.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c26",
+      "name": "铃绡",
+      "path": "assets/c26-lingxiao.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c04",
+      "name": "龙音",
+      "path": "assets/c04-longyin.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c07",
+      "name": "星墙",
+      "path": "assets/c07-xingqiang.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c09",
+      "name": "时雨",
+      "path": "assets/c09-shiyu.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c03",
+      "name": "寻宝女王",
+      "path": "assets/c03-queen.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c15",
+      "name": "月璃",
+      "path": "assets/c15-yueli.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c16",
+      "name": "织星",
+      "path": "assets/c16-zhixing.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c27",
+      "name": "雪翎",
+      "path": "assets/c27-xueling.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    },
+    {
+      "id": "c28",
+      "name": "海璃",
+      "path": "assets/c28-haili.webp",
+      "method": "AI generated",
+      "source_confirmation": "Project maintainer, 2026-11-24",
+      "generator": null,
+      "redistribution_license": "pending maintainer selection"
+    }
+  ],
+  "other_art": "Background and UI provenance has not been confirmed in this conversation.",
+  "metadata_check": "The 95 WebP files contain only loop and background metadata; no EXIF/XMP metadata was found."
+}

@@ -1,0 +1,17 @@
+package model
+
+// Call only after the host's own account/configuration stores are initialized.
+// Validate fresh and upgrade schemas on all three supported databases first.
+func MigrateGachaTables() error {
+	if err := DB.AutoMigrate(
+		&GachaRun{}, &GachaCard{}, &GachaDaily{}, &GachaPlayer{}, &GachaAction{},
+		&GachaArenaGate{}, &GachaArenaSeat{}, &GachaArenaDuel{},
+		&GachaArenaEntry{}, &GachaArenaRoom{},
+	); err != nil {
+		return err
+	}
+	if err := InitializeGachaPower(); err != nil {
+		return err
+	}
+	return InitializeGachaArena()
+}

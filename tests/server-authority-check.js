@@ -1,0 +1,861 @@
+/* Browser integration for login gating and server-owned game state. */
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const { randomUUID } = require("node:crypto");
+const { JSDOM } = require("jsdom");
+
+const root = path.resolve(process.env.GACHA_TEST_ROOT || path.join(__dirname, ".."));
+const ep = {
+  auth: "/api/user/auth/refresh", profile: "/api/user/gacha/profile", action: "/api/user/gacha/action",
+  start: "/api/user/gacha/run/start", finish: "/api/user/gacha/run/finish",
+  warehouse: "/api/user/gacha/warehouse", activate: "/api/user/gacha/card/activate",
+};
+const copy = value => JSON.parse(JSON.stringify(value));
+const reply = (data, status = 200) => ({ status, ok: status >= 200 && status < 300, json: async () => data });
+const ok = data => reply({ success: true, data });
+const fail = (status, code) => reply({ success: false, code, message: code }, status);
+function deferred() {
+  let resolve;
+  const promise = new Promise(res => { resolve = res; });
+  return { promise, resolve };
+}
+async function until(predicate) {
+  const deadline = Date.now() + 2000;
+  while (!predicate()) {
+    assert.ok(Date.now() < deadline, "Expected asynchronous state was not reached");
+    await new Promise(resolve => setTimeout(resolve, 1));
+  }
+}
+function initialState() {
+  const d = new Date();
+  return {
+    stamina: 120, staminaMax: 120, staminaTs: Date.now(), token: 0, gold: 600,
+    multi: 1, multiOn: false, daily: { date: `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`, tokenGained: 0 },
+    pity: 0, totalPull: 0, girls: Object.fromEntries(["c08", "c06", "c01", "c12"].map(id => [id, { star: 1, level: 1, exp: 0, shards: 0 }])),
+    squad: ["c08", "c06", "c01", "c12"], cleared: {}, stars: {}, history: [], mats: { mat_r: 0, mat_sr: 0, mat_ssr: 0 },
+  };
+}
+
+function harness(t, { signedIn = true, responder, url = "https://example.test/gacha/", clock } = {}) {
+  const dom = new JSDOM(fs.readFileSync(path.join(root, "index.html"), "utf8"), {
+    runScripts: "outside-only", url, pretendToBeVisual: true,
+  });
+  const w = dom.window;
+  if (clock) {
+    w.Date.now = () => clock.wall;
+    Object.defineProperty(w.performance, "now", { value: () => clock.mono, configurable: true });
+  }
+  const calls = [], reads = [], writes = [], errors = [];
+  const storage = w.Storage.prototype;
+  const get = storage.getItem, set = storage.setItem;
+  set.call(w.localStorage, "h5gacha_save_v1", JSON.stringify({ gold: 999999999, mats: { mat_r: 999999999 }, cleared: { s6: true } }));
+  set.call(w.localStorage, "h5gacha_bind_v2", JSON.stringify({ token: "never-send-old-manual-token" }));
+  storage.getItem = function(key) { reads.push(key); return get.call(this, key); };
+  storage.setItem = function(key, value) { writes.push({ key, value }); return set.call(this, key, value); };
+  Object.defineProperty(w.crypto, "randomUUID", { value: randomUUID, configurable: true });
+  const database = { state: initialState(), revision: 1, userID: 7, run: null };
+  const profile = () => ({ user_id: database.userID, name: "account-" + database.userID, quota: 700000,
+    save: copy(database.state), revision: database.revision, active_run: database.run });
+  const defaultRespond = call => {
+    if (call.path === ep.auth) return signedIn ? ok({
+      access_token: "memory-site-token", token_type: "Bearer", access_expires_at: Math.floor((clock ? clock.server : Date.now()) / 1000) + 300,
+      user: { id: database.userID }, session: { sid: "session-" + database.userID, current: true },
+    }) : fail(401, "AUTH");
+    if (call.path === ep.profile) return ok(profile());
+    if (call.path === ep.action) {
+      const b = call.body;
+      if (b.action === "gacha") {
+        const cost = b.count === 10 ? 1400 : 150;
+        if (database.state.gold < cost) return fail(409, "GACHA_RESOURCES_REQUIRED");
+        database.state.gold -= cost; database.state.totalPull += b.count;
+      }
+      if (b.action === "level") database.state.girls[b.girl_id].level++;
+      if (b.action === "squad") database.state.squad = b.squad;
+      if (b.action === "multi") database.state.multiOn = b.enabled;
+      database.revision++;
+      return ok({ save: copy(database.state), revision: database.revision, results: [{ girl_id: "c01", is_new: false, dup: true, shards: 8 }] });
+    }
+    if (call.path === ep.start) {
+      database.state.stamina -= 10; database.revision++;
+      const now = clock ? clock.server : Date.now();
+      database.run = { id: "run-a", stage: call.body.stage, ready_at: now + 30000, expire_at: now + 900000,
+        save: copy(database.state), revision: database.revision,
+        result: { allies: [{ uid: "a0", side: "ally", girlId: "c08", name: "tank", img: "assets/c08-xiaohua.webp", hp: 500, maxHp: 500, atk: 100, def: 80, spd: 90, rage: 0, alive: true }],
+          waves: [[{ uid: "e0", side: "enemy", name: "wolf", img: "assets/gen/enemy-wolf.webp", hp: 100, maxHp: 100, atk: 30, def: 20, spd: 100, rage: 0, alive: true }]],
+          events: [], win: true, stars: 1, rounds: 8, alive_n: 1, total_n: 1, duration_ms: 30000 },
+      };
+      return ok(copy(database.run));
+    }
+    if (call.path === ep.finish) {
+      database.revision++; database.run = null;
+      return ok({ save: copy(database.state), revision: database.revision, win: call.body.abandon !== true,
+        stars: call.body.abandon === true ? 0 : 1, rounds: 8, alive_n: 1, total_n: 1, drops: [], quota: 0 });
+    }
+    if (call.path === ep.warehouse) return ok({ cards: [], active: null });
+    if (call.path === ep.activate) return ok({ id: call.body.card_id, name: "card" });
+    throw new Error("Unexpected request " + call.path);
+  };
+  let respond = responder;
+  w.fetch = (url, options) => {
+    assert.equal(new URL(url).origin, w.location.origin, "Credentials must remain on the current site");
+    assert.equal(options.credentials, "same-origin");
+    assert.equal(options.cache, "no-store");
+    const call = { path: new URL(url).pathname, url: String(url), options,
+      headers: { ...options.headers }, body: options.body ? JSON.parse(options.body) : undefined };
+    calls.push(call);
+    return Promise.resolve().then(() => respond ? respond(call, defaultRespond, database) : defaultRespond(call)).then(response => {
+      if (clock) response.headers = { get: key => key.toLowerCase() === "date" ? new Date(clock.server).toUTCString() : null };
+      return response;
+    });
+  };
+  w.addEventListener("error", event => errors.push(event.message));
+  const files = ["config.js", "store.js", "data.js", "ui.js", "progression.js", "battle.js", "main.js"];
+  w.eval(files.map(file => fs.readFileSync(path.join(root, "js", file), "utf8")).join("\n;\n") + `
+    window.__authority = { Store, SITE, nav, doGacha, levelUp, starUp, toggleSquad, unslot, toggleMulti,
+      openGirl, pickChapter, pickStage, openWarehouse, startBattle, resumeBattle, exitBattle, recoverBattle,
+      closeModal, retryGameAction, onSiteSessionEvent, battleEnd, syncSiteAccount,
+      get save(){return SAVE;}, setSave(s){SAVE=s;}, get battle(){return BAT;},
+      get running(){return battleRunning;},
+      setSleep(fn){sleep=fn;}, setStrike(fn){playStrike=fn;},
+      battleControl(...args){return battleControl(...args);},
+      stopPlayback(){playServerBattle=async()=>{};} };
+  `);
+  t.after(() => w.close());
+  return { game: w.__authority, w, d: w.document, database, calls, reads, writes, errors, profile,
+    count: endpoint => calls.filter(call => call.path === endpoint).length,
+    respond(fn) { respond = fn; }, defaultRespond };
+}
+
+function assertLocked(h) {
+  assert.equal(h.game.save, null);
+  assert.equal(h.game.Store.ready(), false);
+  assert.ok(h.d.getElementById("app").classList.contains("hidden"));
+  assert.ok(!h.d.getElementById("title-screen").classList.contains("hidden"));
+}
+function assertPrivateStorage(h) {
+  assert.deepEqual(h.reads, [], "Game must never load a browser save or binding credential");
+  assert.deepEqual(h.writes, [], "Game assets and credentials must never be saved to browser storage");
+  assert.ok(!JSON.stringify(h.calls).includes("never-send-old-manual-token"));
+}
+function assertIntentOnly(call, keys) {
+  assert.deepEqual(Object.keys(call.body).sort(), [...keys].sort());
+  assert.equal(call.options.credentials, "same-origin");
+  assert.equal(call.options.cache, "no-store");
+  assert.equal(call.headers.Authorization, "Bearer memory-site-token");
+  if (call.body.request_id) assert.match(call.body.request_id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+}
+
+test("game home retains upstream attribution without linking a maintainer server", async t => {
+  const h = harness(t);
+  await until(() => h.count(ep.profile) > 0 && !h.game.Store.connecting);
+  const notice = h.d.querySelector("#page-home .source-notice");
+  const link = notice.querySelector("a");
+  assert.equal(link.href, "https://github.com/QuantumNous/new-api");
+  assert.equal(link.target, "_blank");
+  assert.equal(link.rel, "noopener noreferrer");
+  assert.ok(notice.textContent.includes("Frontend design and development by New API contributors."));
+});
+
+test("anonymous boot and deep links cannot render or use any game entry", async t => {
+  for (const hash of ["", "#gacha", "#squad", "#stage", "#modes", "#growth", "#bag", "#battle"]) await t.test(hash || "home", async t => {
+    const h = harness(t, { signedIn: false, url: "https://example.test/gacha/" + hash });
+    await until(() => !h.game.Store.connecting);
+    assertLocked(h);
+    for (const page of ["home", "gacha", "squad", "stage", "modes", "growth", "bag", "battle"]) h.game.nav("page-" + page);
+    for (const [fn, args] of [
+      ["doGacha", [1]], ["startBattle", ["s1"]], ["levelUp", ["c08"]], ["starUp", ["c08"]],
+      ["toggleSquad", ["c08"]], ["unslot", [0]], ["toggleMulti", []], ["openGirl", ["c08"]],
+      ["pickChapter", [0]], ["pickStage", ["s1"]], ["openWarehouse", []],
+    ]) await assert.doesNotReject(async () => h.game[fn](...args), "Anonymous entry " + fn + " must fail closed");
+    assert.equal(h.d.body.dataset.page, undefined);
+    assert.equal(h.d.getElementById("home-info").innerHTML, "");
+    assert.equal(h.d.getElementById("gacha-pity").innerHTML, "");
+    assert.equal(h.d.getElementById("modal-box").innerHTML, "");
+    assert.ok(h.calls.every(call => call.path === ep.auth));
+    assertPrivateStorage(h);
+    assert.deepEqual(h.errors, []);
+  });
+});
+
+test("pending login keeps game locked and does not hydrate the malicious local save", async t => {
+  const auth = deferred();
+  const h = harness(t, { responder: (call, defaultRespond) => call.path === ep.auth ? auth.promise : defaultRespond(call) });
+  await until(() => h.count(ep.auth) === 1);
+  assertLocked(h);
+  h.game.nav("page-gacha");
+  await h.game.doGacha(1); await h.game.startBattle("s1");
+  assert.equal(h.count(ep.action), 0); assert.equal(h.count(ep.start), 0);
+  assertPrivateStorage(h);
+  auth.resolve(h.defaultRespond(h.calls[0]));
+  await until(() => h.game.Store.ready());
+  assert.equal(h.game.save.gold, 600);
+  assert.ok(!h.d.getElementById("app").classList.contains("hidden"));
+  assert.ok(h.d.getElementById("title-screen").classList.contains("hidden"));
+});
+
+test("a forged display snapshot cannot unlock an anonymous session", async t => {
+  const h = harness(t, { signedIn: false });
+  await until(() => !h.game.Store.connecting);
+  h.game.setSave(initialState());
+  assert.equal(h.game.Store.ready(), false);
+  h.game.nav("page-gacha"); await h.game.doGacha(1); await h.game.startBattle("s1");
+  assert.equal(h.count(ep.action), 0); assert.equal(h.count(ep.start), 0);
+  assert.ok(h.d.getElementById("app").classList.contains("hidden"));
+});
+
+test("tampered display assets are neither uploaded nor credited by a summon", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  Object.assign(h.game.save, { gold: 999999999, squad: ["c04"], stars: { s6: 3 }, cleared: { s3: true } });
+  h.game.save.mats.mat_r = 999999999;
+  await h.game.doGacha(1);
+  const call = h.calls.find(call => call.path === ep.action);
+  assertIntentOnly(call, ["action", "count", "request_id"]);
+  assert.equal(call.body.action, "gacha");
+  assert.equal(h.game.save.gold, 450);
+  assert.equal(h.game.save.mats.mat_r, 0);
+  assert.deepEqual(copy(h.game.save.squad), ["c08", "c06", "c01", "c12"]);
+  assert.deepEqual(copy(h.game.save.stars), {});
+  assert.deepEqual(copy(h.game.save.cleared), {});
+  assertPrivateStorage(h);
+});
+
+test("all economic UI actions send only explicit intent fields", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  for (const [fn, args, action, fields] of [
+    ["starUp", ["c08"], "star", ["girl_id"]],
+    ["unslot", [0], "squad", ["squad"]], ["toggleMulti", [], "multi", ["enabled"]],
+  ]) {
+    h.game.save.gold = 999999999; h.game.save.mats.mat_r = 999999999;
+    await h.game[fn](...args);
+    const call = h.calls.filter(call => call.path === ep.action).at(-1);
+    assert.equal(call.body.action, action);
+    assertIntentOnly(call, ["action", "request_id", ...fields]);
+    assert.equal(h.game.save.gold, h.database.state.gold);
+    assert.equal(h.game.save.mats.mat_r, h.database.state.mats.mat_r);
+  }
+  assertPrivateStorage(h);
+});
+
+test("insufficient server balance cannot be bypassed by editing SAVE.gold", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.database.state.gold = 0;
+  h.game.save.gold = 999999999;
+  assert.equal(await h.game.Store.mutate("gacha", { count: 1 }), null);
+  assert.equal(h.database.state.gold, 0);
+  assert.equal(h.database.state.totalPull, 0);
+  assert.equal(h.count(ep.action), 1);
+  await h.game.Store.refresh();
+  assert.equal(h.game.save.gold, 0);
+});
+
+test("uncertain mutations retain one UUID and block competing actions until retried", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  let attempts = 0;
+  h.respond((call, defaultRespond) => call.path === ep.action && ++attempts === 1 ? fail(500, "SERVER_UNAVAILABLE") : defaultRespond(call));
+  assert.equal(await h.game.Store.mutate("gacha", { count: 1 }), null);
+  const first = h.calls.find(call => call.path === ep.action).body.request_id;
+  assert.equal(await h.game.Store.mutate("level", { girl_id: "c08" }), null);
+  assert.equal(h.count(ep.action), 1);
+  assert.ok(await h.game.Store.mutate("gacha", { count: 1 }));
+  assert.equal(h.calls.filter(call => call.path === ep.action).at(-1).body.request_id, first);
+  assert.equal(h.database.state.totalPull, 1);
+});
+
+test("explicit retry of an uncertain toggle preserves the original value and UUID", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  let attempts = 0;
+  h.respond((call, defaultRespond, db) => {
+    if (call.path === ep.action && ++attempts === 1) {
+      db.state.multiOn = true; db.revision++;
+      throw new TypeError("RESPONSE_LOST_AFTER_COMMIT");
+    }
+    return defaultRespond(call);
+  });
+  await h.game.toggleMulti();
+  const first = h.calls.find(call => call.path === ep.action).body;
+  assert.equal(first.enabled, true);
+  assert.equal(h.game.save.multiOn, false);
+  await h.game.Store.refresh();
+  assert.equal(h.game.save.multiOn, true);
+  await h.game.toggleMulti();
+  assert.equal(h.count(ep.action), 1, "A newly inverted toggle must not replace the uncertain original operation");
+  assert.ok(h.d.querySelector('[onclick="retryGameAction()"]'));
+  await h.game.retryGameAction();
+  const retried = h.calls.filter(call => call.path === ep.action).at(-1).body;
+  assert.deepEqual(retried, first);
+  assert.equal(h.game.save.multiOn, true);
+  assert.equal(h.game.Store.pendingAction, null);
+});
+
+test("concurrent UI mutations produce a single request and no optimistic asset change", async t => {
+  const pending = deferred();
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.respond((call, defaultRespond) => call.path === ep.action ? pending.promise : defaultRespond(call));
+  const first = h.game.Store.mutate("gacha", { count: 1 });
+  await until(() => h.count(ep.action) === 1);
+  assert.equal(await h.game.Store.mutate("gacha", { count: 1 }), null);
+  assert.equal(h.game.save.gold, 600);
+  pending.resolve(h.defaultRespond(h.calls.find(call => call.path === ep.action)));
+  await first;
+  assert.equal(h.count(ep.action), 1); assert.equal(h.game.save.gold, 450);
+});
+
+test("start and finish do not upload local squad, stars or combat results", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.game.save.squad = ["c04"]; h.game.save.stars.s1 = 999;
+  const run = await h.game.Store.startRun("s1");
+  assert.ok(run);
+  assertIntentOnly(h.calls.find(call => call.path === ep.start), ["stage", "request_id"]);
+  assert.equal(h.game.save.stamina, 110);
+  assert.ok(await h.game.Store.finishRun(run.id, 999));
+  assertIntentOnly(h.calls.find(call => call.path === ep.finish), ["run_id"]);
+  const second = await h.game.Store.startRun("s1");
+  assert.ok(await h.game.Store.finishRun(second.id, true));
+  assertIntentOnly(h.calls.filter(call => call.path === ep.finish).at(-1), ["run_id", "abandon"]);
+  assert.equal(h.calls.filter(call => call.path === ep.finish).at(-1).body.abandon, true);
+  assertPrivateStorage(h);
+});
+
+test("uncertain run starts retain their UUID and cannot start a different stage", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  let attempts = 0;
+  h.respond((call, defaultRespond) => call.path === ep.start && ++attempts === 1 ? fail(500, "SERVER_UNAVAILABLE") : defaultRespond(call));
+  assert.equal(await h.game.Store.startRun("s1"), null);
+  const id = h.calls.find(call => call.path === ep.start).body.request_id;
+  assert.equal(await h.game.Store.startRun("s6"), null);
+  assert.equal(h.count(ep.start), 1);
+  assert.ok(await h.game.Store.startRun("s1"));
+  assert.equal(h.calls.filter(call => call.path === ep.start).at(-1).body.request_id, id);
+});
+
+test("account switch while a battle click awaits profile cannot start in the new account", async t => {
+  const oldProfile = deferred();
+  const h = harness(t); await until(() => h.game.Store.ready());
+  const oldData = h.profile();
+  let profiles = 0;
+  h.respond((call, defaultRespond) => call.path === ep.profile && ++profiles === 1 ? oldProfile.promise : defaultRespond(call));
+  const refresh = h.game.Store.refresh();
+  await until(() => profiles === 1);
+  const start = h.game.startBattle("s1");
+  h.game.Store.clearSession();
+  h.database.userID = 8;
+  h.database.state = initialState();
+  oldProfile.resolve(ok(oldData));
+  await refresh; await start;
+  assert.equal(h.game.Store.authUserId, 8);
+  assert.equal(h.game.Store.ready(), true);
+  assert.equal(h.count(ep.start), 0);
+  assert.equal(h.game.battle, null);
+  assert.equal(h.game.save.stamina, 120);
+});
+
+test("failed retreat after playback completes exposes a safe settlement retry", async t => {
+  const retreat = deferred();
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.game.stopPlayback();
+  const run = await h.game.Store.startRun("s1");
+  await h.game.resumeBattle(run, true);
+  let finishes = 0;
+  h.respond((call, defaultRespond) => call.path === ep.finish
+    ? (++finishes === 1 ? retreat.promise : fail(500, "SETTLEMENT_UNAVAILABLE")) : defaultRespond(call));
+  const exit = h.game.exitBattle();
+  await until(() => finishes === 1);
+  h.game.battle.playbackComplete = true;
+  retreat.resolve(fail(500, "RETREAT_UNAVAILABLE"));
+  await exit;
+  const calls = h.calls.filter(call => call.path === ep.finish);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0].body, { run_id: "run-a", abandon: true });
+  assert.deepEqual(calls[1].body, { run_id: "run-a" });
+  assert.equal(h.game.battle.settled, undefined);
+  assert.ok(h.d.querySelector('[onclick*="battleEnd(BAT)"]'));
+  h.game.closeModal();
+  assert.ok(!h.d.getElementById("modal-mask").classList.contains("hidden"), "Unconfirmed settlement must retain its retry controls");
+});
+
+test("HTTP server time follows a monotonic clock instead of a changed device clock", async t => {
+  const base = Date.UTC(2026, 10, 17, 8, 0, 0);
+  const clock = { server: base, wall: base - 2 * 3600000, mono: 100 };
+  const h = harness(t, { clock }); await until(() => h.game.Store.ready());
+  const calibrated = h.game.Store.serverNow();
+  assert.ok(Math.abs(calibrated - clock.server) <= 1000, "HTTP Date calibrates a device two hours behind");
+  clock.wall += 7 * 3600000;
+  clock.mono += 1750;
+  clock.server += 1750;
+  assert.equal(h.game.Store.serverNow() - calibrated, 1750, "Subsequent wall-clock changes cannot extend or skip a battle");
+  assert.ok(Math.abs(h.game.Store.serverNow() - clock.server) <= 1000);
+});
+
+test("site login validates token expiry against server time on a skewed phone", async t => {
+  for (const offset of [-2 * 3600000, 2 * 3600000]) await t.test(String(offset), async t => {
+    const base = Date.UTC(2026, 10, 17, 8, 0, 0);
+    const clock = { server: base, wall: base + offset, mono: 100 };
+    const h = harness(t, { clock }); await until(() => !h.game.Store.connecting);
+    assert.equal(h.game.Store.ready(), true, "A valid server-issued token cannot be rejected by the phone clock");
+    const refreshes = h.count(ep.auth);
+    clock.wall += 5 * 3600000;
+    assert.ok(await h.game.Store.warehouse());
+    assert.equal(h.count(ep.auth), refreshes, "Changing device time must not trigger token-refresh loops");
+    clock.server += 280000;
+    clock.mono += 280000;
+    assert.ok(await h.game.Store.warehouse());
+    assert.equal(h.count(ep.auth), refreshes + 1, "Actual server expiry still renews the session");
+    assertPrivateStorage(h);
+  });
+});
+
+test("a genuinely expired server token cannot unlock the game even on a slow phone clock", async t => {
+  const base = Date.UTC(2026, 10, 17, 8, 0, 0);
+  const clock = { server: base, wall: base - 2 * 3600000, mono: 100 };
+  const h = harness(t, { clock, responder(call, defaultRespond) {
+    const response = defaultRespond(call);
+    if (call.path === ep.auth) response.json = async () => ({ success: true, data: {
+      access_token: "expired-test-token", token_type: "Bearer", access_expires_at: base / 1000 - 60,
+      user: { id: 7 }, session: { sid: "session-7", current: true },
+    } });
+    return response;
+  } });
+  await until(() => !h.game.Store.connecting);
+  assertLocked(h);
+  assert.equal(h.count(ep.profile), 0);
+});
+
+test("temporary entry failures show an actionable cause rather than a database diagnosis", async t => {
+  for (const [status, expected] of [[429, /频繁/], [502, /暂时不可用/], [503, /暂时不可用/]]) await t.test(String(status), async t => {
+    const h = harness(t, { responder: () => fail(status, "UPSTREAM_ERROR") });
+    await until(() => !h.game.Store.connecting);
+    assertLocked(h);
+    const message = h.d.getElementById("auth-status").textContent;
+    assert.match(message, expected);
+    assert.doesNotMatch(message, /数据库档案/);
+    assert.equal(h.count(ep.auth), 1, "An uncertain refresh must not be automatically replayed");
+  });
+});
+
+test("entry network failures remain locked and offer a safe manual retry", async t => {
+  for (const [name, error, expected] of [
+    ["timeout", Object.assign(new Error("Aborted"), { name: "AbortError" }), /超时/],
+    ["offline", new TypeError("Failed to fetch"), /网络连接失败/],
+  ]) await t.test(name, async t => {
+    const h = harness(t, { responder() { throw error; } });
+    await until(() => !h.game.Store.connecting);
+    assertLocked(h);
+    assert.match(h.d.getElementById("auth-status").textContent, expected);
+    assert.equal(h.count(ep.auth), 1);
+    assertPrivateStorage(h);
+  });
+});
+
+test("a naturally played report waits visibly for the server minimum and settles with a skewed device clock", async t => {
+  for (const { name, offset, cached } of [
+    { name: "device behind", offset: -2 * 3600000 },
+    { name: "device ahead", offset: 2 * 3600000 },
+    { name: "cached previous HTML", offset: 0, cached: true },
+  ]) await t.test(name, async t => {
+    const base = Date.UTC(2026, 10, 17, 8, 0, 0);
+    const clock = { server: base, wall: base + offset, mono: 100 };
+    const h = harness(t, { clock }); await until(() => h.game.Store.ready());
+    if (cached) {
+      h.d.getElementById("bh-status").remove();
+      const button = h.d.getElementById("btn-flee");
+      button.setAttribute("onclick", "exitBattle()");
+      button.onclick = () => h.game.exitBattle();
+    }
+    const status = [];
+    let virtualElapsed = 0;
+    let readyAt = 0;
+    let recovered = false;
+    h.game.setSleep(async ms => {
+      const text = h.d.getElementById("bh-status")?.textContent || "";
+      status.push({ text, control: h.d.getElementById("btn-flee").textContent });
+      if ((offset > 0 || cached) && text.includes("战报已结束") && !recovered) {
+        recovered = true;
+        const original = h.game.battle;
+        if (cached) {
+          const status = h.d.getElementById("bh-status");
+          assert.equal(status.getAttribute("role"), "status");
+          assert.equal(status.getAttribute("aria-live"), "polite");
+          h.d.getElementById("btn-flee").click();
+          await until(() => h.game.battle !== original);
+        } else await h.game.battleControl();
+        assert.equal(original.abort, true, "Resynchronizing stops only the old playback");
+        assert.notEqual(h.game.battle, original);
+        assert.equal(h.game.battle.runId, original.runId, "The recovery button resumes the server-owned run instead of abandoning it");
+      }
+      virtualElapsed += ms;
+      assert.ok(virtualElapsed <= 40000, "Clock skew must not produce hours of silent waiting");
+      clock.mono += ms; clock.server += ms; clock.wall += ms;
+    });
+    h.respond((call, defaultRespond) => {
+      if (call.path === ep.finish) {
+        assert.ok(clock.server >= readyAt, "The browser must not request early settlement");
+        assert.deepEqual(call.body, { run_id: "run-a" });
+      }
+      const response = defaultRespond(call);
+      if (call.path === ep.start) {
+        return Promise.resolve(response.json()).then(payload => {
+          const run = payload.data;
+          readyAt = run.ready_at;
+          run.result.events = [
+            { kind: "wave", wave: 0, round: 0, duration_ms: 600, units: [] },
+            { kind: "action", wave: 0, round: 1, src: "a0", duration_ms: 450,
+              targets: [{ uid: "e0", damage: 100, absorbed: 0, crit: false }],
+              units: [{ uid: "e0", hp: 0, rage: 0, shield: 0, alive: false }] },
+          ];
+          return ok(run);
+        });
+      }
+      return response;
+    });
+    await h.game.startBattle("s1");
+    await until(() => h.game.battle.settled);
+    assert.equal(h.count(ep.finish), 1);
+    assert.equal(h.game.battle.settled, true);
+    assert.equal(h.game.running, false);
+    assert.ok(status.some(({ text, control }) => text.includes("战报已结束") && text.includes("秒") && control === "重新同步"), "The minimum-duration wait has an explicit live countdown and recovery control");
+    assert.equal(h.d.getElementById("bh-status").textContent, "已结算");
+    assert.equal(h.d.getElementById("btn-flee").textContent, "返回副本");
+    assert.ok(h.d.getElementById("modal-box").textContent.includes("战斗胜利"));
+    assert.equal(h.calls.filter(call => call.path === ep.finish && call.body.abandon).length, 0);
+    if (offset > 0 || cached) assert.equal(recovered, true);
+    assert.deepEqual(h.errors, []);
+    if (cached) h.d.getElementById("btn-flee").click();
+    else await h.game.battleControl();
+    assert.equal(h.d.body.dataset.page, "page-stage");
+    assert.equal(h.count(ep.finish), 1, "Returning after settlement must not abandon or reward the run again");
+  });
+});
+
+test("an exact-duration report settles after its last event without an artificial countdown", async t => {
+  const base = Date.UTC(2026, 10, 17, 8, 0, 0) + 400;
+  const clock = { server: base, wall: base, mono: 100 };
+  const h = harness(t, { clock }); await until(() => h.game.Store.ready());
+  const log = h.d.getElementById("battle-log");
+  h.d.getElementById("battle-scene").append(log);
+  const statuses = [];
+  let readyAt = 0, settledAt = 0;
+  h.game.setSleep(async ms => {
+    statuses.push(h.d.getElementById("bh-status")?.textContent || "");
+    clock.mono += ms; clock.server += ms; clock.wall += ms;
+  });
+  h.respond((call, defaultRespond) => {
+    if (call.path === ep.finish) {
+      settledAt = clock.server;
+      assert.equal(settledAt, readyAt, "Finish must follow all authoritative event time, without added waiting");
+      assert.deepEqual(call.body, { run_id: "run-a" });
+    }
+    const response = defaultRespond(call);
+    if (call.path !== ep.start) return response;
+    return response.json().then(payload => {
+      const run = payload.data;
+      run.result.events = [
+        { kind: "wave", wave: 0, round: 0, duration_ms: 600, units: [] },
+        { kind: "action", wave: 0, round: 1, src: "a0", duration_ms: 450,
+          targets: [{ uid: "e0", damage: 100, absorbed: 0, crit: false }],
+          units: [{ uid: "e0", hp: 0, rage: 0, shield: 0, alive: false }] },
+      ];
+      run.result.duration_ms = 1050;
+      run.ready_at = readyAt = clock.server + run.result.duration_ms;
+      return ok(run);
+    });
+  });
+  await h.game.startBattle("s1");
+  assert.equal(h.game.battle.settled, true);
+  assert.equal(settledAt - base, 1050, "Subsecond HTTP Date precision must not add a hidden delay");
+  assert.equal(h.count(ep.finish), 1);
+  assert.equal(statuses.some(text => text.includes("战报已结束")), false);
+  assert.equal(log.parentElement.id, "page-battle", "A cached in-scene report moves to the independent report panel");
+  assert.equal(log.previousElementSibling.id, "battle-scene");
+  assert.ok(log.querySelectorAll(".bl-lines p").length >= 3, "The report retains separate battle history lines");
+  assert.equal(log.querySelector(".bl-lines").getAttribute("tabindex"), "0");
+  await h.game.battleEnd(h.game.battle);
+  assert.equal(h.count(ep.finish), 1, "A completed report must not settle twice");
+  assert.deepEqual(h.errors, []);
+});
+
+test("a playback exception exposes recovery controls instead of trapping the battle", async t => {
+  for (const failure of ["animation", "initial render"]) await t.test(failure, async t => {
+    const base = Date.UTC(2026, 10, 17, 8, 0, 0);
+    const clock = { server: base, wall: base, mono: 100 };
+    const h = harness(t, { clock }); await until(() => h.game.Store.ready());
+    h.game.setSleep(async ms => { clock.mono += ms; clock.server += ms; clock.wall += ms; });
+    h.game.setStrike(async () => { throw new Error("ANIMATION_INTERRUPTED"); });
+    if (failure === "initial render") h.d.getElementById("scene-bg").remove();
+    h.respond((call, defaultRespond) => {
+      const response = defaultRespond(call);
+      if (call.path !== ep.start) return response;
+      return response.json().then(payload => {
+        payload.data.result.events = [{ kind: "action", wave: 0, round: 1, src: "a0", duration_ms: 450,
+          targets: [{ uid: "e0", damage: 10 }], units: [] }];
+        return ok(payload.data);
+      });
+    });
+    await h.game.startBattle("s1");
+    assert.equal(h.count(ep.finish), 0, "An animation error must not award client-side results");
+    assert.equal(h.game.save.gold, 600);
+    assert.ok(!h.d.getElementById("modal-mask").classList.contains("hidden"));
+    assert.ok(h.d.querySelector('[onclick*="battleEnd(BAT)"]'));
+    assert.ok(h.d.querySelector('[onclick*="recoverBattle()"]'));
+    assert.equal(h.d.getElementById("btn-flee").textContent, "同步战报");
+  });
+});
+
+test("settlement errors retain an explicit retry until the server confirms the same run", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.game.stopPlayback();
+  h.game.setSleep(async () => {});
+  const run = await h.game.Store.startRun("s1");
+  await h.game.resumeBattle(run, true);
+  h.game.battle.playbackComplete = true;
+  let attempts = 0;
+  h.respond((call, defaultRespond) => call.path === ep.finish && ++attempts === 1
+    ? fail(503, "SETTLEMENT_UNAVAILABLE") : defaultRespond(call));
+  await h.game.battleEnd(h.game.battle);
+  assert.ok(h.d.querySelector('[onclick*="battleEnd(BAT)"]'));
+  assert.equal(h.game.battle.settled, undefined);
+  assert.equal(h.game.Store.activeRun.id, run.id);
+  assert.equal(h.game.save.gold, 600);
+  await h.game.battleEnd(h.game.battle);
+  assert.equal(h.game.battle.settled, true);
+  assert.equal(h.game.running, false);
+  assert.equal(h.game.Store.activeRun, null);
+  const calls = h.calls.filter(call => call.path === ep.finish);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0].body, { run_id: run.id });
+  assert.deepEqual(calls[1].body, calls[0].body);
+});
+
+test("recovering an expired active run uses the server profile without local rewards", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.game.stopPlayback();
+  const run = await h.game.Store.startRun("s1");
+  await h.game.resumeBattle(run, true);
+  h.database.run = null; h.database.revision++;
+  await h.game.recoverBattle();
+  assert.equal(h.game.battle, null);
+  assert.equal(h.game.Store.activeRun, null);
+  assert.equal(h.d.body.dataset.page, "page-stage");
+  assert.equal(h.game.save.gold, 600);
+  assert.equal(h.game.save.stamina, 110);
+  assert.equal(h.count(ep.finish), 0);
+});
+
+test("a pending recovery response cannot replace a battle whose settlement has started", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.game.stopPlayback();
+  h.game.setSleep(async () => {});
+  const run = await h.game.Store.startRun("s1");
+  await h.game.resumeBattle(run, true);
+  const battle = h.game.battle;
+  battle.playbackComplete = true;
+  const refresh = deferred(), finish = deferred();
+  let refreshed = false, finishing = false;
+  h.respond((call, defaultRespond) => {
+    if (call.path === ep.profile && !refreshed) {
+      refreshed = true;
+      return refresh.promise;
+    }
+    if (call.path === ep.finish) {
+      finishing = true;
+      return finish.promise;
+    }
+    return defaultRespond(call);
+  });
+  const recovery = h.game.recoverBattle();
+  await until(() => refreshed);
+  const settlement = h.game.battleEnd(battle);
+  await until(() => finishing);
+  assert.equal(battle.settling, true);
+  refresh.resolve(ok(h.profile()));
+  await recovery;
+  assert.equal(h.game.battle, battle, "A late profile must not swap out the battle that owns the finish request");
+  assert.equal(battle.abort, false);
+  assert.equal(battle.settling, true);
+  assert.equal(h.d.body.dataset.page, "page-battle");
+  const call = h.calls.find(call => call.path === ep.finish);
+  finish.resolve(h.defaultRespond(call));
+  await settlement;
+  assert.equal(h.game.battle, battle);
+  assert.equal(battle.settled, true);
+  assert.equal(h.game.running, false);
+  assert.equal(h.game.Store.activeRun, null);
+  assert.equal(h.count(ep.finish), 1);
+  assert.ok(h.d.getElementById("modal-box").textContent.includes("战斗胜利"));
+});
+
+test("lower-revision responses cannot roll back server assets or active runs", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  await h.game.Store.mutate("gacha", { count: 1 });
+  const run = await h.game.Store.startRun("s1");
+  const revision = h.game.Store.revision;
+  h.respond((call, defaultRespond) => call.path === ep.profile ? ok({ ...h.profile(), save: initialState(), revision: 1, active_run: null }) : defaultRespond(call));
+  await h.game.Store.refresh();
+  assert.equal(h.game.Store.revision, revision);
+  assert.equal(h.game.save.gold, 450);
+  assert.equal(h.game.Store.activeRun.id, run.id);
+});
+
+test("logout clears snapshots, pending intents and visible game state", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  const save = h.game.save;
+  await h.game.Store.startRun("s1");
+  h.game.onSiteSessionEvent({ kind: "signed_out", sid: h.game.Store.sessionId, timestamp: Date.now() });
+  assertLocked(h);
+  assert.equal(h.game.Store.activeRun, null);
+  assert.equal(h.game.Store.pendingAction, null); assert.equal(h.game.Store.pendingStart, null);
+  assert.equal(h.game.Store.accessToken, ""); assert.equal(h.game.battle, null);
+  assert.equal(await h.game.Store.finishRun("run-a"), null);
+  assert.equal(h.count(ep.finish), 0);
+  assert.notEqual(save, h.game.save);
+  assertPrivateStorage(h);
+});
+
+test("post-logout stale mutation success cannot restore old account assets", async t => {
+  const pending = deferred();
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.respond((call, defaultRespond) => call.path === ep.action ? pending.promise : defaultRespond(call));
+  const mutation = h.game.Store.mutate("gacha", { count: 1 });
+  await until(() => h.count(ep.action) === 1);
+  h.game.Store.clearSession();
+  pending.resolve(ok({ save: initialState(), revision: 99 }));
+  assert.equal(await mutation, null);
+  assertLocked(h);
+  assert.equal(h.count(ep.action), 1);
+});
+
+test("cross-origin configuration cannot send site credentials or game intents", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  const count = h.calls.length;
+  h.game.SITE.apiBase = "https://untrusted.test";
+  await assert.rejects(h.game.Store.api(ep.action, "POST", { action: "gacha", count: 1, request_id: randomUUID() }));
+  assert.equal(h.calls.length, count);
+  assert.equal(h.database.state.gold, 600);
+  assertPrivateStorage(h);
+});
+
+test("a second unauthorized response locks the game instead of retrying indefinitely", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.respond((call, defaultRespond) => call.path === ep.action ? fail(401, "AUTH") : defaultRespond(call));
+  assert.equal(await h.game.Store.mutate("gacha", { count: 1 }), null);
+  assert.equal(h.count(ep.action), 2);
+  assert.equal(h.count(ep.auth), 2);
+  assert.deepEqual(h.calls.filter(call => call.path === ep.action)[0].body, h.calls.filter(call => call.path === ep.action)[1].body);
+  assertLocked(h);
+  assert.equal(h.game.Store.pendingAction, null);
+  assert.equal(h.game.Store.lastError, "AUTH");
+});
+
+test("network failure and timeout retain the original intent without automatic replay", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.respond((call, defaultRespond) => {
+    if (call.path === ep.action) throw new TypeError("NETWORK_OFFLINE");
+    return defaultRespond(call);
+  });
+  assert.equal(await h.game.Store.mutate("gacha", { count: 1 }), null);
+  assert.equal(h.game.Store.lastError, "NETWORK_OFFLINE");
+  const intent = copy(h.game.Store.pendingAction.body);
+  assert.equal(h.count(ep.action), 1);
+  h.game.SITE.requestTimeoutMs = 5;
+  h.respond((call, defaultRespond) => call.path === ep.action ? new Promise((resolve, reject) => {
+    call.options.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true });
+  }) : defaultRespond(call));
+  assert.equal(await h.game.Store.retryPendingAction(), null);
+  assert.equal(h.game.Store.lastError, "TIMEOUT");
+  assert.deepEqual(copy(h.game.Store.pendingAction.body), intent);
+  assert.equal(h.count(ep.action), 2);
+  assert.equal(h.game.save.gold, 600);
+  assert.equal(h.database.state.totalPull, 0);
+});
+
+test("temporary profile failure does not discard owned-run settlement or replay a server error", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  const run = await h.game.Store.startRun("s1");
+  h.respond((call, defaultRespond) => call.path === ep.profile || call.path === ep.finish
+    ? fail(503, "TEMPORARILY_UNAVAILABLE") : defaultRespond(call));
+  assert.equal(await h.game.Store.refresh(), null);
+  assert.equal(h.game.Store.serverOK, true);
+  assert.equal(await h.game.Store.finishRun(run.id), null);
+  assert.equal(h.count(ep.finish), 1, "A server-side settlement error must not automatically replay");
+  assert.equal(h.game.Store.activeRun.id, run.id);
+  h.respond(null);
+  assert.ok(await h.game.Store.finishRun(run.id));
+  assert.equal(h.count(ep.finish), 2);
+  assert.equal(h.game.Store.activeRun, null);
+  h.game.Store.clearSession();
+  assert.equal(await h.game.Store.finishRun(run.id), null);
+  assert.equal(h.count(ep.finish), 2);
+});
+
+test("same-account focus preserves the current DOM, dialog and selected page", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  h.game.nav("page-squad");
+  h.game.openGirl("c08");
+  const card = h.d.querySelector("#owned-list .card");
+  const dialog = h.d.querySelector("#modal-box .mb-scroll");
+  await h.game.syncSiteAccount();
+  assert.equal(h.d.body.dataset.page, "page-squad");
+  assert.equal(h.d.querySelector("#owned-list .card"), card);
+  assert.equal(h.d.querySelector("#modal-box .mb-scroll"), dialog);
+  assert.equal(h.d.getElementById("modal-mask").classList.contains("hidden"), false);
+  await h.game.syncSiteAccount(true);
+  const count = h.count(ep.profile);
+  await h.game.syncSiteAccount(true);
+  assert.equal(h.count(ep.profile), count, "focus and visibility events share a short debounce");
+});
+
+test("late profile snapshots cannot overwrite a newly settled wallet receipt", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  const run = await h.game.Store.startRun("s1");
+  const pending = deferred();
+  const oldProfile = h.profile();
+  h.respond((call, next) => {
+    if (call.path === ep.profile) return pending.promise;
+    if (call.path === ep.finish) {
+      h.database.revision++;
+      return ok({save:copy(h.database.state), revision:h.database.revision, wallet_quota:950000, quota:250000});
+    }
+    return next(call);
+  });
+  const refresh = h.game.Store.refresh();
+  await until(() => h.count(ep.profile) === 2);
+  await h.game.Store.finishRun(run.id);
+  h.w.eval("renderTopbar()");
+  assert.match(h.d.getElementById("res-site").textContent, /1\.9000 E/);
+  pending.resolve(ok(oldProfile));
+  await refresh;
+  h.w.eval("renderTopbar()");
+  assert.match(h.d.getElementById("res-site").textContent, /1\.9000 E/);
+});
+
+test("lost token-exchange reply retries one intent and preserves its wallet receipt", async t => {
+  const h = harness(t); await until(() => h.game.Store.ready());
+  let receipt;
+  const oldProfile = h.profile();
+  h.respond((call, next) => {
+    if (call.path === ep.action) {
+      if (!receipt) {
+        h.database.state.token += 1; h.database.revision++;
+        receipt = {save:copy(h.database.state), revision:h.database.revision, exchange:{count:1,cost_quota:500000,wallet_quota:200000}};
+        throw new TypeError("REPLY_LOST_AFTER_COMMIT");
+      }
+      return ok(receipt);
+    }
+    return next(call);
+  });
+  assert.equal(await h.game.Store.mutate("token_exchange", {count:1}), null);
+  assert.equal(h.game.save.token, 0, "no optimistic currency change");
+  await h.game.Store.retryPendingAction();
+  const intents = h.calls.filter(call => call.path === ep.action).map(call => call.body);
+  assert.deepEqual(intents[0], intents[1]);
+  assert.equal(h.game.save.token, 1);
+  h.w.eval("renderTopbar()");
+  assert.match(h.d.getElementById("res-site").textContent, /0\.4000 E/);
+  h.respond((call, next) => call.path === ep.profile ? ok(oldProfile) : next(call));
+  await h.game.Store.refresh();
+  h.w.eval("renderTopbar()");
+  assert.match(h.d.getElementById("res-site").textContent, /0\.4000 E/);
+  assert.equal(h.game.save.token, 1);
+  assertPrivateStorage(h);
+});

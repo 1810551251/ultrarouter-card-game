@@ -1,0 +1,1221 @@
+/* =====================================================
+ * data.js —— 展示用图鉴与规则；账号进度只从服务器读取
+ * ===================================================== */
+
+/* ---------- 稀有度配置 ---------- */
+const RARITY = {
+  R:   { name: "R",   color: "#6d7f9a", shardToUnlock: 20,  baseStar: 1 },
+  SR:  { name: "SR",  color: "#4a7dff", shardToUnlock: 50,  baseStar: 2 },
+  SSR: { name: "SSR", color: "#d9a94a", shardToUnlock: 100, baseStar: 3 },
+};
+
+/* ---------- 元素 ---------- */
+const ELEM = {
+  fire:  { name: "焰", color: "#e05555" },
+  water: { name: "水", color: "#4a7dff" },
+  plant: { name: "木", color: "#4fbf7f" },
+  star:  { name: "星", color: "#9a6bff" },
+  dark:  { name: "暗", color: "#8a93a8" },
+  time:  { name: "时", color: "#3aa8a0" },
+};
+
+/* ---------- 28 位少女 ----------
+ * role: tank坦克 / sdps单体 / adps群攻 / heal治疗 / support辅助
+ * dupGain: 重复获得转为碎片数
+ * matBonus: 材料掉落加成（进入伤害公式的 (1 + 材料掉落加成) 与掉落数量）
+ * skills: { normal普攻, skill怒气技能(满怒100释放) }
+ */
+const GIRLS = [
+  /* ===== R 卡 ===== */
+  {
+    id: "c01", name: "灯里", rarity: "R", elem: "fire", role: "adps", atkType: "magic",
+    img: "assets/c01-dengli.webp",
+    base: { hp: 820, atk: 168, def: 62, spd: 102, cr: 5, cd: 150, ehr: 0, res: 10 },
+    matBonus: 0,
+    dupGain: 8,
+    skills: {
+      normal: { name: "火苗拍击", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "火焰乱舞", mult: 1.6, target: "allEnemies", desc: "对全体造成160%攻击伤害" },
+    },
+    desc: "喜欢念书的火系见习魔法师，怒气技为全体火焰。",
+  },
+  {
+    id: "c02", name: "小满", rarity: "R", elem: "plant", role: "support", atkType: "ranged",
+    img: "assets/c02-xiaoman.webp",
+    base: { hp: 900, atk: 120, def: 70, spd: 98, cr: 5, cd: 150, ehr: 0, res: 15 },
+    matBonus: 0.05,   // 材料+5%
+    dupGain: 8,
+    skills: {
+      normal: { name: "篮击", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "丰收祝福", mult: 0, target: "team", healMult: 0.8,
+                desc: "治疗全队（80%攻击），并提升本次副本材料掉落" },
+    },
+    desc: "菜园少女，上阵时副本材料掉落+5%。",
+  },
+  {
+    id: "c06", name: "铃羽", rarity: "R", elem: "plant", role: "sdps", atkType: "ranged",
+    img: "assets/c06-lingyu.webp",
+    base: { hp: 780, atk: 185, def: 55, spd: 108, cr: 8, cd: 150, ehr: 0, res: 10 },
+    matBonus: 0,
+    dupGain: 8,
+    skills: {
+      normal: { name: "疾风箭", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "贯穿之矢", mult: 3.2, target: "enemy", desc: "对单体造成320%攻击伤害" },
+    },
+    desc: "草原弓手，怒气技对单体造成高额伤害。",
+  },
+  {
+    id: "c08", name: "小椛", rarity: "R", elem: "plant", role: "tank", atkType: "melee",
+    img: "assets/c08-xiaohua.webp",
+    base: { hp: 1450, atk: 105, def: 105, spd: 92, cr: 5, cd: 150, ehr: 0, res: 20 },
+    matBonus: 0,
+    dupGain: 8,
+    skills: {
+      normal: { name: "盾击", mult: 0.9, target: "enemy", desc: "对单体造成90%攻击伤害" },
+      skill:  { name: "樱花铁壁", mult: 0, target: "self",
+                shieldMult: 2.2, taunt: true,
+                desc: "获得相当于220%攻击的护盾并嘲讽全体敌人1回合" },
+    },
+    desc: "举着樱花木盾的少女，队伍前排。",
+  },
+  {
+    id: "c12", name: "苺", rarity: "R", elem: "plant", role: "heal", atkType: "ranged",
+    img: "assets/c12-mei.webp",
+    base: { hp: 880, atk: 128, def: 60, spd: 100, cr: 5, cd: 150, ehr: 0, res: 15 },
+    matBonus: 0,
+    dupGain: 8,
+    skills: {
+      normal: { name: "草药投掷", mult: 0.9, target: "enemy", desc: "对单体造成90%攻击伤害" },
+      skill:  { name: "生命花束", mult: 0, target: "ally", healMult: 2.6,
+                desc: "治疗当前生命最低的队友（260%攻击）" },
+    },
+    desc: "庭院草药少女，单体急救。",
+  },
+  {
+    id: "c20", name: "暖弦", rarity: "R", elem: "plant", role: "support", atkType: "magic",
+    img: "assets/c20-nuanxian.webp",
+    base: { hp: 910, atk: 135, def: 65, spd: 105, cr: 5, cd: 150, ehr: 0, res: 15 },
+    matBonus: 0,
+    dupGain: 8,
+    skills: {
+      normal: { name: "拨弦轻响", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "风铃旅歌", mult: 0, target: "team", teamAtkUp: 12, buffTurns: 2,
+                desc: "全队攻击提升12%，持续2回合" },
+    },
+    desc: "风铃旅人，抱着旧琴走过集市与花田，用轻快的歌声鼓舞同伴。",
+  },
+
+  {
+    id: "c21", name: "柚芽", rarity: "R", elem: "plant", role: "support", atkType: "magic",
+    img: "assets/c21-youya.webp",
+    base: { hp: 920, atk: 140, def: 65, spd: 103, cr: 5, cd: 150, ehr: 0, res: 15 },
+    matBonus: 0, dupGain: 8,
+    skills: {
+      normal: { name: "药瓶轻投", mult: 0.9, target: "enemy", desc: "对单体造成90%攻击伤害" },
+      skill: { name: "晴叶调剂", mult: 0, target: "team", healMult: 1.0, teamAtkUp: 8, buffTurns: 2,
+               desc: "治疗全队（100%攻击），全队攻击提升8%（2回合）" },
+    },
+    desc: "花房里的见习药剂师，将晨露与草叶调成清甜药剂，为同伴恢复精神。",
+  },
+  {
+    id: "c22", name: "榛果", rarity: "R", elem: "plant", role: "tank", atkType: "heavy",
+    img: "assets/c22-zhenguo.webp",
+    base: { hp: 1500, atk: 125, def: 98, spd: 89, cr: 5, cd: 150, ehr: 0, res: 20 },
+    matBonus: 0, dupGain: 8,
+    skills: {
+      normal: { name: "橡锤重敲", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill: { name: "坚果堡垒", mult: 0, target: "self", shieldMult: 2.4, taunt: true, selfDefUp: 15,
+               desc: "自身获得240%攻击的护盾，嘲讽全体敌人并提升15%防御1回合" },
+    },
+    desc: "扛着重锤的林间护卫，走得慢却站得稳，总把最危险的位置留给自己。",
+  },
+
+  /* ===== SR 卡 ===== */
+  {
+    id: "c11", name: "剑华", rarity: "SR", elem: "fire", role: "sdps", atkType: "melee",
+    img: "assets/c11-jianhua.webp",
+    base: { hp: 1150, atk: 265, def: 85, spd: 112, cr: 12, cd: 160, ehr: 0, res: 15 },
+    matBonus: 0,
+    dupGain: 15,
+    skills: {
+      normal: { name: "正拳", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "烈焰连击", mult: 4.2, target: "enemy", hits: 2,
+                desc: "对单体造成两段210%攻击伤害" },
+    },
+    desc: "拳法少女，单体爆发。",
+  },
+  {
+    id: "c05", name: "霜音", rarity: "SR", elem: "water", role: "adps", atkType: "magic",
+    img: "assets/c05-shuangyin.webp",
+    base: { hp: 1080, atk: 240, def: 78, spd: 104, cr: 8, cd: 150, ehr: 20, res: 15 },
+    matBonus: 0,
+    dupGain: 15,
+    skills: {
+      normal: { name: "霜刃", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "凛冬低语", mult: 1.8, target: "allEnemies", slow: 25, slowTurns: 2,
+                desc: "对全体造成180%攻击伤害，并使目标速度降低25%，持续2回合" },
+    },
+    desc: "雪街的冰系少女，群体减速。",
+  },
+  {
+    id: "c13", name: "圣愈", rarity: "SR", elem: "water", role: "heal", atkType: "magic",
+    img: "assets/c13-shengyu.webp",
+    base: { hp: 1250, atk: 210, def: 90, spd: 98, cr: 5, cd: 150, ehr: 10, res: 25 },
+    matBonus: 0,
+    dupGain: 15,
+    skills: {
+      normal: { name: "圣光弹", mult: 0.9, target: "enemy", desc: "对单体造成90%攻击伤害" },
+      skill:  { name: "圣泉祷言", mult: 0, target: "team", healMult: 1.6,
+                desc: "治疗全队（160%攻击）并解除1个负面效果" },
+    },
+    desc: "教堂修女，群体治疗。",
+  },
+  {
+    id: "c10", name: "绯破", rarity: "SR", elem: "dark", role: "sdps", atkType: "melee",
+    img: "assets/c10-feipo.webp",
+    base: { hp: 1120, atk: 258, def: 82, spd: 110, cr: 10, cd: 155, ehr: 15, res: 12 },
+    matBonus: 0,
+    dupGain: 15,
+    skills: {
+      normal: { name: "居合", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "破甲太刀", mult: 3.0, target: "enemy", defBreak: 30, defBreakTurns: 3,
+                desc: "对单体造成300%攻击伤害，并使其防御降低30%，持续3回合" },
+    },
+    desc: "雨夜刀客，破甲削减防御。",
+  },
+  {
+    id: "c14", name: "缚锁", rarity: "SR", elem: "dark", role: "support", atkType: "ranged",
+    img: "assets/c14-fusuo.webp",
+    base: { hp: 1100, atk: 220, def: 84, spd: 106, cr: 6, cd: 150, ehr: 35, res: 15 },
+    matBonus: 0,
+    dupGain: 15,
+    skills: {
+      normal: { name: "锁镰", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "禁锢之链", mult: 1.2, target: "enemy", stunChance: 0.6, stunTurns: 1,
+                desc: "对单体造成120%攻击伤害，60%概率使其眩晕1回合（受效果命中影响）" },
+    },
+    desc: "锁链使，控制敌方关键单位。",
+  },
+  {
+    id: "c17", name: "澄汐", rarity: "SR", elem: "water", role: "heal", atkType: "magic",
+    img: "assets/c17-chengxi.webp",
+    base: { hp: 1200, atk: 205, def: 88, spd: 101, cr: 5, cd: 150, ehr: 0, res: 25 },
+    matBonus: 0,
+    dupGain: 15,
+    skills: {
+      normal: { name: "清波", mult: 0.9, target: "enemy", desc: "对单体造成90%攻击伤害" },
+      skill:  { name: "归港潮声", mult: 0, target: "team", healMult: 1.2, shieldMult: 0.8,
+                desc: "治疗全队（120%攻击），并给予相当于80%攻击的护盾" },
+    },
+    desc: "潮泉守望者，将港湾的潮声收进瓷碗，为远行归来的伙伴疗伤。",
+  },
+  {
+    id: "c18", name: "朱笺", rarity: "SR", elem: "dark", role: "support", atkType: "magic",
+    img: "assets/c18-zhujian.webp",
+    base: { hp: 1180, atk: 215, def: 94, spd: 103, cr: 5, cd: 150, ehr: 0, res: 25 },
+    matBonus: 0,
+    dupGain: 15,
+    skills: {
+      normal: { name: "飞符", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "四方镇印", mult: 0, target: "team", shieldMult: 1.6, teamAtkUp: 10, buffTurns: 2,
+                desc: "全队获得160%攻击的护盾，攻击提升10%（2回合）" },
+    },
+    desc: "雨廊符师，寡言却细心。她把守护的约定，一枚一枚盖进朱红符印。",
+  },
+  {
+    id: "c19", name: "岚翎", rarity: "SR", elem: "plant", role: "sdps", atkType: "melee",
+    img: "assets/c19-lanling.webp",
+    base: { hp: 1110, atk: 250, def: 78, spd: 116, cr: 12, cd: 155, ehr: 0, res: 15 },
+    matBonus: 0,
+    dupGain: 15,
+    skills: {
+      normal: { name: "掠风刺", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "穿林双燕", mult: 4.0, target: "enemy", hits: 2, ignoreDefPct: 10,
+                desc: "对单体造成两段200%攻击伤害，无视目标10%防御" },
+    },
+    desc: "追风游哨，踏着溪石穿行山野，长枪与青色围巾总比报信的风先到。",
+  },
+
+  {
+    id: "c23", name: "夜萤", rarity: "SR", elem: "dark", role: "sdps", atkType: "melee",
+    img: "assets/c23-yeying.webp",
+    base: { hp: 1070, atk: 255, def: 75, spd: 119, cr: 16, cd: 160, ehr: 0, res: 15 },
+    matBonus: 0, dupGain: 15,
+    skills: {
+      normal: { name: "掠影刃", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill: { name: "双萤逐夜", mult: 4.3, target: "enemy", hits: 2,
+               desc: "对单体造成两段215%攻击伤害" },
+    },
+    desc: "巡行夜巷的双刃斥候，以萤火为暗号，在敌人察觉前结束交锋。",
+  },
+  {
+    id: "c24", name: "雨棠", rarity: "SR", elem: "water", role: "tank", atkType: "melee",
+    img: "assets/c24-yutang.webp",
+    base: { hp: 1740, atk: 160, def: 130, spd: 96, cr: 5, cd: 150, ehr: 0, res: 25 },
+    matBonus: 0, dupGain: 15,
+    skills: {
+      normal: { name: "伞骨横击", mult: 0.9, target: "enemy", desc: "对单体造成90%攻击伤害" },
+      skill: { name: "听雨成垒", mult: 0, target: "team", shieldMult: 1.5, taunt: true, selfDefUp: 20,
+               desc: "全队获得150%攻击的护盾，自身嘲讽并提升20%防御1回合" },
+    },
+    desc: "雨街守伞人，撑开的伞面既能挡住骤雨，也能为伙伴隔开迎面而来的锋芒。",
+  },
+  {
+    id: "c25", name: "苏兰", rarity: "SR", elem: "plant", role: "support", atkType: "magic",
+    img: "assets/c25-sulan.webp",
+    base: { hp: 1160, atk: 215, def: 85, spd: 108, cr: 5, cd: 150, ehr: 30, res: 20 },
+    matBonus: 0, dupGain: 15,
+    skills: {
+      normal: { name: "兰香轻雾", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill: { name: "蚀甲幽香", mult: 2.4, target: "enemy", defBreak: 35, defBreakTurns: 2,
+               desc: "对单体造成240%攻击伤害，并使其防御降低35%，持续2回合" },
+    },
+    desc: "温室调香师，能从百种花香中辨出破绽，让幽微的香气渗入敌人的护甲。",
+  },
+  {
+    id: "c26", name: "铃绡", rarity: "SR", elem: "water", role: "support", atkType: "magic",
+    img: "assets/c26-lingxiao.webp",
+    base: { hp: 1160, atk: 200, def: 82, spd: 114, cr: 5, cd: 150, ehr: 0, res: 20 },
+    matBonus: 0, dupGain: 15,
+    skills: {
+      normal: { name: "绡带回旋", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill: { name: "流铃踏歌", mult: 0, target: "team", healMult: 0.7, teamAtkUp: 18, buffTurns: 2,
+               desc: "治疗全队（70%攻击），全队攻击提升18%（2回合）" },
+    },
+    desc: "水榭舞者，步摇与绡带随歌声轻摆，用清亮铃音唤回同伴的斗志。",
+  },
+
+  /* ===== SSR 卡 ===== */
+  {
+    id: "c04", name: "龙音", rarity: "SSR", elem: "fire", role: "sdps", atkType: "melee",
+    img: "assets/c04-longyin.webp",
+    base: { hp: 1500, atk: 380, def: 110, spd: 116, cr: 15, cd: 170, ehr: 0, res: 20 },
+    matBonus: 0,
+    dupGain: 25,
+    skills: {
+      normal: { name: "龙枪突刺", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "龙焰葬送", mult: 5.5, target: "enemy", ignoreDefPct: 20,
+                desc: "对单体造成550%攻击伤害，无视目标20%防御" },
+    },
+    desc: "龙角的枪之主人，单体主C。",
+  },
+  {
+    id: "c07", name: "星墙", rarity: "SSR", elem: "star", role: "tank", atkType: "heavy",
+    img: "assets/c07-xingqiang.webp",
+    base: { hp: 2100, atk: 180, def: 160, spd: 95, cr: 5, cd: 150, ehr: 0, res: 30 },
+    matBonus: 0,
+    dupGain: 25,
+    skills: {
+      normal: { name: "星陨冲撞", mult: 0.9, target: "enemy", desc: "对单体造成90%攻击伤害" },
+      skill:  { name: "星座壁垒", mult: 0, target: "team",
+                shieldMult: 1.8, taunt: true, selfDefUp: 30,
+                desc: "全队获得180%攻击护盾，自身嘲讽并提升30%防御1回合" },
+    },
+    desc: "背负星座之盾的守护者。",
+  },
+  {
+    id: "c09", name: "时雨", rarity: "SSR", elem: "time", role: "support", atkType: "magic",
+    img: "assets/c09-shiyu.webp",
+    base: { hp: 1300, atk: 260, def: 95, spd: 118, cr: 8, cd: 150, ehr: 20, res: 25 },
+    matBonus: 0,
+    dupGain: 25,
+    skills: {
+      normal: { name: "时之振子", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "回溯指针", mult: 0, target: "ally",
+                extraTurn: true, healMult: 1.0,
+                desc: "使攻击最高的队友立即再次行动，并恢复其（100%攻击）生命" },
+    },
+    desc: "持有怀表的时之少女，让队友再动。",
+  },
+  {
+    id: "c03", name: "寻宝女王", rarity: "SSR", elem: "water", role: "support", atkType: "ranged",
+    img: "assets/c03-queen.webp",
+    base: { hp: 1350, atk: 245, def: 100, spd: 112, cr: 10, cd: 155, ehr: 0, res: 20 },
+    matBonus: 0.15,   // 材料+15%
+    dupGain: 25,
+    skills: {
+      normal: { name: "提灯敲击", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "宝藏地图", mult: 0, target: "team",
+                teamAtkUp: 20, buffTurns: 2, goldBonus: 0.3,
+                desc: "全队攻击提升20%（2回合），本次副本金币掉落+30%" },
+    },
+    desc: "探险家女王，上阵时材料掉落+15%。",
+  },
+  {
+    id: "c15", name: "月璃", rarity: "SSR", elem: "dark", role: "adps", atkType: "magic",
+    img: "assets/c15-yueli.webp",
+    base: { hp: 1340, atk: 325, def: 96, spd: 111, cr: 10, cd: 165, ehr: 15, res: 25 },
+    matBonus: 0,
+    dupGain: 25,
+    skills: {
+      normal: { name: "月弧", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "胧月千灯", mult: 2.6, target: "allEnemies", slow: 20, slowTurns: 2,
+                desc: "对全体造成260%攻击伤害，并使目标速度降低20%，持续2回合" },
+    },
+    desc: "渡月伞姬，在河灯亮起时踏过古桥。伞影中的月色，能让追逐者忘记脚步。",
+  },
+  {
+    id: "c16", name: "织星", rarity: "SSR", elem: "star", role: "support", atkType: "magic",
+    img: "assets/c16-zhixing.webp",
+    base: { hp: 1380, atk: 255, def: 102, spd: 113, cr: 5, cd: 150, ehr: 0, res: 30 },
+    matBonus: 0,
+    dupGain: 25,
+    skills: {
+      normal: { name: "蝶线", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill:  { name: "天幕织梦", mult: 0, target: "team", shieldMult: 1.2, teamAtkUp: 25, buffTurns: 2,
+                desc: "全队获得120%攻击的护盾，攻击提升25%（2回合）" },
+    },
+    desc: "星蝶偶师，在旧观星台修补木偶。她牵动细线，让失落的星光重新照向同伴。",
+  },
+  {
+    id: "c27", name: "雪翎", rarity: "SSR", elem: "star", role: "sdps", atkType: "ranged",
+    img: "assets/c27-xueling.webp",
+    base: { hp: 1360, atk: 350, def: 95, spd: 121, cr: 18, cd: 170, ehr: 0, res: 20 },
+    matBonus: 0, dupGain: 25,
+    skills: {
+      normal: { name: "白羽矢", mult: 1.0, target: "enemy", desc: "对单体造成100%攻击伤害" },
+      skill: { name: "破晓穿云", mult: 4.8, target: "enemy", ignoreDefPct: 30,
+               desc: "对单体造成480%攻击伤害，无视目标30%防御" },
+    },
+    desc: "立于雪岭高台的白羽弓手，将黎明收进弓弦，让穿云之箭直抵敌阵要害。",
+  },
+  {
+    id: "c28", name: "海璃", rarity: "SSR", elem: "water", role: "heal", atkType: "magic",
+    img: "assets/c28-haili.webp",
+    base: { hp: 1550, atk: 270, def: 108, spd: 103, cr: 5, cd: 150, ehr: 0, res: 35 },
+    matBonus: 0, dupGain: 25,
+    skills: {
+      normal: { name: "潮珠微光", mult: 0.9, target: "enemy", desc: "对单体造成90%攻击伤害" },
+      skill: { name: "沧海安魂", mult: 0, target: "team", healMult: 2.2, shieldMult: 0.6,
+               desc: "治疗全队（220%攻击），并给予相当于60%攻击的护盾" },
+    },
+    desc: "聆听海潮的疗愈者，在夜色中吟唱归航的曲调，以温柔潮光守住全队的生命。",
+  },
+
+];
+
+/* ---------- 突破材料 ----------
+ * 三档材料按关卡产出，升星时与碎片一起消耗（按少女稀有度对应档位）。
+ */
+const MATS = {
+  mat_r:   { name: "微光结晶", color: "#93a6c2", from: "林中圣所 · 溪谷哨站 · 夜潮栈道", use: "R 升星" },
+  mat_sr:  { name: "元素结晶", color: "#5c8bff", from: "冰晶殿堂 · 天空遗迹 · 潮汐神殿 · 逐星长阶", use: "SR 升星" },
+  mat_ssr: { name: "星屑",     color: "#ffcf6e", from: "熔岩要塞 · 深渊回廊 · 月影王庭 · 观星禁域 · 星穹圣座", use: "SSR 升星" },
+  shard_dust: { name: "共鸣尘", color: "#bd82e8", from: "分解多余少女碎片", use: "可按 1:1 补足任意少女升星碎片" },
+};
+const MAT_BY_RARITY = { R: "mat_r", SR: "mat_sr", SSR: "mat_ssr" };
+/* 升到下一星所需材料数（按稀有度分档） */
+const MAT_STAR_COST = { R: 20, SR: 30, SSR: 50 };
+
+/* ---------- 共鸣宝石 ---------- */
+const GEMS = {
+  ruby:     { name: "赤曜石", color: "#ef7373", effect: "攻击 +5%" },
+  jade:     { name: "生命翡翠", color: "#67c98b", effect: "生命 +5%" },
+  sapphire: { name: "坚壁蓝宝石", color: "#69a8f5", effect: "防御 +5%" },
+  wind:     { name: "风灵晶", color: "#6dd6d0", effect: "速度 +3" },
+  amethyst: { name: "紫晶", color: "#b78af2", effect: "暴击 +3%" },
+};
+const GEM_SOCKET_COST = [
+  { gold: 200, mat: 5 },
+  { gold: 600, mat: 12 },
+  { gold: 1500, mat: 25 },
+];
+
+const TALENTS = {
+  power:   { name: "破军", effect: "每阶攻击 +8%、技能伤害 +5%，生命 -4%", color: "#e77c70", style: "爆发流", tradeoff: "伤害高，但更怕反弹与持续伤害" },
+  guardian:{ name: "磐石", effect: "每阶生命 +5%、防御 +10%；受到生命伤害时按防御反击，攻击 -4%", color: "#66b99a", style: "防反流", tradeoff: "越能站住越有输出，主动攻击较弱" },
+  swift:   { name: "追风", effect: "每阶速度 +4、暴击 +3%、普攻怒气 +15，抵抗 -2", color: "#6aa9dd", style: "先手怒技流", tradeoff: "满星配时序灵印，可更频繁释放怒气技能" },
+  siphon:  { name: "噬血", effect: "每阶攻击 +4%、生命伤害吸血 +5%，防御 -3%", color: "#c26d79", style: "吸血流", tradeoff: "打护盾不吸血，侵蚀会压低恢复" },
+  blight:  { name: "蚀骨", effect: "攻击有概率附加两回合侵蚀；每阶最大生命伤害 +1%、命中 +4，攻击 -6%", color: "#8aa96d", style: "侵蚀流", tradeoff: "持续伤害无视护盾、不叠层，伤害受自身攻击上限约束" },
+  oracle:  { name: "灵契", effect: "每阶生命 +4%、抵抗 +4、治疗和护盾效果 +15%，攻击 -2%", color: "#82b7c7", style: "护盾续航流", tradeoff: "保护和恢复更强，直接伤害略低" },
+};
+
+const SIGIL_FAMILIES = {
+  ember:  { name: "烈焰灵印", color: "#dc7865", effect: "技能伤害 +12%", mat: "炎心精华", from: "灼焰地宫", element: "fire" },
+  tide:   { name: "潮汐灵印", color: "#6dadd5", effect: "治疗与护盾效果 +15%", mat: "潮汐精华", from: "潮壁圣殿", element: "water" },
+  grove:  { name: "森息灵印", color: "#85b679", effect: "攻击有50%概率附加两回合侵蚀，伤害受自身攻击约束", mat: "森息精华", from: "复苏秘林", element: "plant" },
+  astral: { name: "星辉灵印", color: "#cfb567", effect: "暴击伤害 +20%", mat: "星辉精华", from: "折光星殿", element: "star" },
+  umbra:  { name: "夜蚀灵印", color: "#b28198", effect: "造成生命伤害时吸血8%", mat: "夜蚀精华", from: "毒雾墓城", element: "dark" },
+  chrono: { name: "时序灵印", color: "#75b9ae", effect: "初始怒气 +45、普攻额外怒气 +8", mat: "时序精华", from: "封时钟塔", element: "time" },
+};
+const SIGIL_STATS = {
+  atk: { name: "攻击", unit: "%" }, hp: { name: "生命", unit: "%" }, def: { name: "防御", unit: "%" },
+  spd: { name: "速度", unit: "" }, cr: { name: "暴击", unit: "%" }, cd: { name: "暴伤", unit: "%" },
+  ehr: { name: "效果命中", unit: "" }, res: { name: "效果抵抗", unit: "" },
+};
+const SIGIL_QUALITY = { 1: "普通", 2: "稀有", 3: "史诗" };
+const SIGIL_DUST = { 1: 2, 2: 4, 3: 8 };
+for (const [id, family] of Object.entries(SIGIL_FAMILIES)) {
+  MATS["essence_" + id] = { name: family.mat, color: family.color, from: family.from + " · 对应噩梦裂隙", use: "40精华 + 15灵印粉尘 + 800金币打造本系史诗灵印" };
+}
+MATS.sigil_dust = { name: "灵印粉尘", color: "#bca27b", from: "分解未装备的灵印", use: "用于打造史诗灵印" };
+const DUNGEON_MECHANICS = {
+  fury: "灼怒 · 回合越久敌人攻击越高", barrier: "结界 · 初始护盾，每三回合补盾",
+  regrowth: "复苏 · 侵蚀可以压制恢复", reflection: "映伤 · 反弹12%生命伤害",
+  venom: "毒雾 · 侵蚀会压低治疗与吸血", silence: "封怒 · 偶数回合削减怒气",
+};
+
+const GACHA_RUN_MODES = {
+  expedition: { id: "expedition", name: "星穹远征", type: "周常爬塔", waves: 1, img: "assets/gen/enemy-boss.webp", starRound: 12, cost: 13 },
+  weekly_boss: { id: "weekly_boss", name: "每周元素首领", type: "周常首领", waves: 1, img: "assets/gen/enemy-boss.webp", starRound: 12, cost: 20 },
+};
+
+/* ---------- 章节分组 ----------
+ * 关卡节点在副本页按章节展示；章节本身不加额外解锁条件，
+ * 仍沿用每个关卡的 unlockStage 串联。
+ */
+const CHAPTERS = [
+  { id: "ch1", name: "雾森边境", sub: "第一章", stages: ["s1", "s5", "s2"],
+    note: "从林中圣所出发，穿过溪谷哨站，抵达冰晶殿堂。" },
+  { id: "ch2", name: "火与遗迹", sub: "第二章", stages: ["s4", "s3", "s6"],
+    note: "天空遗迹通向熔岩要塞，尽头是深渊回廊的主宰。" },
+  { id: "ch3", name: "潮汐与月影", sub: "第三章", stages: ["s7", "s8", "s9"],
+    note: "离开深渊，循着海灯走过夜潮栈道，在月影王庭迎战守门者。" },
+  { id: "ch4", name: "星穹终境", sub: "第四章", stages: ["s10", "s11", "s12"],
+    note: "沿逐星长阶登上云端，穿越观星禁域，挑战星穹圣座的最终试炼。" },
+{
+  "id": "ch5",
+  "name": "六系裂隙",
+  "sub": "第五章",
+  "stages": [
+    "r1",
+    "r2",
+    "r3",
+    "r4",
+    "r5",
+    "r6"
+  ],
+  "note": "六种敌人机制与六套专属掉落，按你的流派选择目标。通关深渊回廊后开放。"
+},
+
+{
+  "id": "ch6",
+  "name": "噩梦回响",
+  "sub": "第六章",
+  "stages": [
+    "n1",
+    "n2",
+    "n3",
+    "n4",
+    "n5",
+    "n6"
+  ],
+  "note": "逐个通关对应普通裂隙后开启。高阶灵印与更多精华，需要有针对性的阵容。"
+},
+];
+
+/* ---------- 24 个副本 ----------
+ * cost: 单次出战消耗体力
+ * enemyLv: 敌人等级（决定防御与生命成长）
+ * tokenRange: [最小, 最大] 单次掉落范围（受每日预算池约束）
+ * unlockStage: 解锁条件（通关某副本序号）
+ * starRound: 三星中的「速通」回合上限（超过只能拿两星）
+ */
+const STAGES = [
+  {
+    id: "s1", lootFamily: "grove", name: "林中圣所", type: "普通本", img: "assets/d04-forest.webp",
+    cost: 2, enemyLv: 10, waves: 1, enemyCount: 3, starRound: 4,
+    tokenRange: [10, 20], gold: [80, 150], exp: 40,
+    shardR: 0.20, shardSR: 0.04, shardSSR: 0.008, mat: [2, 4], matKey: "mat_r",
+    unlockStage: null, desc: "新手练级地，掉落基础材料。",
+  },
+  {
+    id: "s5", lootFamily: "grove", name: "溪谷哨站", type: "普通本", img: "assets/d04-forest.webp",
+    cost: 3, enemyLv: 18, waves: 2, enemyCount: 2, starRound: 5,
+    tokenRange: [12, 22], gold: [120, 200], exp: 60,
+    shardR: 0.22, shardSR: 0.06, shardSSR: 0.012, mat: [3, 5], matKey: "mat_r",
+    unlockStage: "s1", desc: "林间哨站，两波敌人。练级与攒碎片的稳定来源。",
+  },
+  {
+    id: "s2", lootFamily: "tide", name: "冰晶殿堂", type: "精英本", img: "assets/d03-ice.webp",
+    cost: 5, enemyLv: 25, waves: 2, enemyCount: 3, starRound: 7,
+    tokenRange: [15, 30], gold: [180, 320], exp: 90,
+    shardR: 0.25, shardSR: 0.10, shardSSR: 0.02, mat: [4, 7], matKey: "mat_sr",
+    unlockStage: "s5", desc: "第一章终点。碎片掉率更高，产出元素结晶。",
+  },
+  {
+    id: "s4", lootFamily: "astral", name: "天空遗迹", type: "活动本", img: "assets/d02-sky.webp",
+    cost: 6, enemyLv: 35, waves: 2, enemyCount: 4, starRound: 7,
+    tokenRange: [10, 50], gold: [200, 500], exp: 120,
+    shardR: 0.28, shardSR: 0.12, shardSSR: 0.03, mat: [5, 10], matKey: "mat_sr",
+    unlockStage: "s2", desc: "限时活动本。代币浮动范围最大。",
+  },
+  {
+    id: "s3", lootFamily: "ember", name: "熔岩要塞", type: "Boss本", img: "assets/d01-volcano.webp",
+    cost: 9, enemyLv: 45, waves: 3, enemyCount: 2, hasBoss: true, starRound: 10,
+    tokenRange: [25, 50], gold: [400, 700], exp: 180,
+    shardR: 0.30, shardSR: 0.16, shardSSR: 0.045, mat: [7, 12], matKey: "mat_ssr",
+    unlockStage: "s4", desc: "最终波为Boss战，产出星屑与高阶碎片。",
+  },
+  {
+    id: "s6", lootFamily: "umbra", name: "深渊回廊", type: "Boss本", img: "assets/d01-volcano.webp",
+    cost: 11, enemyLv: 55, waves: 3, enemyCount: 2, hasBoss: true, starRound: 11,
+    tokenRange: [30, 60], gold: [500, 900], exp: 220,
+    shardR: 0.32, shardSR: 0.18, shardSSR: 0.05, mat: [9, 15], matKey: "mat_ssr",
+    unlockStage: "s3", desc: "第二章终点。三星需要压到 11 回合内，通关后开启潮汐与月影。",
+  },
+  {
+    id: "s7", lootFamily: "tide", name: "夜潮栈道", type: "精英本", img: "assets/d05-tide.webp",
+    cost: 10, enemyLv: 58, waves: 2, enemyCount: 3, starRound: 8,
+    tokenRange: [30, 60], gold: [550, 950], exp: 230,
+    shardR: 0.34, shardSR: 0.18, shardSSR: 0.05, mat: [12, 18], matKey: "mat_r",
+    unlockStage: "s6", desc: "海灯照亮夜潮中的栈道。两波精英守卫，适合补充微光结晶。",
+  },
+  {
+    id: "s8", lootFamily: "tide", name: "潮汐神殿", type: "精英本", img: "assets/d05-tide.webp",
+    cost: 12, enemyLv: 62, waves: 3, enemyCount: 3, starRound: 11,
+    tokenRange: [32, 65], gold: [650, 1100], exp: 260,
+    shardR: 0.34, shardSR: 0.20, shardSSR: 0.055, mat: [10, 16], matKey: "mat_sr",
+    unlockStage: "s7", desc: "潮水退去，神殿现身。连续三波守卫，考验全队的持续作战能力。",
+  },
+  {
+    id: "s9", lootFamily: "umbra", name: "月影王庭", type: "Boss本", img: "assets/d05-tide.webp",
+    cost: 14, enemyLv: 66, waves: 3, enemyCount: 3, hasBoss: true, starRound: 12,
+    tokenRange: [35, 70], gold: [800, 1300], exp: 300,
+    shardR: 0.35, shardSR: 0.22, shardSSR: 0.06, mat: [12, 18], matKey: "mat_ssr",
+    unlockStage: "s8", desc: "第三章终点。月色之下迎战Boss，通关后开启星穹终境。",
+  },
+  {
+    id: "s10", lootFamily: "astral", name: "逐星长阶", type: "精英本", img: "assets/d06-observatory.webp",
+    cost: 14, enemyLv: 70, waves: 3, enemyCount: 3, starRound: 11,
+    tokenRange: [35, 70], gold: [850, 1400], exp: 320,
+    shardR: 0.35, shardSR: 0.23, shardSSR: 0.065, mat: [14, 20], matKey: "mat_sr",
+    unlockStage: "s9", desc: "踏上云端星阶，突破三波守卫。高阶元素结晶的稳定来源。",
+  },
+  {
+    id: "s11", lootFamily: "chrono", name: "观星禁域", type: "精英本", img: "assets/d06-observatory.webp",
+    cost: 16, enemyLv: 75, waves: 3, enemyCount: 4, starRound: 13,
+    tokenRange: [38, 75], gold: [950, 1600], exp: 350,
+    shardR: 0.36, shardSR: 0.24, shardSSR: 0.07, mat: [14, 21], matKey: "mat_ssr",
+    unlockStage: "s10", desc: "观星台的禁制尚未散去。每波四名敌人，群体伤害与治疗尤为关键。",
+  },
+  {
+    id: "s12", lootFamily: "astral", name: "星穹圣座", type: "Boss本", img: "assets/d06-observatory.webp",
+    cost: 18, enemyLv: 80, waves: 4, enemyCount: 3, hasBoss: true, starRound: 15,
+    tokenRange: [40, 80], gold: [1200, 2000], exp: 400,
+    shardR: 0.38, shardSR: 0.26, shardSSR: 0.08, mat: [16, 24], matKey: "mat_ssr",
+    unlockStage: "s11", desc: "当前最高难度。四波连续试炼，最终波迎战Boss；三星需在15回合内完成。",
+  },
+
+{
+  "id": "r1",
+  "name": "灼焰地宫",
+  "type": "元素裂隙",
+  "img": "assets/d01-volcano.webp",
+  "cost": 12,
+  "enemyLv": 84,
+  "waves": 2,
+  "enemyCount": 3,
+  "starRound": 12,
+  "exp": 280,
+  "hasBoss": true,
+  "tokenRange": [
+    20,
+    35
+  ],
+  "gold": [
+    700,
+    1100
+  ],
+  "mat": [
+    9,
+    15
+  ],
+  "shardR": 0,
+  "shardSR": 0.2,
+  "shardSSR": 0.08,
+  "matKey": "mat_sr",
+  "unlockStage": "s6",
+  "lootFamily": "ember",
+  "enemyElem": "fire",
+  "mechanic": "fury",
+  "hpScale": 2.4,
+  "atkScale": 1.25,
+  "defScale": 1.15,
+  "enemyRes": 15,
+  "relicTier": 1,
+  "relicChance": 0.45,
+  "essence": [
+    2,
+    4
+  ],
+  "desc": "灼怒：敌人随回合提高攻击，拖得越久越危险；适合爆发与先手控制。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "r2",
+  "name": "潮壁圣殿",
+  "type": "元素裂隙",
+  "img": "assets/d05-tide.webp",
+  "cost": 12,
+  "enemyLv": 86,
+  "waves": 2,
+  "enemyCount": 3,
+  "starRound": 12,
+  "exp": 280,
+  "hasBoss": true,
+  "tokenRange": [
+    20,
+    35
+  ],
+  "gold": [
+    700,
+    1100
+  ],
+  "mat": [
+    9,
+    15
+  ],
+  "shardR": 0,
+  "shardSR": 0.2,
+  "shardSSR": 0.08,
+  "matKey": "mat_sr",
+  "unlockStage": "s6",
+  "lootFamily": "tide",
+  "enemyElem": "water",
+  "mechanic": "barrier",
+  "hpScale": 2.4,
+  "atkScale": 1.25,
+  "defScale": 1.15,
+  "enemyRes": 15,
+  "relicTier": 1,
+  "relicChance": 0.45,
+  "essence": [
+    2,
+    4
+  ],
+  "desc": "结界：敌人自带护盾，每三回合补充护盾；侵蚀可越过护盾，吸血不会从护盾获取恢复。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "r3",
+  "name": "复苏秘林",
+  "type": "元素裂隙",
+  "img": "assets/d04-forest.webp",
+  "cost": 12,
+  "enemyLv": 88,
+  "waves": 2,
+  "enemyCount": 3,
+  "starRound": 12,
+  "exp": 280,
+  "hasBoss": true,
+  "tokenRange": [
+    20,
+    35
+  ],
+  "gold": [
+    700,
+    1100
+  ],
+  "mat": [
+    9,
+    15
+  ],
+  "shardR": 0,
+  "shardSR": 0.2,
+  "shardSSR": 0.08,
+  "matKey": "mat_sr",
+  "unlockStage": "s6",
+  "lootFamily": "grove",
+  "enemyElem": "plant",
+  "mechanic": "regrowth",
+  "hpScale": 2.4,
+  "atkScale": 1.25,
+  "defScale": 1.15,
+  "enemyRes": 15,
+  "relicTier": 1,
+  "relicChance": 0.45,
+  "essence": [
+    2,
+    4
+  ],
+  "desc": "复苏：敌人每次行动恢复8%最大生命；侵蚀会把复苏压制到四分之一。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "r4",
+  "name": "折光星殿",
+  "type": "元素裂隙",
+  "img": "assets/d02-sky.webp",
+  "cost": 12,
+  "enemyLv": 90,
+  "waves": 2,
+  "enemyCount": 3,
+  "starRound": 12,
+  "exp": 280,
+  "hasBoss": true,
+  "tokenRange": [
+    20,
+    35
+  ],
+  "gold": [
+    700,
+    1100
+  ],
+  "mat": [
+    9,
+    15
+  ],
+  "shardR": 0,
+  "shardSR": 0.2,
+  "shardSSR": 0.08,
+  "matKey": "mat_sr",
+  "unlockStage": "s6",
+  "lootFamily": "astral",
+  "enemyElem": "star",
+  "mechanic": "reflection",
+  "hpScale": 2.4,
+  "atkScale": 1.25,
+  "defScale": 1.15,
+  "enemyRes": 15,
+  "relicTier": 1,
+  "relicChance": 0.45,
+  "essence": [
+    2,
+    4
+  ],
+  "desc": "映伤：生命伤害的12%反弹给攻击者，堆纯攻击会更脆；需要护盾、吸血或治疗。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "r5",
+  "name": "毒雾墓城",
+  "type": "元素裂隙",
+  "img": "assets/d01-volcano.webp",
+  "cost": 12,
+  "enemyLv": 92,
+  "waves": 2,
+  "enemyCount": 3,
+  "starRound": 12,
+  "exp": 280,
+  "hasBoss": true,
+  "tokenRange": [
+    20,
+    35
+  ],
+  "gold": [
+    700,
+    1100
+  ],
+  "mat": [
+    9,
+    15
+  ],
+  "shardR": 0,
+  "shardSR": 0.2,
+  "shardSSR": 0.08,
+  "matKey": "mat_sr",
+  "unlockStage": "s6",
+  "lootFamily": "umbra",
+  "enemyElem": "dark",
+  "mechanic": "venom",
+  "hpScale": 2.4,
+  "atkScale": 1.25,
+  "defScale": 1.15,
+  "enemyRes": 15,
+  "relicTier": 1,
+  "relicChance": 0.45,
+  "essence": [
+    2,
+    4
+  ],
+  "desc": "毒雾：敌人攻击附带侵蚀，侵蚀期间治疗与吸血减半；抵抗与净化有实战价值。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "r6",
+  "name": "封时钟塔",
+  "type": "元素裂隙",
+  "img": "assets/d06-observatory.webp",
+  "cost": 12,
+  "enemyLv": 94,
+  "waves": 2,
+  "enemyCount": 3,
+  "starRound": 12,
+  "exp": 280,
+  "hasBoss": true,
+  "tokenRange": [
+    20,
+    35
+  ],
+  "gold": [
+    700,
+    1100
+  ],
+  "mat": [
+    9,
+    15
+  ],
+  "shardR": 0,
+  "shardSR": 0.2,
+  "shardSSR": 0.08,
+  "matKey": "mat_sr",
+  "unlockStage": "s6",
+  "lootFamily": "chrono",
+  "enemyElem": "time",
+  "mechanic": "silence",
+  "hpScale": 2.4,
+  "atkScale": 1.25,
+  "defScale": 1.15,
+  "enemyRes": 15,
+  "relicTier": 1,
+  "relicChance": 0.45,
+  "essence": [
+    2,
+    4
+  ],
+  "desc": "封怒：偶数回合敌人命中后削减15怒气；追风、时序灵印或不依赖技能的反击更合适。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "n1",
+  "name": "灼焰地宫·噩梦",
+  "type": "噩梦裂隙",
+  "img": "assets/d01-volcano.webp",
+  "cost": 24,
+  "enemyLv": 113,
+  "waves": 3,
+  "enemyCount": 3,
+  "starRound": 18,
+  "exp": 650,
+  "hasBoss": true,
+  "tokenRange": [
+    35,
+    55
+  ],
+  "gold": [
+    1400,
+    2200
+  ],
+  "mat": [
+    18,
+    28
+  ],
+  "shardR": 0,
+  "shardSR": 0.28,
+  "shardSSR": 0.16,
+  "matKey": "mat_ssr",
+  "unlockStage": "r1",
+  "lootFamily": "ember",
+  "enemyElem": "fire",
+  "mechanic": "fury",
+  "hpScale": 6.4,
+  "atkScale": 2.0,
+  "defScale": 1.5,
+  "enemyRes": 35,
+  "relicTier": 2,
+  "relicChance": 0.75,
+  "essence": [
+    6,
+    10
+  ],
+  "desc": "灼怒：敌人随回合提高攻击，拖得越久越危险；适合爆发与先手控制。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "n2",
+  "name": "潮壁圣殿·噩梦",
+  "type": "噩梦裂隙",
+  "img": "assets/d05-tide.webp",
+  "cost": 24,
+  "enemyLv": 116,
+  "waves": 3,
+  "enemyCount": 3,
+  "starRound": 18,
+  "exp": 650,
+  "hasBoss": true,
+  "tokenRange": [
+    35,
+    55
+  ],
+  "gold": [
+    1400,
+    2200
+  ],
+  "mat": [
+    18,
+    28
+  ],
+  "shardR": 0,
+  "shardSR": 0.28,
+  "shardSSR": 0.16,
+  "matKey": "mat_ssr",
+  "unlockStage": "r2",
+  "lootFamily": "tide",
+  "enemyElem": "water",
+  "mechanic": "barrier",
+  "hpScale": 6.4,
+  "atkScale": 2.0,
+  "defScale": 1.5,
+  "enemyRes": 35,
+  "relicTier": 2,
+  "relicChance": 0.75,
+  "essence": [
+    6,
+    10
+  ],
+  "desc": "结界：敌人自带护盾，每三回合补充护盾；侵蚀可越过护盾，吸血不会从护盾获取恢复。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "n3",
+  "name": "复苏秘林·噩梦",
+  "type": "噩梦裂隙",
+  "img": "assets/d04-forest.webp",
+  "cost": 24,
+  "enemyLv": 119,
+  "waves": 3,
+  "enemyCount": 3,
+  "starRound": 18,
+  "exp": 650,
+  "hasBoss": true,
+  "tokenRange": [
+    35,
+    55
+  ],
+  "gold": [
+    1400,
+    2200
+  ],
+  "mat": [
+    18,
+    28
+  ],
+  "shardR": 0,
+  "shardSR": 0.28,
+  "shardSSR": 0.16,
+  "matKey": "mat_ssr",
+  "unlockStage": "r3",
+  "lootFamily": "grove",
+  "enemyElem": "plant",
+  "mechanic": "regrowth",
+  "hpScale": 6.4,
+  "atkScale": 2.0,
+  "defScale": 1.5,
+  "enemyRes": 35,
+  "relicTier": 2,
+  "relicChance": 0.75,
+  "essence": [
+    6,
+    10
+  ],
+  "desc": "复苏：敌人每次行动恢复8%最大生命；侵蚀会把复苏压制到四分之一。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "n4",
+  "name": "折光星殿·噩梦",
+  "type": "噩梦裂隙",
+  "img": "assets/d02-sky.webp",
+  "cost": 24,
+  "enemyLv": 122,
+  "waves": 3,
+  "enemyCount": 3,
+  "starRound": 18,
+  "exp": 650,
+  "hasBoss": true,
+  "tokenRange": [
+    35,
+    55
+  ],
+  "gold": [
+    1400,
+    2200
+  ],
+  "mat": [
+    18,
+    28
+  ],
+  "shardR": 0,
+  "shardSR": 0.28,
+  "shardSSR": 0.16,
+  "matKey": "mat_ssr",
+  "unlockStage": "r4",
+  "lootFamily": "astral",
+  "enemyElem": "star",
+  "mechanic": "reflection",
+  "hpScale": 6.4,
+  "atkScale": 2.0,
+  "defScale": 1.5,
+  "enemyRes": 35,
+  "relicTier": 2,
+  "relicChance": 0.75,
+  "essence": [
+    6,
+    10
+  ],
+  "desc": "映伤：生命伤害的12%反弹给攻击者，堆纯攻击会更脆；需要护盾、吸血或治疗。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "n5",
+  "name": "毒雾墓城·噩梦",
+  "type": "噩梦裂隙",
+  "img": "assets/d01-volcano.webp",
+  "cost": 24,
+  "enemyLv": 125,
+  "waves": 3,
+  "enemyCount": 3,
+  "starRound": 18,
+  "exp": 650,
+  "hasBoss": true,
+  "tokenRange": [
+    35,
+    55
+  ],
+  "gold": [
+    1400,
+    2200
+  ],
+  "mat": [
+    18,
+    28
+  ],
+  "shardR": 0,
+  "shardSR": 0.28,
+  "shardSSR": 0.16,
+  "matKey": "mat_ssr",
+  "unlockStage": "r5",
+  "lootFamily": "umbra",
+  "enemyElem": "dark",
+  "mechanic": "venom",
+  "hpScale": 6.4,
+  "atkScale": 2.0,
+  "defScale": 1.5,
+  "enemyRes": 35,
+  "relicTier": 2,
+  "relicChance": 0.75,
+  "essence": [
+    6,
+    10
+  ],
+  "desc": "毒雾：敌人攻击附带侵蚀，侵蚀期间治疗与吸血减半；抵抗与净化有实战价值。 专属产出本系精华与灵印，不发放站点额度。"
+},
+{
+  "id": "n6",
+  "name": "封时钟塔·噩梦",
+  "type": "噩梦裂隙",
+  "img": "assets/d06-observatory.webp",
+  "cost": 24,
+  "enemyLv": 128,
+  "waves": 3,
+  "enemyCount": 3,
+  "starRound": 18,
+  "exp": 650,
+  "hasBoss": true,
+  "tokenRange": [
+    35,
+    55
+  ],
+  "gold": [
+    1400,
+    2200
+  ],
+  "mat": [
+    18,
+    28
+  ],
+  "shardR": 0,
+  "shardSR": 0.28,
+  "shardSSR": 0.16,
+  "matKey": "mat_ssr",
+  "unlockStage": "r6",
+  "lootFamily": "chrono",
+  "enemyElem": "time",
+  "mechanic": "silence",
+  "hpScale": 6.4,
+  "atkScale": 2.0,
+  "defScale": 1.5,
+  "enemyRes": 35,
+  "relicTier": 2,
+  "relicChance": 0.75,
+  "essence": [
+    6,
+    10
+  ],
+  "desc": "封怒：偶数回合敌人命中后削减15怒气；追风、时序灵印或不依赖技能的反击更合适。 专属产出本系精华与灵印，不发放站点额度。"
+}
+];
+
+/* ---------- 每日代币预算池 ---------- */
+const TOKEN_BUDGET = 100;   // 每天最多从战斗中获取 100 代币
+
+/* ---------- 抽卡配置 ---------- */
+const GACHA = {
+  cost1: 150,      // 单抽金币
+  cost10: 1400,    // 十连金币（省100）
+  weightR: 0.795,  // R 概率
+  weightSR: 0.18,  // SR 概率
+  weightSSR: 0.025,// SSR 概率（基础）
+  pitySSR: 90,     // 90 抽硬保底
+  tenPitySR: 10,   // 十连必出SR
+};
+
+/* ---------- 养成配置 ---------- */
+const GROWTH = {
+  expPerLevel: 100,       // 每级经验需求（线性，可调）
+  maxLevel: 60,
+  starCost: { 1: 20, 2: 40, 3: 80, 4: 120, 5: 200 },  // 升到对应星级所需碎片
+  starMax: 5,
+  levelStatGrow: { hp: 0.06, atk: 0.06, def: 0.05, spd: 0.005 },  // 每级成长率
+  starStatGrow: { hp: 0.10, atk: 0.10, def: 0.08, spd: 0.01 },    // 每星成长率
+};
+
+/* ---------- 战斗公式参数 ---------- */
+const FORMULA = {
+  defK: 300, defLv: 10,   // 1 - DEF / (DEF + 300 + 10*等级)
+  ragePerNormal: 50,      // 普攻获得怒气
+  rageMax: 100,
+  critBase: 1.0,          // 暴击倍率 = 1 + CD/100
+};
+
+/* ---------- 敌人模板（按副本等级生成数值） ---------- */
+const ENEMY_TPL = [
+  { name: "魔化狼",  img: "assets/gen/enemy-wolf.webp", atkType: "melee",
+    hpM: 0.9, atkM: 1.0, defM: 0.8, spd: 100, boss: false },
+  { name: "石像卫兵", img: "assets/gen/enemy-golem.webp", atkType: "heavy",
+    hpM: 1.2, atkM: 0.8, defM: 1.3, spd: 90,  boss: false },
+  { name: "暗影法师", img: "assets/gen/enemy-mage.webp", atkType: "magic",
+    hpM: 0.8, atkM: 1.2, defM: 0.7, spd: 105, boss: false },
+  { name: "深渊主宰", img: "assets/gen/enemy-boss.webp", atkType: "magic",
+    hpM: 3.2, atkM: 1.5, defM: 1.5, spd: 110, boss: true  },
+];
+
+// 只用于绘制当前账号的服务器快照，不提供客户端存档上传接口。
+let SAVE = null;
+
+/* ---------- 角色最终属性计算 ----------
+ * finalStats(girlId) -> 含等级/星级成长
+ */
+function finalStats(girlId, includeBonds = false) {
+  const g = GIRLS.find(x => x.id === girlId);
+  const own = SAVE.girls[girlId];
+  const lv = own && own.star > 0 ? own.level : 1;
+  const st = own && own.star > 0 ? own.star : RARITY[g.rarity].baseStar;
+  const b = g.base, gr = GROWTH.levelStatGrow, sr = GROWTH.starStatGrow;
+  const gemCounts = {};
+  for (const gem of own?.gems || []) if (gem) gemCounts[gem] = (gemCounts[gem] || 0) + 1;
+  let hp = b.hp * (1 + gr.hp * (lv-1)) * (1 + sr.hp * (st-1)) * (1 + 0.05 * (gemCounts.jade || 0));
+  let atk = b.atk * (1 + gr.atk * (lv-1)) * (1 + sr.atk * (st-1)) * (1 + 0.05 * (gemCounts.ruby || 0));
+  let def = b.def * (1 + gr.def * (lv-1)) * (1 + sr.def * (st-1)) * (1 + 0.05 * (gemCounts.sapphire || 0));
+  let spd = b.spd * (1 + gr.spd * (lv-1)) * (1 + sr.spd * (st-1)) + 3 * (gemCounts.wind || 0);
+  let cr = b.cr + 3 * (gemCounts.amethyst || 0);
+  let cd = b.cd, ehr = b.ehr, res = b.res;
+  const sigil = own?.sigil && SAVE.sigils?.[own.sigil];
+  if (sigil && SIGIL_FAMILIES[sigil.family]) {
+    const a = sigil.affixes || {};
+    hp *= 1 + (a.hp || 0) / 100;
+    atk *= 1 + (a.atk || 0) / 100;
+    def *= 1 + (a.def || 0) / 100;
+    spd += a.spd || 0; cr += a.cr || 0; cd += a.cd || 0;
+    ehr += a.ehr || 0; res += a.res || 0;
+    if (sigil.family === "astral") cd += 20;
+  }
+  const talentRank = Math.min(3, Math.max(0, (own?.star || 0) - 2));
+  if (own?.talent === "power") { atk *= 1 + 0.08 * talentRank; hp *= 1 - 0.04 * talentRank; }
+  if (own?.talent === "guardian") { hp *= 1 + 0.05 * talentRank; def *= 1 + 0.10 * talentRank; atk *= 1 - 0.04 * talentRank; }
+  if (own?.talent === "swift") { spd += 4 * talentRank; cr += 3 * talentRank; res -= 2 * talentRank; }
+  if (own?.talent === "siphon") { atk *= 1 + 0.04 * talentRank; def *= 1 - 0.03 * talentRank; }
+  if (own?.talent === "blight") { atk *= 1 - 0.06 * talentRank; ehr += 4 * talentRank; }
+  if (own?.talent === "oracle") { hp *= 1 + 0.04 * talentRank; res += 4 * talentRank; atk *= 1 - 0.02 * talentRank; }
+  if (includeBonds && SAVE.squad.includes(girlId)) {
+    const team = SAVE.squad.map(id => GIRLS.find(girl => girl.id === id)).filter(Boolean);
+    if (team.filter(girl => girl.elem === g.elem).length >= 2) atk *= 1.06;
+    if (team.filter(girl => girl.role === g.role).length >= 3) hp *= 1.07;
+    if (team.length === 4 && new Set(team.map(girl => girl.elem)).size === 4) def *= 1.05;
+  }
+  return {
+    hp: Math.round(hp), atk: Math.round(atk), def: Math.round(def), spd: Math.round(spd),
+    cr: Math.min(cr, 100), cd, ehr: Math.min(100, ehr), res: Math.min(100, Math.max(0, res)),
+  };
+}

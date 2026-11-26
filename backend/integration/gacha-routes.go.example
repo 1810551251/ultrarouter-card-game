@@ -1,0 +1,22 @@
+package router
+
+import (
+	"github.com/QuantumNous/new-api/controller"
+	"github.com/QuantumNous/new-api/middleware"
+	"github.com/gin-gonic/gin"
+)
+
+// The host must authenticate this group and populate its session identity.
+// Game handlers also verify that identity; never accept request-body user IDs.
+func RegisterGachaRoutes(selfRoute *gin.RouterGroup) {
+	selfRoute.GET("/gacha/profile", middleware.DisableCache(), controller.GetGachaProfile)
+	selfRoute.GET("/gacha/social", middleware.DisableCache(), controller.GetGachaSocial)
+	selfRoute.GET("/gacha/arena/replay", middleware.DisableCache(), controller.GetGachaArenaReplay)
+	selfRoute.GET("/gacha/arena/queue", middleware.DisableCache(), controller.GetGachaArenaQueue)
+	selfRoute.GET("/gacha/arena/rooms", middleware.DisableCache(), controller.GetGachaArenaRooms)
+	selfRoute.POST("/gacha/action", middleware.UserBurstRateLimit("gacha-action", 60, 60), controller.ApplyGachaAction)
+	selfRoute.POST("/gacha/run/start", middleware.UserBurstRateLimit("gacha-run-start", 30, 60), controller.StartGachaRun)
+	selfRoute.POST("/gacha/run/finish", controller.FinishGachaRun)
+	selfRoute.GET("/gacha/warehouse", middleware.DisableCache(), controller.GetGachaWarehouse)
+	selfRoute.POST("/gacha/card/activate", controller.ActivateGachaCard)
+}

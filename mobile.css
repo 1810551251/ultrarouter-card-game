@@ -1,0 +1,78 @@
+/* Phone-only battle layout; the link media query leaves desktop unchanged. */
+body.in-battle #app { height: 100dvh; }
+body.in-battle #page-battle {
+  min-height: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+#battle-hud { margin: 6px 10px 0; padding: 8px 10px; gap: 8px; }
+.bh-left { flex: 1 1 auto; gap: 7px; }
+.bh-name { font-size: 16px; }
+.bh-type { padding-inline: 8px; }
+.bh-waves { margin-left: 0; gap: 5px; }
+.bh-waves i { width: 9px; height: 9px; }
+#btn-flee { min-height: 40px; padding: 7px 12px; letter-spacing: 1px; }
+#bh-status { line-height: 1.4; }
+#battle-scene { margin: 6px 10px 8px; }
+#battle-log {
+  width: calc(100% - 20px); margin: 0 10px 10px;
+  flex-basis: clamp(104px, 17dvh, 144px); height: clamp(104px, 17dvh, 144px);
+}
+.bl-tag { width: 34px; }
+.bl-lines { padding: 9px 10px; touch-action: pan-y; }
+
+/* Each camp has two separate ranks, with a dedicated box for every unit. */
+.side.allies, .side.enemies {
+  top: auto; bottom: 18px; width: 48%; height: min(78cqh, 360px);
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 20px 6px; padding: 0 6px;
+  align-items: end; justify-items: center;
+}
+.side.allies { left: 2px; }
+.side.enemies { right: 2px; }
+.side .unit {
+  flex: none; width: 100%; min-width: 0; margin: 0;
+  align-self: end;
+}
+.side .unit:nth-child(even) { top: -8px; }
+.side .unit:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.side .unit.boss { grid-column: 1 / -1; }
+.side .unit:only-child { grid-row: 1 / -1; align-self: center; }
+.side .u-body { display: flex; justify-content: center; width: 100%; }
+.side .unit .u-face {
+  width: 100%; max-width: 100%; height: clamp(96px, 30vw, 136px);
+  max-height: max(38px, min(136px, calc(39cqh - 50px)));
+  object-fit: contain; object-position: center bottom;
+}
+.side .unit.boss .u-face {
+  height: clamp(120px, 38vw, 156px);
+  max-height: max(38px, min(136px, calc(39cqh - 50px)));
+}
+.side .unit.boss:only-child .u-face { height: clamp(140px, 44vw, 192px); max-height: max(38px, calc(78cqh - 60px)); }
+.side .unit .u-name {
+  max-width: 100%; padding: 2px 5px 3px; font-size: 11px; letter-spacing: 0;
+}
+.side .unit .hp-bar, .side .unit .mp-bar { width: min(58px, 88%); }
+
+/* Short landscape screens trade log height for a usable two-rank battlefield. */
+@media (orientation: landscape) and (max-height: 500px) {
+  #battle-hud { margin: 4px 8px 0; padding: 4px 8px; flex-wrap: nowrap; gap: 8px; }
+  .bh-left { flex: 0 1 auto; }
+  .bh-name { font-size: 14px; }
+  .bh-type { font-size: 10px; }
+  .bh-waves { margin-left: auto; }
+  #bh-status { order: 0; flex: 0 1 auto; font-size: 11px; text-align: right; }
+  #btn-flee { min-height: 36px; padding-block: 5px; }
+  #battle-scene { margin: 4px 8px 6px; }
+  #battle-log { width: calc(100% - 16px); margin: 0 8px 6px; flex-basis: 74px; height: 74px; }
+  .bl-lines { padding: 5px 10px; }
+  .side.allies, .side.enemies { height: calc(100cqh - 14px); bottom: 7px; gap: 8px 18px; padding-inline: 16px; }
+  .side .unit:nth-child(even) { top: 0; }
+  .side .unit .u-face, .side .unit.boss .u-face, .side .unit.boss:only-child .u-face {
+    height: min(112px, 24vw); max-height: max(32px, calc(50cqh - 58px));
+  }
+  .side .unit .u-name { font-size: 10px; margin-top: 1px; padding-block: 1px; }
+  .side .unit .hp-bar { height: 6px; margin-top: 2px; }
+  .side .unit .mp-bar { height: 3px; margin-top: 1px; }
+}
