@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>星霜少女</title>
-<link rel="stylesheet" href="style.css?v=20261123-progression1">
+<link rel="stylesheet" href="style.css?v=20261126-ladder1">
 <link rel="stylesheet" href="mobile.css?v=20261117-mobile5" media="(max-width: 700px), (max-width: 1000px) and (max-height: 500px) and (orientation: landscape)">
 </head>
 <body>
@@ -79,7 +79,8 @@
       </div>
       <div class="home-social">
         <button class="gbtn gbtn-sm" data-nav="page-shop"><span>代币商店</span><span class="sub">兑换金币、体力与升星材料</span></button>
-        <button class="gbtn gbtn-sm gbtn-primary" data-nav="page-arena"><span>匹配对战</span><span class="sub">双方自愿 · 每场 1～5 E</span></button>
+        <button class="gbtn gbtn-sm gbtn-primary" data-nav="page-arena"><span>排名竞技场</span><span class="sub">免费挑战 · 21点材料奖励</span></button>
+        <button class="gbtn gbtn-sm" data-nav="page-arena" data-arena-mode="queue"><span>匹配对战</span><span class="sub">双方自愿 · 每场 1～5 E</span></button>
         <button class="gbtn gbtn-sm" data-nav="page-modes"><span>周常玩法</span><span class="sub">远征 · 元素首领 · 公会协作</span></button>
       </div>
       <footer class="source-notice">
@@ -94,15 +95,26 @@
     </section>
 
     <section class="page social-page" id="page-arena">
-      <div class="social-heading"><div><p class="social-kicker">星霜演武场</p><h2>排行与匹配</h2><p>养成少女、调整阵容，提升编队战力</p></div><button class="gbtn gbtn-sm" data-nav="page-squad"><span>调整编队</span></button></div>
-      <div id="arena-summary"></div>
-      <div class="social-tabs" role="group" aria-label="竞技场栏目">
-        <button type="button" onclick="pickArenaTab('queue')" data-arena-tab="queue">余额匹配</button>
-        <button type="button" onclick="pickArenaTab('rooms')" data-arena-tab="rooms">自定义大厅</button>
-        <button type="button" onclick="pickArenaTab('power')" data-arena-tab="power">战力排行</button>
-        <button type="button" onclick="pickArenaTab('history')" data-arena-tab="history">我的战报</button>
+      <div class="social-heading"><div><p class="social-kicker">STARFROST · ARENA</p><h2>星霜竞技场</h2><p>携手你的少女，赴一场势均力敌的交锋</p></div><button class="gbtn gbtn-sm" data-nav="page-squad"><span>调整编队</span></button></div>
+      <div class="arena-shell">
+        <aside class="arena-sidebar" aria-label="我的竞技档案">
+          <div id="arena-summary"></div>
+          <div class="social-tabs arena-menu" role="group" aria-label="竞技场栏目">
+            <button type="button" onclick="pickArenaTab('ladder')" data-arena-tab="ladder"><span aria-hidden="true">⚑</span>排名挑战<small>每日 5 次 · 胜者晋位</small></button>
+            <button type="button" onclick="pickArenaTab('ladder-board')" data-arena-tab="ladder-board"><span aria-hidden="true">♜</span>竞技排名<small>当前名次 · 历史最高</small></button>
+            <button type="button" onclick="pickArenaTab('ladder-rewards')" data-arena-tab="ladder-rewards"><span aria-hidden="true">✦</span>材料奖励<small>每日 21:00 结算</small></button>
+            <button type="button" onclick="pickArenaTab('ladder-records')" data-arena-tab="ladder-records"><span aria-hidden="true">↺</span>攻防战报<small>名次变化 · 战斗回放</small></button>
+            <button type="button" onclick="pickArenaTab('queue')" data-arena-tab="queue"><span aria-hidden="true">⚔</span>匹配对战<small>同金额 · 实力相近</small></button>
+            <button type="button" onclick="pickArenaTab('rooms')" data-arena-tab="rooms"><span aria-hidden="true">◇</span>自定义大厅<small>选择房间 · 双方准备</small></button>
+            <button type="button" onclick="pickArenaTab('power')" data-arena-tab="power"><span aria-hidden="true">♜</span>战力排行<small>星霜群英 · 阵容一览</small></button>
+            <button type="button" onclick="pickArenaTab('history')" data-arena-tab="history"><span aria-hidden="true">↺</span>我的战报<small>交锋记录 · 战斗回放</small></button>
+          </div>
+          <button type="button" class="social-refresh arena-rules-link" onclick="showArenaRules()">竞技规则</button>
+        </aside>
+        <div class="arena-content">
+          <div id="arena-body" aria-live="polite"></div>
+        </div>
       </div>
-      <div id="arena-body" aria-live="polite"></div>
     </section>
 
     <!-- 召唤页 -->
@@ -231,12 +243,13 @@
 
 </div>
 
-<script src="js/config.js?v=20261120-lobby1"></script>
+<script src="js/config.js?v=20261126-ladder1"></script>
 <script src="js/store.js?v=20261123-progression1"></script>
 <script src="js/data.js?v=20261123-progression1"></script>
-<script src="js/ui.js?v=20261123-progression1"></script>
+<script src="js/ui.js?v=20261126-ladder1"></script>
+<script src="js/ladder.js?v=20261126-ladder1"></script>
 <script src="js/progression.js?v=20261123-progression2"></script>
-<script src="js/battle.js?v=20261123-progression1"></script>
-<script src="js/main.js?v=20261120-lobby1"></script>
+<script src="js/battle.js?v=20261126-ladder1"></script>
+<script src="js/main.js?v=20261126-ladder1"></script>
 </body>
 </html>

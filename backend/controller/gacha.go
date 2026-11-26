@@ -50,6 +50,10 @@ func decodeGachaIntent(c *gin.Context, body any, allowed []string) bool {
 func writeGachaError(c *gin.Context, err error) {
 	status, code, message := http.StatusInternalServerError, "GACHA_INTERNAL_ERROR", "游戏服务暂时不可用，请稍后重试"
 	switch {
+	case errors.Is(err, model.ErrGachaLadder):
+		status, code, message = http.StatusConflict, "GACHA_LADDER_CHANGED", "竞技场排名已变化、奖励已领取或尚未报名，请刷新后重试"
+	case errors.Is(err, model.ErrGachaLadderLimit):
+		status, code, message = http.StatusConflict, "GACHA_LADDER_LIMIT", "挑战后冷却10秒，每天5次挑战于北京时间05:00重置"
 	case errors.Is(err, model.ErrGachaIntent):
 		status, code, message = http.StatusBadRequest, "GACHA_INVALID_INTENT", "操作参数不正确"
 	case errors.Is(err, model.ErrGachaStage):
@@ -150,7 +154,7 @@ func ApplyGachaAction(c *gin.Context) {
 		return
 	}
 	var body model.GachaActionIntent
-	if !decodeGachaIntent(c, &body, []string{"request_id", "action", "count", "girl_id", "squad", "enabled", "item_id", "stake_e", "queue_id", "room_id", "choice", "config"}) {
+	if !decodeGachaIntent(c, &body, []string{"request_id", "action", "count", "girl_id", "squad", "enabled", "item_id", "stake_e", "queue_id", "room_id", "choice", "config", "opponent_id"}) {
 		return
 	}
 	if err := model.ValidateGachaAction(body); err != nil {
@@ -210,6 +214,32 @@ func GetGachaArenaRooms(c *gin.Context) {
 		return
 	}
 	result, err := model.GetGachaArenaRooms(userID, time.Now())
+	if err != nil {
+		writeGachaError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
+func GetGachaLadder(c *gin.Context) {
+	userID, ok := gachaSessionUser(c)
+	if !ok {
+		return
+	}
+	result, err := model.GetGachaLadder(userID, time.Now())
+	if err != nil {
+		writeGachaError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
+func GetGachaLadderReplay(c *gin.Context) {
+	userID, ok := gachaSessionUser(c)
+	if !ok {
+		return
+	}
+	result, err := model.GetGachaLadderReplay(userID, c.Query("request_id"))
 	if err != nil {
 		writeGachaError(c, err)
 		return

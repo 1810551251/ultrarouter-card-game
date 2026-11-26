@@ -60,7 +60,10 @@ document.querySelectorAll(".nav-btn").forEach(b =>
 /* 页内跳转按钮（主页 -> 副本/召唤） */
 document.querySelectorAll("[data-nav]").forEach(el => {
   if (!el.classList.contains("nav-btn")) {
-    el.addEventListener("click", () => nav(el.dataset.nav));
+    el.addEventListener("click", () => {
+      nav(el.dataset.nav);
+      if (el.dataset.arenaMode) pickArenaTab(el.dataset.arenaMode);
+    });
   }
 });
 

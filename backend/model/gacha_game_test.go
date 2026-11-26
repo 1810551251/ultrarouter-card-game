@@ -2232,6 +2232,7 @@ func TestGachaAuthorityDatabaseMatrix(t *testing.T) {
 			})
 
 			runGachaProgressionMatrix(t, now)
+			runGachaLadderMatrix(t, now)
 
 			t.Run("disabled_or_missing_users_cannot_act", func(t *testing.T) {
 				user := gachaUser(t)

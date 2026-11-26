@@ -25,7 +25,7 @@ async function startBattle(stageId) {
 
 async function resumeBattle(run, starting) {
   if (!requireGame() || (battleRunning && !starting)) return;
-  let st = run.arena ? { id: "arena", name: "竞技场 · " + run.arena.name, type: "玩家对战", waves: 1, img: "assets/d06-observatory.webp" } : STAGES.find(x => x.id === run.stage) || GACHA_RUN_MODES[run.stage];
+  let st = run.arena ? { id: "arena", name: "竞技场 · " + run.arena.name, type: run.arena.ladder ? "排名竞技 · 左攻右守" : "玩家对战", waves: 1, img: "assets/d06-observatory.webp" } : STAGES.find(x => x.id === run.stage) || GACHA_RUN_MODES[run.stage];
   if (st && run.scene) {
     st = { ...st, name: run.scene.name, img: run.scene.img, starRound: run.scene.star_round };
   }

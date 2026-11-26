@@ -320,6 +320,7 @@ type GachaPullResult struct {
 	Shards int    `json:"shards"`
 }
 type GachaActionResult struct {
+	Ladder           *GachaLadderResult         `json:"ladder,omitempty"`
 	Save             *GachaGameState            `json:"save"`
 	Revision         int64                      `json:"revision"`
 	Drops            []string                   `json:"drops,omitempty"`
@@ -566,6 +567,9 @@ func ValidateGachaAction(intent GachaActionIntent) error {
 	if !validateGachaUUID(intent.RequestID) {
 		return ErrGachaIntent
 	}
+	if strings.HasPrefix(intent.Action, "ladder_") {
+		return validateGachaLadderIntent(intent)
+	}
 	if slices.Contains(gachaProgressionActions, intent.Action) {
 		return validateGachaProgressionIntent(intent)
 	}
@@ -755,6 +759,9 @@ func gachaRandomGirl(rarity string) (*GachaGirl, error) {
 func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*GachaActionResult, error) {
 	if err := ValidateGachaAction(intent); err != nil {
 		return nil, err
+	}
+	if strings.HasPrefix(intent.Action, "ladder_") {
+		return applyGachaLadderAction(userID, intent, now)
 	}
 	if intent.Action == "arena_join" || intent.Action == "arena_cancel" {
 		return applyGachaQueueAction(userID, intent, now)

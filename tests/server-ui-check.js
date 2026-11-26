@@ -17,6 +17,9 @@ const server = {
   },
 };
 server.save.girls.c14 = { star: 0, level: 0, exp: 0, shards: 2 };
+const ladderOpponent = {id:-80,rank:80,best_rank:80,name:'<img src=x onerror="bad()">',power:4000,squad:[{id:"c06",level:10,star:2}],cooldown_until:0};
+server.ladder = {me:null,remaining:5,limit:5,total:100,server_now:Date.now(),next_settlement:Date.now()+3600000,next_reset:Date.now()+7200000,
+  opponents:[ladderOpponent],board:[ladderOpponent],history:[],mail:[],rewards:[{max_rank:100,materials:{mat_r:40,mat_sr:20,mat_ssr:5}},{max_rank:0,materials:{mat_r:30,mat_sr:15,mat_ssr:3}}]};
 const errors = [];
 const dom = new JSDOM(fs.readFileSync(path.join(root, "index.html"), "utf8"), {
   runScripts: "outside-only", url: "https://game.test/gacha/", pretendToBeVisual: true,
@@ -50,6 +53,20 @@ w.fetch = async (url, options) => {
       server.quota -= body.count * 500000;
       server.save.token += body.count;
     }
+    if (body.action === "ladder_join") server.ladder.me = {id:7,rank:101,best_rank:101,name:"UI test",power:4567,squad:[{id:"c01",level:20,star:3}],cooldown_until:0};
+    if (body.action === "ladder_challenge") {
+      server.ladder.me.rank = server.ladder.me.best_rank = 80;
+      server.ladder.remaining--;
+      server.ladderResult = {id:"00000000-0000-4000-8000-000000000080",ladder:true,name:ladderOpponent.name,win:true,own_before:101,own_after:80,
+        attacker_id:7,defender_id:-80,attacker_name:"UI test",defender_name:ladderOpponent.name,attacker_before:101,attacker_after:80,defender_before:80,defender_after:101,attack_win:true,played_at:Date.now(),report:report(true)};
+      server.ladderResult.report.duration_ms=1; server.ladderResult.report.events=[];
+      server.ladder.history=[{...server.ladderResult,report:undefined}];
+    }
+    if (body.action === "ladder_claim") {
+      const mail=server.ladder.mail.find(m=>m.day===body.item_id);
+      mail.claimed=true;
+      Object.entries(mail.materials).forEach(([key,value])=>server.save.mats[key]+=value);
+    }
     if (body.action === "arena_join") {
       server.queue = { id: "00000000-0000-4000-8000-000000000001", status: "waiting", stake_e: body.stake_e, power: 10000, min_power: 8334, max_power: 12000, expire_at: Date.now()+120000, quota: 5000000-body.stake_e*500000 };
     }
@@ -58,6 +75,7 @@ w.fetch = async (url, options) => {
     }
     server.revision++;
     data = snapshot();
+    if (body.action === "ladder_challenge") data.ladder = clone(server.ladderResult);
     if (body.action === "token_exchange") data.exchange = {count:body.count, cost_quota:body.count*500000, wallet_quota:server.quota};
     if (body.action.startsWith("arena_")) data.queue = clone(server.queue);
     if (body.action === "room_join") {
@@ -66,9 +84,13 @@ w.fetch = async (url, options) => {
     if (body.action === "room_ready") { server.room.guest_ready = true; server.roomQuota -= server.room.stake_e * 500000; }
     if (body.action === "room_leave") { server.room.status = "cancelled"; if (server.room.guest_ready) server.roomQuota += server.room.stake_e * 500000; }
     if (body.action.startsWith("room_")) data.room = clone(server.room);
+  } else if (ep.endsWith("/ladder")) {
+    data = {...clone(server.ladder),server_now:Date.now()};
+  } else if (ep.endsWith("/ladder/replay")) {
+    data = clone(server.ladderResult);
   } else if (ep.endsWith("/social")) {
     const opponent = { user_id: 9, name: '<img src=x onerror="bad()">', power: 4000, arena_points: 40, squad: [{ id: "c06", level: 10, star: 2 }] };
-    data = { arena_enabled: server.arenaEnabled !== false, shop_daily_limit: 20, token_exchange:{enabled:true, quota_per_token:500000, max_count:1000000000}, shop: [{ id: "gold", name: "金币补给", resource: "gold", amount: 150, price: 30, limit: 20 }, { id: "stamina", name: "体力补给", resource: "stamina", amount: 30, price: 20, limit: 20 }], power_board: [opponent], arena_board: [opponent], opponents: [opponent], power_rank: 2, arena_rank: 0, arena_limit: 5 };
+    data = { arena_enabled: server.arenaEnabled !== false, shop_daily_limit: 20, token_exchange:{enabled:true, quota_per_token:500000, max_count:1000000000}, shop: [{ id: "gold", name: "金币补给", resource: "gold", amount: 150, price: 30, limit: 20 }, { id: "stamina", name: "体力补给", resource: "stamina", amount: 30, price: 20, limit: 20 }], power_board: server.powerBoard ?? [opponent], arena_board: [opponent], opponents: [opponent], power_rank: server.powerRank ?? 2, arena_rank: 0, arena_limit: 5 };
   } else if (ep.endsWith("/arena/queue")) {
     data = clone(server.queue || { status: "idle", quota: 5000000 });
   } else if (ep.endsWith("/arena/rooms")) {
@@ -110,7 +132,7 @@ function report(live) {
     ] };
 }
 
-w.eval(["config", "store", "data", "ui", "progression", "battle", "main"].map(name =>
+w.eval(["config", "store", "data", "ui", "ladder", "progression", "battle", "main"].map(name =>
   fs.readFileSync(path.join(root, "js", name + ".js"), "utf8")).join("\n;\n") + `
 ;window.G = {Store, nav, startBattle, resumeBattle, recoverBattle, exitBattle, battleEnd,
   openGirl, levelUp, toggleSquad, closeModal, renderSquad, playServerBattle,
@@ -239,14 +261,63 @@ function check(condition, label) { assert.ok(condition, label); checks++; consol
   check(w.document.querySelector(".shop-gold button").disabled && w.document.getElementById("shop-daily-remaining").textContent.includes("0 / 20"), "twenty purchases across products disables further shopping");
   check(!w.document.getElementById("token-exchange-submit").disabled, "wallet exchange remains available after shop allowance is used");
   G.nav("page-arena"); await tick();
-  check(w.document.querySelector('[data-arena-tab="queue"]').getAttribute("aria-pressed") === "true", "arena navigation opens matchmaking directly");
-  check(w.document.querySelector('#page-home [data-nav="page-arena"]').textContent.includes("匹配对战"), "home has an explicit matchmaking entrance");
-  w.pickArenaTab("power");
+  check(w.document.querySelector('[data-arena-tab="ladder"]').getAttribute("aria-pressed") === "true", "arena navigation opens the new ranked ladder");
+  check(w.document.querySelector('#page-home [data-arena-mode="queue"]').textContent.includes("匹配对战"), "home retains an explicit matchmaking entrance");
+  check(w.document.querySelector('.ladder-welcome').textContent.includes('免费报名'), "ranked arena requires explicit registration");
+  await w.ladderAction('ladder_join');
+  check(w.document.querySelectorAll('.ladder-opponent').length === 1 && !w.document.querySelector('.ladder-opponent h4 img'), "ranked opponent cards use server fixtures and escape names");
+  check(w.document.querySelector('[data-ladder-time]').textContent !== '—', "ranked arena displays the server settlement countdown");
+  w.previewLadderOpponent(-80,true);
+  check(w.document.getElementById('modal-box').textContent.includes('不消耗 E 余额'), "ranked challenge confirmation explains separate economy");
+  await w.submitLadderChallenge();
+  const rankedIntent=server.calls.filter(c=>c.body?.action==='ladder_challenge').at(-1).body;
+  check(Object.keys(rankedIntent).sort().join()==='action,count,opponent_id,request_id' && rankedIntent.opponent_id===-80 && rankedIntent.count===80, "ranked challenge sends only target ID and expected rank, never a result");
+  check(w.document.querySelector('.arena-award').textContent.includes('#101 → #80') && !w.document.getElementById('modal-box').textContent.includes('站点余额变动'), "ranked results show the server rank change without E settlement");
+  const rankedFinishCount=server.calls.filter(c=>c.ep.endsWith('/finish')).length;
+  w.watchArenaResult(); await tick(); await tick();
+  check(G.battle.settled && server.calls.filter(c=>c.ep.endsWith('/finish')).length===rankedFinishCount, "ranked replay cannot submit a dungeon settlement");
+  w.leaveArenaReplay(); await tick(); await tick();
+  check(w.document.querySelector('[data-arena-tab="ladder"]').getAttribute('aria-pressed')==='true', "ranked replay returns to ranked challenges");
+  server.ladder.mail=[{day:'2026-11-25',rank:80,materials:{mat_r:40,mat_sr:20,mat_ssr:5},claimed:false}];
+  w.pickArenaTab('ladder-rewards'); await tick(); await tick();
+  check(w.document.querySelector('.ladder-mail').textContent.includes('2026-11-25') && w.document.querySelector('.ladder-reward-tier.is-current'), "material page shows server settlement date and current reward tier");
+  const oldMaterials=G.save.mats.mat_r;
+  await w.claimLadderMail('2026-11-25');
+  const claimIntent=server.calls.filter(c=>c.body?.action==='ladder_claim').at(-1).body;
+  check(Object.keys(claimIntent).sort().join()==='action,item_id,request_id' && G.save.mats.mat_r===oldMaterials+40, "claim sends only settlement date and applies returned materials");
+  check(w.document.querySelector('.ladder-mail button').disabled, "claimed material entitlement cannot be claimed again from the page");
+  w.pickArenaTab('ladder-records'); await tick(); await tick();
+  check(w.document.querySelectorAll('.ladder-record').length===1 && !w.document.querySelector('.ladder-record-versus b img'), "ranked attack records escape names and keep side identities");
+  w.filterLadderRecords('defense');
+  check(w.document.querySelectorAll('.ladder-record').length===0, "defense filter excludes my attacks");
+  await w.replayLadder(server.ladderResult.id);
+  check(server.calls.at(-1).ep.endsWith('/ladder/replay'), "ranked history reads its own replay endpoint");
+  G.closeModal();
+  w.pickArenaTab("power"); await tick(); await tick();
   check(w.document.getElementById("arena-summary").textContent.includes("4,567"), "arena displays server calculated squad power");
   check(!w.document.querySelector(".arena-player strong img"), "rankings escape player names");
   w.previewOpponent(9);
   check(w.document.querySelector(".arena-preview img").alt === "铃羽", "challenge preview shows the opponent's saved characters");
   check(!w.document.querySelector('[onclick^="challengeArena"]'), "rankings cannot attack a player directly");
+  check(w.document.querySelectorAll(".arena-comparison section").length === 2 && w.document.querySelectorAll(".arena-comparison section")[1].textContent.includes("4,567"), "opponent comparison includes my server-owned squad and power");
+  G.closeModal();
+  server.powerBoard = Array.from({length: 23}, (_, i) => ({ user_id: i === 22 ? 7 : i + 100, name: i === 0 ? '<img src=x onerror="bad()">' : `Player ${i + 1}`, power: 30000 - i * 500, squad: [{id:"c06",level:10,star:2}] }));
+  server.powerRank = 23;
+  w.pickArenaTab("power"); await tick(); await tick();
+  check(w.document.querySelectorAll(".arena-podium-card").length === 3 && !w.document.querySelector(".arena-podium-card strong img"), "podium shows top three server entries and escapes their names");
+  check(w.document.querySelectorAll(".arena-row").length === 10, "ranking paginates ten entries per page");
+  w.setArenaRankPage(1);
+  check(w.document.querySelector(".arena-row .arena-rank").textContent === "11", "second ranking page retains absolute server order");
+  w.locateArenaRank();
+  check(w.document.querySelectorAll(".arena-row").length === 3 && w.document.activeElement.matches(".arena-row.is-self"), "locating myself opens the correct page and focuses my row");
+  w.setArenaRankPage(999);
+  check(w.document.querySelector(".arena-pagination").textContent.includes("3 / 3"), "ranking page requests are clamped to available entries");
+  server.powerBoard = []; server.powerRank = 0;
+  w.renderArena(); await tick(); await tick();
+  check(w.document.querySelectorAll(".arena-row").length === 0 && w.document.querySelector(".arena-pagination").textContent.includes("1 / 1"), "empty refreshed rankings recover from a later page");
+  server.powerBoard = null; server.powerRank = null;
+  w.showArenaRules();
+  check(w.document.getElementById("modal-box").textContent.includes("离开页面不会立即取消") && w.document.getElementById("modal-box").textContent.includes("不发放排名奖励"), "rules explain the actual server modes and reward policy");
   G.closeModal();
   w.pickArenaTab("queue"); await tick(); await tick();
   check(w.document.querySelectorAll(".arena-stakes button").length === 5, "queue offers the five authorized stake tiers");
@@ -281,6 +352,17 @@ function check(condition, label) { assert.ok(condition, label); checks++; consol
   check(server.calls.at(-1).ep.endsWith("/arena/replay"), "saved battle history reads the private replay endpoint");
 
   G.closeModal();
+  const wonMatch = clone(server.save.arena.history[0]);
+  server.save.arena.history.push({...wonMatch, id:"00000000-0000-4000-8000-000000000005", win:false, delta_quota:-2500000}, {...wonMatch, id:"00000000-0000-4000-8000-000000000006", win:false, draw:true, delta_quota:0});
+  server.revision++;
+  w.pickArenaTab("history"); await tick(); await tick();
+  const actionsBeforeFilters = server.calls.filter(c => c.ep.endsWith("/action")).length;
+  w.setArenaHistoryFilter("loss");
+  check(w.document.querySelectorAll(".arena-history").length === 1 && w.document.querySelector(".arena-history").textContent.includes("-5 E"), "loss filter excludes wins and draws and retains server balance delta");
+  w.setArenaHistoryFilter("draw");
+  check(w.document.querySelectorAll(".arena-history").length === 1 && w.document.querySelector(".arena-history").textContent.includes("平局"), "draw filter shows only drawn matches");
+  w.setArenaHistoryFilter("all");
+  check(w.document.querySelectorAll(".arena-history").length === 3 && server.calls.filter(c => c.ep.endsWith("/action")).length === actionsBeforeFilters, "filtering battle history never submits settlement or other actions");
   server.roomQuota = 5000000;
   server.rooms = [
     {id: "00000000-0000-4000-8000-000000000003", status:"open", stake_e:3, host_id:9, host_name:'<img src=x onerror="bad()">', host_power:4500, guest_id:0, expire_at:Date.now()+300000},
@@ -290,6 +372,9 @@ function check(condition, label) { assert.ok(condition, label); checks++; consol
   check(w.document.querySelectorAll(".room-row").length === 2, "public lobby lists rooms without asking for a room code");
   check(!w.document.querySelector(".room-row h4 img"), "room host names are escaped");
   check(w.document.querySelectorAll(".room-row button")[1].disabled, "lobby disables a room outside the 20 percent power range");
+  w.setArenaRoomFilter("compatible");
+  check(w.document.querySelectorAll(".room-row").length === 1 && !w.document.querySelector(".room-row button").disabled, "room filter retains only rooms in the symmetric power range");
+  w.setArenaRoomFilter("all");
   const roomNode = w.document.querySelector(".room-lobby");
   await w.refreshArenaRooms();
   check(w.document.querySelector(".room-lobby") === roomNode, "unchanged lobby polling preserves the rendered page");

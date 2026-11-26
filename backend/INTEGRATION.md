@@ -6,7 +6,7 @@ The exported Go files are game-specific packages from the existing new-api integ
 
 Copy the game `model/gacha*.go`, `model/gacha_catalog.json` and `controller/gacha*.go` into your own compatible host packages, preserving their current new-api import identifiers. Use the examples in `integration/` to add only game routes and tables. The examples are not an automatic installer and never contact a maintainer server.
 
-The game uses ten tables: `GachaRun`, `GachaCard`, `GachaDaily`, `GachaPlayer`, `GachaAction`, `GachaArenaGate`, `GachaArenaSeat`, `GachaArenaDuel`, `GachaArenaEntry`, and `GachaArenaRoom`. Initialize power and arena state after migrations succeed. The host must also own the user, option/configuration and log stores consumed by the game.
+The game uses fourteen tables: `GachaRun`, `GachaCard`, `GachaDaily`, `GachaPlayer`, `GachaAction`, `GachaArenaGate`, `GachaArenaSeat`, `GachaArenaDuel`, `GachaArenaEntry`, `GachaArenaRoom`, `GachaLadderGate`, `GachaLadderEntry`, `GachaLadderMail`, and `GachaLadderBattle`. Initialize power, matchmaking and ranked arena state after migrations succeed. The host must also own the user, option/configuration and log stores consumed by the game.
 
 Serve the game files at `/gacha/` and the host APIs at the same origin. A navigation link may use `target="_blank"` and `rel="noopener noreferrer"`; no deployment domain or IP is supplied here.
 
@@ -38,6 +38,27 @@ This list describes the integration boundary; it is not an implementation of the
 The route example lists the game GET/POST endpoints. The browser submits only action intent and server-issued run/card identifiers. Controllers reject unexpected fields, uploaded battle results and local saves. PvP is entered voluntarily through the queue or custom-room lobby; escrow and settlement are server-side.
 
 The refresh interface is a host authentication endpoint, not one of the exported game handlers. Match its response contract in `js/store.js` when adapting your own host. Keep HttpOnly session cookies, trusted-origin/CSRF controls, memory-only access tokens and logout invalidation.
+
+## Ranked Arena And Daily Material Settlement
+
+Add `model/gacha_ladder.go`, the four `GachaLadder*` tables and the two session-gated GET routes in the examples. Run `InitializeGachaLadder(time.Now())` after migration; it seeds 100 NPC defenders once and retains existing ranks on subsequent starts. Registration is an explicit `ladder_join` action and appends the authenticated player to the current tail. `ladder_defense` freezes the current server-owned squad and equipment for asynchronous defense; ordinary lineup edits do not overwrite it.
+
+`ladder_challenge` accepts `opponent_id` and `count` (the expected defender rank), plus the normal action/request IDs. The server rechecks the target's current rank and allowed neighborhood, uses the player's current attack squad and the defender's saved snapshot, computes battle events, then commits the rank swap, attempt consumption and replay receipt together. A stale quote consumes nothing. Defenders consent to asynchronous challenges by registering. Five free attempts reset at 05:00 Asia/Shanghai and each challenge starts a ten-second cooldown. A timeout after 60 rounds is an attacking loss. Neither this mode nor its reward claims changes the E wallet or the existing E matchmaking allowance.
+
+Run the host-owned worker in `integration/gacha-ladder-worker.go.example` with the application's shutdown context, starting after successful migration. It calls `SettleGachaLadder` every minute; the logical cutoff is exactly 21:00 Beijing time, with entitlement delivery on the next worker tick. Multiple nodes are serialized through a SQL gate. Every ladder mutation also settles overdue boundaries **before** changing ranks, so a delayed worker cannot price a historical day using a later rank. Offline catch-up pays each missed boundary using the ordering that remained unchanged over those missed boundaries. Rewards are not backdated before registration or ladder initialization. A failed settlement prevents a later rank mutation from committing; the host must monitor worker failures and retry them.
+
+Each `(user_id, day)` material entitlement is unique. `ladder_claim` takes only `item_id` (the settlement date); its transaction updates inventory, marks the entitlement claimed and records the normal idempotency receipt. A full inventory rolls the transaction back and leaves the entitlement claimable. Unclaimed entitlements do not expire. Views return up to 60 mail rows, prioritizing unclaimed rows; after claiming and refreshing, older unclaimed rows become visible. Battle history returns the newest 20 attacks/defenses; replay events are restricted to their participants and preserve attacker-left/defender-right orientation.
+
+| Rank at 21:00 | 微光结晶 (`mat_r`) | 元素结晶 (`mat_sr`) | 星屑 (`mat_ssr`) |
+| --- | ---: | ---: | ---: |
+| 1 | 120 | 60 | 20 |
+| 2–3 | 100 | 50 | 15 |
+| 4–10 | 80 | 40 | 12 |
+| 11–50 | 60 | 30 | 8 |
+| 51–100 | 40 | 20 | 5 |
+| 101+ | 30 | 15 | 3 |
+
+These rules live in the game model, and the UI reads the returned tiers. Material values are frozen in each settlement entitlement; later rule changes do not rewrite existing mail. This source release does not install the worker into an external host or deploy a backend image. Run the required real-database matrix before enabling the feature on that host.
 
 ## Validation In A Host
 

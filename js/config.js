@@ -17,6 +17,8 @@ const SITE = {
     arenaQueue: "/api/user/gacha/arena/queue",
     arenaRooms: "/api/user/gacha/arena/rooms",
     arenaReplay: "/api/user/gacha/arena/replay",
+    ladder: "/api/user/gacha/ladder",
+    ladderReplay: "/api/user/gacha/ladder/replay",
   },
   // 站点额度口径：1E = 500,000 quota
   quotaPerE: 500000,

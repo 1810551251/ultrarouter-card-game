@@ -13,7 +13,7 @@ function nav(pageId) {
   if (!requireGame()) return;
   stopArenaPolling();
   if (typeof stopGrowthRestTimer === "function") stopGrowthRestTimer();
-  if (pageId === "page-arena") arenaTab = "queue";
+  if (pageId === "page-arena") arenaTab = "ladder";
   document.querySelectorAll(".page").forEach(p =>
     p.classList.toggle("active", p.id === pageId));
   document.querySelectorAll(".nav-btn").forEach(b =>
@@ -97,6 +97,7 @@ async function retryGameAction() {
   else if (result.queue) { await refreshArenaQueue(); }
   if (result.queue) { await Store.refresh(); renderTopbar(); }
   if (result.arena) showArenaResult(result.arena);
+  if (result.ladder) showArenaResult(result.ladder);
   toast("原操作已由数据库确认");
 }
 
@@ -1089,7 +1090,7 @@ function renderBag() {
 /* ---------- 代币商店与异步竞技场 ---------- */
 let socialViewVersion = 0;
 let socialData = null;
-let arenaTab = "queue";
+let arenaTab = "ladder";
 let lastArenaResult = null;
 let lastArenaEpoch = -1;
 
@@ -1195,6 +1196,11 @@ let arenaQueue = null;
 let arenaStake = 1;
 let arenaPollTimer = null;
 let arenaQueueVersion = 0;
+let arenaViewEpoch = -1;
+let arenaRankPage = 0;
+let arenaHistoryFilter = "all";
+let arenaRoomFilter = "all";
+const arenaRankPageSize = 10;
 
 function stopArenaPolling() {
   clearTimeout(arenaPollTimer);
@@ -1204,15 +1210,35 @@ function stopArenaPolling() {
 function renderArena() {
   if (!requireGame()) return;
   stopArenaPolling();
+  if (arenaViewEpoch !== Store.sessionEpoch) {
+    arenaViewEpoch = Store.sessionEpoch;
+    socialData = null;
+    arenaQueue = null;
+    arenaLobby = null;
+    arenaRankPage = 0;
+    arenaHistoryFilter = arenaRoomFilter = "all";
+    ladderData = null;
+  }
+  syncArenaTabs();
   paintArenaSummary();
+  if (arenaTab.startsWith("ladder")) return renderLadder();
   loadSocial("page-arena", paintArena);
 }
+function arenaOwnSquad() {
+  return SAVE.squad.flatMap(id => SAVE.girls[id] ? [{ id, ...SAVE.girls[id] }] : []);
+}
 function paintArenaSummary() {
+  if (arenaTab.startsWith("ladder")) { paintLadderSummary(); return; }
   const arena = SAVE.arena || { wins: 0, played: 0 };
-  document.getElementById("arena-summary").innerHTML = `<div class="arena-metrics"><div><span>当前编队战力</span><b>${(SAVE.power || 0).toLocaleString()}</b></div><div><span>我的战力排名</span><b>${socialData?.power_rank || "未上榜"}</b></div><div><span>今日对战剩余</span><b>${Math.max(0, 5 - (SAVE.daily.arenaPlayed || 0))}<small> / 5</small></b></div><div><span>累计胜场</span><b>${arena.wins}<small> / ${arena.played}</small></b></div></div><p class="social-note">随机匹配或自定义房间，均需双方主动参与，战力差不超过较低方的 20%。随机匹配优先选择战力最接近的玩家，等待不会放宽范围。两种模式合计每天最多 5 场，北京时间零点刷新。</p>`;
+  const leader = GIRLS.find(g => g.id === SAVE.squad[0]);
+  document.getElementById("arena-summary").innerHTML = `<div class="arena-captain">
+    ${leader ? `<img src="${leader.img}" alt="${leader.name}">` : '<span class="arena-emblem" aria-hidden="true">✦</span>'}
+    <div><span class="social-kicker">我的竞技档案</span><strong>${esc(SITE_ACCOUNT?.name || "星霜旅人")}</strong><span>当前编队战力</span><b>${(SAVE.power || 0).toLocaleString()}</b></div></div>
+    <div class="arena-metrics"><div><span>战力排名</span><b>${socialData?.power_rank || "未上榜"}</b></div><div><span>今日剩余</span><b>${Math.max(0, 5 - (SAVE.daily.arenaPlayed || 0))}<small> / 5</small></b></div><div><span>累计胜场</span><b>${arena.wins}<small> / ${arena.played}</small></b></div><div><span>累计胜率</span><b>${arena.played ? Math.round(arena.wins / arena.played * 100) + "%" : "—"}</b></div></div>
+    <div class="arena-sidebar-squad"><span>当前出战阵容</span><div class="arena-squad">${arenaSquadHTML(arenaOwnSquad()) || '<p>尚未编队</p>'}</div></div>`;
 }
 function pickArenaTab(tab) {
-  if (!["queue", "rooms", "power", "history"].includes(tab)) return;
+  if (!["ladder", "ladder-board", "ladder-rewards", "ladder-records", "queue", "rooms", "power", "history"].includes(tab)) return;
   arenaTab = tab;
   renderArena();
 }
@@ -1222,12 +1248,15 @@ function arenaSquadHTML(squad) {
     return girl ? `<span title="${girl.name} · Lv${own.level} · ${own.star}星"><img src="${girl.img}" alt="${girl.name}" loading="lazy"><small>Lv${own.level}</small></span>` : "";
   }).join("");
 }
-function paintArena() {
-  paintArenaSummary();
+function syncArenaTabs() {
   document.querySelectorAll("[data-arena-tab]").forEach(b => {
     b.classList.toggle("active", b.dataset.arenaTab === arenaTab);
     b.setAttribute("aria-pressed", String(b.dataset.arenaTab === arenaTab));
   });
+}
+function paintArena() {
+  paintArenaSummary();
+  syncArenaTabs();
   const body = document.getElementById("arena-body");
   if (arenaTab === "rooms") {
     body.innerHTML = '<p class="social-empty" role="status">正在读取自定义大厅…</p>';
@@ -1240,25 +1269,73 @@ function paintArena() {
     return;
   }
   if (arenaTab === "history") {
-    const history = SAVE.arena?.history || [];
-    body.innerHTML = `<p class="social-note">最近 10 场对战 · 余额已结算，重看战报不会重复扣款</p><div class="arena-list">${history.map(m => {
-      const id = /^[0-9a-f-]{36}$/i.test(m.id) ? m.id : "";
-      return `<article class="arena-history"><strong class="${m.win ? "arena-win" : ""}">${m.win ? "胜利" : m.draw ? "平局" : "惜败"}</strong><div><b>${esc(m.name)}</b><p>${esc(new Date(m.played_at).toLocaleString("zh-CN"))}</p></div><b>${arenaDelta(m.delta_quota)}</b><button class="gbtn gbtn-sm" onclick="replayArena('${id}')"><span>看战报</span></button></article>`;
-    }).join("") || '<p class="social-empty">还没有对战记录，可加入匹配或自定义房间。</p>'}</div>`;
+    paintArenaHistory();
     return;
   }
-  body.innerHTML = `<div class="arena-list-head"><p>显示前 50 名 · 我的排名 ${socialData.power_rank || "未上榜"}</p><button type="button" class="social-refresh" onclick="renderArena()">刷新</button></div><div class="arena-list">${(socialData.power_board || []).map((entry, i) => {
+  paintArenaRanking();
+}
+function arenaBoard() {
+  return (socialData?.power_board || []).filter(entry => Number.isSafeInteger(entry.user_id) && entry.user_id > 0);
+}
+function paintArenaRanking() {
+  if (!Store.ready() || arenaTab !== "power") return;
+  const board = arenaBoard(), pages = Math.max(1, Math.ceil(board.length / arenaRankPageSize));
+  arenaRankPage = Math.max(0, Math.min(arenaRankPage, pages - 1));
+  document.getElementById("arena-body").innerHTML = `<div class="arena-section-heading"><div><p class="social-kicker">星霜群英</p><h3>战力风云榜</h3><p>展示当前编队战力前 50 名</p></div><button type="button" class="social-refresh" onclick="renderArena()">刷新榜单</button></div>
+    <div class="arena-podium">${board.slice(0, 3).map((entry, i) => {
+      const leader = GIRLS.find(g => g.id === entry.squad?.[0]?.id);
+      return `<button type="button" class="arena-podium-card podium-${i + 1}" onclick="${entry.user_id === Store.authUserId ? "nav('page-squad')" : `previewOpponent(${entry.user_id})`}" aria-label="第 ${i + 1} 名 ${esc(entry.name)}，查看阵容"><span class="arena-podium-place">0${i + 1}</span><span class="arena-podium-title">${["星霜之巅", "耀星之席", "逐光之席"][i]}</span>${leader ? `<img src="${leader.img}" alt="${leader.name}" loading="lazy">` : '<span class="arena-emblem" aria-hidden="true">✦</span>'}<strong>${esc(entry.name)}</strong><span>战力 <b>${entry.power.toLocaleString()}</b></span></button>`;
+    }).join("")}</div><div class="arena-list-head"><p>我的战力排名 <b>${socialData?.power_rank || "未上榜"}</b></p><button type="button" class="social-refresh" onclick="locateArenaRank()">定位我的排名</button></div>
+    <div class="arena-list">${board.slice(arenaRankPage * arenaRankPageSize, (arenaRankPage + 1) * arenaRankPageSize).map((entry, i) => {
     const id = Number(entry.user_id);
-    if (!Number.isSafeInteger(id) || id <= 0) return "";
     const self = id === Store.authUserId;
-    return `<article class="arena-row ${self ? "is-self" : ""}"><span class="arena-rank">${i + 1}</span><div class="arena-player"><strong>${esc(entry.name)}${self ? " · 我" : ""}</strong><p>战力 <b>${entry.power.toLocaleString()}</b></p><div class="arena-squad">${arenaSquadHTML(entry.squad)}</div></div><button class="gbtn gbtn-sm" onclick="${self ? "nav('page-squad')" : `previewOpponent(${id})`}"><span>${self ? "编队" : "查看阵容"}</span></button></article>`;
-  }).join("") || '<p class="social-empty">暂时没有其他玩家的可用阵容，稍后刷新看看。</p>'}</div><p class="social-note">战力综合当前编队的攻防、生命、速度、暴击与效果命中/抵抗；流派被动和技能搭配也会影响胜负。排行榜仅展示阵容，不能指定玩家发起对战。</p>`;
+    return `<article class="arena-row ${self ? "is-self" : ""}" ${self ? 'tabindex="-1" aria-label="我的排名"' : ""}><span class="arena-rank">${arenaRankPage * arenaRankPageSize + i + 1}</span><div class="arena-player"><strong>${esc(entry.name)}${self ? " · 我" : ""}</strong><p>战力 <b>${entry.power.toLocaleString()}</b></p><div class="arena-squad">${arenaSquadHTML(entry.squad)}</div></div><button class="gbtn gbtn-sm" onclick="${self ? "nav('page-squad')" : `previewOpponent(${id})`}"><span>${self ? "编队" : "查看阵容"}</span></button></article>`;
+  }).join("") || '<p class="social-empty">暂时没有玩家的可用阵容，稍后刷新看看。</p>'}</div>
+    <div class="arena-pagination"><button type="button" class="social-refresh" onclick="setArenaRankPage(${arenaRankPage - 1})" ${arenaRankPage === 0 ? "disabled" : ""}>上一页</button><span>第 ${arenaRankPage + 1} / ${pages} 页 · 当前展示 ${board.length} 人</span><button type="button" class="social-refresh" onclick="setArenaRankPage(${arenaRankPage + 1})" ${arenaRankPage + 1 >= pages ? "disabled" : ""}>下一页</button></div>
+    <p class="social-note">战力综合当前编队的攻防、生命、速度、暴击与效果命中/抵抗；流派被动和技能搭配也会影响胜负。排行榜仅展示阵容，不能指定玩家发起对战。</p>`;
+}
+function setArenaRankPage(page) {
+  if (!Number.isInteger(page)) return;
+  arenaRankPage = page;
+  paintArenaRanking();
+}
+function locateArenaRank() {
+  const index = arenaBoard().findIndex(entry => entry.user_id === Store.authUserId);
+  if (index < 0) return toast(socialData?.power_rank ? `你的战力排名为 ${socialData.power_rank}，当前榜单只展示前 50 名` : "保存出战阵容后即可参与战力排行");
+  setArenaRankPage(Math.floor(index / arenaRankPageSize));
+  const row = document.querySelector(".arena-row.is-self");
+  row?.focus({ preventScroll: true });
+  row?.scrollIntoView?.({ block: "nearest", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+}
+function setArenaHistoryFilter(filter) {
+  if (!["all", "win", "loss", "draw"].includes(filter)) return;
+  arenaHistoryFilter = filter;
+  paintArenaHistory();
+}
+function paintArenaHistory() {
+  if (!Store.ready() || arenaTab !== "history") return;
+  const history = SAVE.arena?.history || [];
+  const filtered = history.filter(m => arenaHistoryFilter === "all" || (arenaHistoryFilter === "win" ? m.win : arenaHistoryFilter === "draw" ? m.draw : !m.win && !m.draw));
+  const total = history.reduce((sum, m) => sum + (Number(m.delta_quota) || 0), 0);
+  document.getElementById("arena-body").innerHTML = `<div class="arena-section-heading"><div><p class="social-kicker">每场交锋 · 皆有回响</p><h3>我的战斗记录</h3><p>最近 ${history.length} 场 · ${history.filter(m => m.win).length} 胜 · 净变动 ${arenaDelta(total)}</p></div><button type="button" class="social-refresh" onclick="renderArena()">刷新战报</button></div>
+    <div class="arena-filters" role="group" aria-label="战报结果筛选">${[["all", "全部"], ["win", "胜利"], ["loss", "惜败"], ["draw", "平局"]].map(([key, label]) => `<button type="button" class="social-refresh" aria-pressed="${arenaHistoryFilter === key}" onclick="setArenaHistoryFilter('${key}')">${label}</button>`).join("")}</div>
+    <div class="arena-list">${filtered.map(m => {
+      const id = /^[0-9a-f-]{36}$/i.test(m.id) ? m.id : "";
+      return `<article class="arena-history"><strong class="${m.win ? "arena-win" : ""}">${m.win ? "胜利" : m.draw ? "平局" : "惜败"}</strong><div><span class="arena-record-label">我方编队 <span aria-hidden="true">⚔</span> 对手</span><b>${esc(m.name)}</b><p>${esc(new Date(m.played_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false }))} · 北京时间</p><span class="arena-record-label">本场 ${m.stake_e} E · 已结算</span></div><b>${arenaDelta(m.delta_quota)}</b><button class="gbtn gbtn-sm" ${id ? "" : "disabled"} onclick="replayArena('${id}')"><span>看战报</span></button></article>`;
+    }).join("") || `<div class="social-empty"><span class="arena-empty-emblem" aria-hidden="true">⚔</span><p>${history.length ? "最近的战报中没有此类结果。" : "你的第一场交锋，即将开启。"}</p>${history.length ? '<button class="social-refresh" onclick="setArenaHistoryFilter(\'all\')">查看全部战报</button>' : '<button class="gbtn gbtn-primary" onclick="pickArenaTab(\'queue\')"><span>前往匹配</span></button>'}</div>`}</div><p class="social-note">保留最近 10 场对战。回放使用当时的阵容和战斗记录，不消耗次数，也不会重复结算。</p>`;
 }
 function previewOpponent(id) {
   if (!requireGame()) return;
   const entry = socialData?.power_board?.find(x => x.user_id === id);
   if (!entry || id === Store.authUserId) return;
-  showModal(`<h3>玩家编队</h3><div class="social-confirm"><h4>${esc(entry.name)}</h4><p>编队战力 <b>${entry.power.toLocaleString()}</b></p><div class="arena-squad arena-preview">${arenaSquadHTML(entry.squad)}</div><p>仅查看阵容。对战需双方主动匹配，或进入同一房间并分别准备。</p></div><div class="modal-btns"><button class="gbtn gbtn-sm" onclick="closeModal()"><span>返回排行榜</span></button></div>`);
+  const power = SAVE.power || 0;
+  const compatible = power > 0 && Math.max(power, entry.power) * 5 <= Math.min(power, entry.power) * 6;
+  showModal(`<h3>阵容对照</h3><div class="social-confirm"><div class="arena-comparison"><section><p class="social-kicker">对方阵容</p><h4>${esc(entry.name)}</h4><p>编队战力 <b>${entry.power.toLocaleString()}</b></p><div class="arena-squad arena-preview">${arenaSquadHTML(entry.squad)}</div></section><section><p class="social-kicker">我的阵容</p><h4>${esc(SITE_ACCOUNT?.name || "星霜旅人")}</h4><p>编队战力 <b>${power.toLocaleString()}</b></p><div class="arena-squad arena-preview">${arenaSquadHTML(arenaOwnSquad()) || "尚未编队"}</div></section></div><p class="arena-compare-note">${!power ? "先配置出战阵容，再来切磋吧。" : compatible ? "双方战力在可匹配范围内，技能与搭配也会影响胜负。" : "双方战力差超过较低方的 20%，暂不符合对战条件。"}</p><p>仅查看阵容。对战需双方主动匹配，或进入同一房间并分别准备。</p></div><div class="modal-btns"><button class="gbtn gbtn-sm" onclick="closeModal()"><span>返回排行榜</span></button><button class="gbtn gbtn-sm gbtn-primary" onclick="closeModal();nav('page-squad')"><span>调整我的编队</span></button></div>`);
+}
+function showArenaRules() {
+  if (!requireGame()) return;
+  if (arenaTab.startsWith("ladder")) { showLadderRules(); return; }
+  showModal(`<h3>竞技场规则</h3><div class="arena-rules"><section><h4>01 · 选择对战方式</h4><p>随机匹配优先选择同金额、战力最接近的玩家；也可创建或加入公开房间，双方分别准备后开战。战力差不能超过较低方的 20%，等待不会放宽范围。</p></section><section><h4>02 · 出战阵容与次数</h4><p>随机匹配按入队时、房间按进入时保存阵容。两种模式合计每天最多 5 场，北京时间零点刷新。双方自动战斗，60 回合未分胜负判平局。</p></section><section><h4>03 · 余额与退出</h4><p>每场选择 1～5 E：胜利增加本场金额，失败扣除本场金额，平局退回预留余额。入队或确认房间准备时预留；创建和加入房间不扣款。</p><p>随机匹配等待最多 2 分钟，房间最多保留 5 分钟。开战前取消或超时会退款。离开页面不会立即取消排队或准备，仍可能开战。</p></section><section><h4>04 · 排行与战报</h4><p>战力榜展示当前编队前 50 名，可查看和对照阵容。排名不代表胜负，也不发放排名奖励。最近 10 场战报可重复观看，回放不再次扣款。</p></section></div><div class="modal-btns"><button class="gbtn gbtn-sm" onclick="closeModal()"><span>知道了</span></button></div>`);
 }
 function arenaDelta(quota) {
   const value = Number(quota) || 0;
@@ -1281,7 +1358,8 @@ function paintArenaQueue() {
   const limit = (SAVE.daily.arenaPlayed || 0) >= 5;
   const blocked = !socialData?.arena_enabled || !SAVE.squad.length || limit || available < arenaStake;
   const seconds = Math.min(120, Math.max(0, Math.ceil((arenaQueue.expire_at - Store.serverNow()) / 1000)));
-  document.getElementById("arena-body").innerHTML = `<div class="arena-queue">
+  const leader = !waiting && GIRLS.find(g => g.id === SAVE.squad[0]);
+  document.getElementById("arena-body").innerHTML = `<div class="arena-duel-banner"><div class="arena-duel-team">${leader ? `<img src="${leader.img}" alt="${leader.name}">` : '<span class="arena-emblem" aria-hidden="true">✦</span>'}<div><p class="social-kicker">${waiting ? "本场阵容已锁定" : "我的出战编队"}</p><h3>${esc(SITE_ACCOUNT?.name || "星霜旅人")}</h3><p>战力 <b>${(waiting ? arenaQueue.power : SAVE.power || 0).toLocaleString()}</b></p><span>${waiting ? "以入队时保存的阵容出战" : `${SAVE.squad.length} 位少女 · 准备交锋`}</span></div></div><span class="arena-versus" aria-hidden="true">VS</span><div class="arena-duel-target"><span class="arena-target-emblem" aria-hidden="true">◇</span><b>${waiting ? "寻找势均力敌的对手" : "下一位对手，静待相逢"}</b><span>同金额 · 战力差 ≤ 20%</span></div></div><div class="arena-queue">
     <div class="arena-queue-head"><div><p class="social-kicker">双方自愿 · 同金额匹配</p><h3>${waiting ? "正在等待对手" : "选择本场匹配金额"}</h3></div><div class="arena-available"><span>可用站点余额</span><b>${available.toFixed(4)} E</b></div></div>
     ${waiting ? `<div class="arena-wait" role="status"><strong>已预留 ${arenaQueue.stake_e} E</strong><p>${seconds > 0 ? `最多再等待 ${seconds} 秒` : "正在确认超时退款…"} · 使用入队时保存的阵容</p><p>入队战力 <b>${arenaQueue.power.toLocaleString()}</b> · 对手范围 <b>${arenaQueue.min_power.toLocaleString()}～${arenaQueue.max_power.toLocaleString()}</b></p><p>匹配成功后立即结算。取消需在匹配成功前生效。</p><button class="gbtn gbtn-primary" onclick="cancelArenaQueue()"><span>取消匹配并退款</span></button></div>` : `
     <div class="arena-stakes" role="group" aria-label="本场匹配金额">${[1,2,3,4,5].map(n => `<button type="button" aria-pressed="${arenaStake === n}" class="${arenaStake === n ? "selected" : ""}" onclick="setArenaStake(${n})"><b>${n}</b><span>E</span></button>`).join("")}</div>
@@ -1343,12 +1421,32 @@ async function cancelArenaQueue() {
 }
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopArenaPolling();
+  else if (Store.ready() && document.body.dataset.page === "page-arena" && arenaTab.startsWith("ladder")) renderArena();
   else if (Store.ready() && document.body.dataset.page === "page-arena" && arenaTab === "queue") refreshArenaQueue();
   else if (Store.ready() && document.body.dataset.page === "page-arena" && arenaTab === "rooms") refreshArenaRooms();
 });
 
 let arenaLobby = null;
 let roomStake = 1;
+function setArenaRoomFilter(filter) {
+  if (!["all", "compatible"].includes(filter)) return;
+  arenaRoomFilter = filter;
+  paintArenaRooms();
+}
+function arenaRoomCompatible(room) {
+  const power = SAVE.power || 0;
+  return power > 0 && Math.max(power, room.host_power) * 5 <= Math.min(power, room.host_power) * 6;
+}
+function arenaRoomCards(blocked) {
+  const rooms = arenaLobby.rooms.filter(room => arenaRoomFilter !== "compatible" || arenaRoomCompatible(room));
+  return rooms.map(room => {
+    const compatible = arenaRoomCompatible(room);
+    const entry = arenaBoard().find(player => player.user_id === room.host_id);
+    const leader = GIRLS.find(girl => girl.id === entry?.squad?.[0]?.id);
+    const roomID = /^[0-9a-f-]{36}$/i.test(room.id) ? room.id : "";
+    return `<article class="room-row arena-opponent-card ${compatible ? "is-compatible" : ""}"><div class="arena-opponent-top"><span class="arena-room-badge">${compatible ? "战力相近" : "战力超出范围"}</span><span>1 / 2 人</span></div><div class="arena-opponent-portrait">${leader ? `<img src="${leader.img}" alt="${leader.name}" loading="lazy">` : '<span class="arena-emblem" aria-hidden="true">✦</span>'}</div><h4>${esc(room.host_name)} 的房间</h4><p>入场战力 <b>${room.host_power.toLocaleString()}</b></p><strong class="arena-room-stake">${room.stake_e} <small>E / 场</small></strong><p class="arena-room-note">双方准备后开战 · 加入不扣款</p><button class="gbtn gbtn-sm" ${blocked || !compatible || !roomID ? "disabled" : ""} onclick="confirmJoinRoom('${roomID}')"><span>${!compatible ? "战力差超过20%" : "进入房间"}</span></button></article>`;
+  }).join("") || `<div class="social-empty"><span class="arena-empty-emblem" aria-hidden="true">◇</span><p>${arenaRoomFilter === "compatible" && arenaLobby.rooms.length ? "暂时没有战力相近的房间，可创建自己的房间等待对手。" : "暂时没有可加入的房间，创建一个等大家来吧。"}</p></div>`;
+}
 function setRoomStake(value) {
   if (!Number.isInteger(value) || value < 1 || value > 5) return;
   roomStake = value;
@@ -1360,7 +1458,7 @@ function paintArenaRooms() {
   const active = own?.status === "open";
   const body = document.getElementById("arena-body");
   const remaining = Math.max(0, 5 - (SAVE.daily.arenaPlayed || 0));
-  const signature = JSON.stringify([arenaLobby, roomStake, remaining, socialData?.arena_enabled]);
+  const signature = JSON.stringify([arenaLobby, roomStake, remaining, socialData?.arena_enabled, arenaRoomFilter, SAVE.power]);
   if (body.querySelector(".room-lobby") && body.dataset.roomSignature === signature) {
     const timer = body.querySelector("[data-room-time]");
     if (timer) timer.textContent = Math.max(0, Math.ceil((own.expire_at - Store.serverNow()) / 1000));
@@ -1375,11 +1473,7 @@ function paintArenaRooms() {
     const members = [[own.host_name, own.host_power, own.host_ready, "房主"], [own.guest_name || "等待玩家加入", own.guest_power, own.guest_ready, "挑战者"]];
     content = `<div class="room-current"><div class="arena-queue-head"><div><p class="social-kicker">我的房间 · ${own.stake_e} E 对战</p><h3>双方准备后自动开战</h3></div><span><b data-room-time>${Math.max(0, Math.ceil((own.expire_at - Store.serverNow()) / 1000))}</b> 秒后关闭</span></div><div class="room-members">${members.map(m => `<article><span>${m[3]}</span><h4>${esc(m[0])}</h4><p>战力 ${m[1] ? m[1].toLocaleString() : "—"}</p><strong>${m[2] ? `已准备 · 已预留 ${own.stake_e} E` : "未准备 · 未扣款"}</strong></article>`).join("")}</div><p>阵容按进入房间时锁定。胜利 +${own.stake_e} E，失败 −${own.stake_e} E。任一方在开战前退出，房间关闭，已预留金额全额退回。</p><div class="modal-btns"><button class="gbtn" onclick="roomAction('room_leave','${esc(own.id)}')"><span>退出房间</span><span class="sub">开战前退出退款</span></button><button class="gbtn gbtn-primary" ${ready || !own.guest_id ? "disabled" : ""} onclick="confirmRoomReady()"><span>${ready ? "已准备，等待对方" : !own.guest_id ? "等待第二位玩家" : "准备对战"}</span><span class="sub">${ready ? `已预留 ${own.stake_e} E` : `确认后预留 ${own.stake_e} E`}</span></button></div></div>`;
   } else {
-    content = `${own?.status === "cancelled" || own?.status === "expired" ? '<p class="arena-refunded">房间已关闭，双方已预留的金额均已退回。</p>' : ""}${own?.match ? `<div class="arena-last"><span>上场对战 ${arenaDelta(own.match.delta_quota)}</span><button class="social-refresh" onclick="replayArena('${esc(own.match.id)}')">查看战报</button></div>` : ""}<div class="room-create"><h3>创建公开房间</h3><div class="arena-stakes" role="group" aria-label="房间对战金额">${[1,2,3,4,5].map(n => `<button type="button" aria-pressed="${roomStake === n}" class="${roomStake === n ? "selected" : ""}" onclick="setRoomStake(${n})"><b>${n}</b><span>E</span></button>`).join("")}</div><button class="gbtn gbtn-primary" ${blocked ? "disabled" : ""} onclick="createArenaRoom()"><span>${arenaLobby.queued ? "请先取消随机匹配" : !socialData?.arena_enabled ? "对战暂未开放" : !remaining ? "今日对战次数已用完" : "创建 " + roomStake + " E 房间"}</span><span class="sub">创建和加入均不扣款</span></button></div><div class="arena-list-head"><h3>可加入的房间</h3><button class="social-refresh" onclick="refreshArenaRooms()">刷新大厅</button></div><div class="room-list">${arenaLobby.rooms.map(room => {
-      const power = SAVE.power || 0;
-      const compatible = power > 0 && Math.max(power, room.host_power) * 5 <= Math.min(power, room.host_power) * 6;
-      return `<article class="room-row"><div><h4>${esc(room.host_name)} 的房间</h4><p>战力 <b>${room.host_power.toLocaleString()}</b> · 1 / 2 人</p></div><strong>${room.stake_e} E</strong><button class="gbtn gbtn-sm" ${blocked || !compatible ? "disabled" : ""} onclick="confirmJoinRoom('${esc(room.id)}')"><span>${!compatible ? "战力差超过20%" : "进入房间"}</span></button></article>`;
-    }).join("") || '<p class="social-empty">暂时没有可加入的房间，创建一个等大家来吧。</p>'}</div>`;
+    content = `${own?.status === "cancelled" || own?.status === "expired" ? '<p class="arena-refunded">房间已关闭，双方已预留的金额均已退回。</p>' : ""}${own?.match ? `<div class="arena-last"><span>上场对战 ${arenaDelta(own.match.delta_quota)}</span><button class="social-refresh" onclick="replayArena('${esc(own.match.id)}')">查看战报</button></div>` : ""}<div class="room-create"><h3>创建公开房间</h3><div class="arena-stakes" role="group" aria-label="房间对战金额">${[1,2,3,4,5].map(n => `<button type="button" aria-pressed="${roomStake === n}" class="${roomStake === n ? "selected" : ""}" onclick="setRoomStake(${n})"><b>${n}</b><span>E</span></button>`).join("")}</div><button class="gbtn gbtn-primary" ${blocked ? "disabled" : ""} onclick="createArenaRoom()"><span>${arenaLobby.queued ? "请先取消随机匹配" : !socialData?.arena_enabled ? "对战暂未开放" : !remaining ? "今日对战次数已用完" : !SAVE.squad.length ? "请先编队" : "创建 " + roomStake + " E 房间"}</span><span class="sub">创建和加入均不扣款</span></button></div><div class="arena-list-head"><h3>寻找对手 <small>· ${arenaLobby.rooms.length} 个房间</small></h3><button class="social-refresh" onclick="refreshArenaRooms()">刷新大厅</button></div><div class="arena-filters" role="group" aria-label="房间筛选">${[["all", "全部房间"], ["compatible", "战力相近"]].map(([key, label]) => `<button type="button" class="social-refresh" aria-pressed="${arenaRoomFilter === key}" onclick="setArenaRoomFilter('${key}')">${label}</button>`).join("")}</div><div class="room-list arena-opponents">${arenaRoomCards(blocked)}</div>`;
   }
   body.innerHTML = `<div class="room-lobby"><div class="social-wallet"><span>可用余额 <b>${quotaToE(arenaLobby.quota)} E</b></span><span>今日剩余 ${remaining} / 5 场</span></div>${content}<p class="social-note">直接选择房间加入，无需房间码。战力差不超过较低方的20%；仅双方准备后对战。房间5分钟后自动关闭并退款，离开页面不会取消已确认的准备。</p></div>`;
 }
@@ -1428,6 +1522,7 @@ function showArenaResult(result) {
   if (!requireGame()) return;
   lastArenaResult = result;
   lastArenaEpoch = Store.sessionEpoch;
+  if (result.ladder) { showLadderResult(result); return; }
   showModal(`<h3>${result.win ? "对战胜利" : result.draw ? "对战平局" : "对战结束"}</h3><div class="social-confirm"><h4>${esc(result.name)}</h4><p>${result.win ? "你的队伍获胜，对方预留的余额已转入" : result.draw ? "60 回合未分胜负，双方预留金额已退回" : "对方队伍获胜，本场预留余额已转给对方"}</p><div class="arena-award">${arenaDelta(result.delta_quota)}<span>站点余额变动</span></div><p>本场金额 ${result.stake_e} E · ${result.report.rounds} 回合<br>余额已结算，重看战报不会再次扣款</p></div><div class="modal-btns"><button class="gbtn gbtn-sm" onclick="leaveArenaReplay()"><span>返回竞技场</span></button><button class="gbtn gbtn-sm gbtn-primary" onclick="watchArenaResult()"><span>观看战报</span></button></div>`);
 }
 async function replayArena(id) {
@@ -1446,6 +1541,8 @@ function watchArenaResult() {
   resumeBattle({ id: arena.id, arena, result: arena.report, ready_at: Store.serverNow() + arena.report.duration_ms });
 }
 function leaveArenaReplay() {
+  const ranked = lastArenaResult?.ladder;
   if (BAT?.arena) { BAT.abort = true; BAT = null; battleRunning = false; }
   closeModal(true); nav("page-arena");
+  if (!ranked) pickArenaTab("queue");
 }

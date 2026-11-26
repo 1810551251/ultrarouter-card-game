@@ -4,6 +4,10 @@ This repository contains **only the card game**, not the maintainer's website or
 
 Included: the browser game, 28 character definitions, game artwork, server-owned game rules, dungeon battles, progression, inventory, token shop, rankings, voluntary PvP matchmaking, custom rooms, and game regression tests.
 
+The ranked arena is a separate, free mode: register at the bottom of a ladder initially containing 100 NPC defenders, challenge a saved defense, and exchange positions when defeating a higher-ranked opponent. Five daily attempts reset at 05:00 Beijing time, with a ten-second cooldown between challenges. At 21:00 Beijing time, rank determines a daily material entitlement; players claim it into their game inventory. Saved defenses, rank changes, battle replays, offline settlement catch-up and claims are server-owned. Existing E matchmaking and custom rooms remain independent and do not change ladder ranks or consume ranked attempts.
+
+The interface includes opponent cards, lineup comparisons, defense snapshot updates, current/best rank, a top-three podium, ranking pages, attack/defense history, a settlement countdown, reward tiers and claim records. It retains the game's cream, navy and gold styling. The ranked arena requires the new game tables, routes and host-owned settlement worker described in `backend/INTEGRATION.md`; updating static files alone does not enable the backend feature. Sweeps, purchased attempts and first-rank milestone rewards are not part of this implementation.
+
 Not included: the website dashboard, account-management implementation, API-provider relay, QQ bot/binding system, payment platform, production deployment scripts, server addresses, credentials, real accounts, or database files.
 
 ## What Can Run Locally
