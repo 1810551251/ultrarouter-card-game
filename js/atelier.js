@@ -205,7 +205,10 @@ function atelierItemDetails(id) {
     return `<dl class="at-item-notes"><dt>品质</dt><dd data-artifact-quality="${grade.id}">${esc(grade.name)} · Lv.${refine.level} / ${refine.rank}阶</dd><dt>用途</dt><dd>${esc(item.use)}</dd><dt>效果</dt><dd>${esc(baseEffect)} 固有${WORKSHOP_STATS[refine.spec.stat]} +${refine.baseValue}，当前 +${refine.value}${refine.extraHp ? `，另加生命 ${refine.extraHp}` : ""}。</dd><dt>词条</dt><dd>${workshopGradeEffects(refine)}</dd><dt>来源</dt><dd>${esc(item.source)} 召唤品质概率 ${grade.weight/100}%。</dd></dl>`;
   }
   const upgrade = refine ? `<dt>精炼</dt><dd>${WORKSHOP_STATS[refine.spec.stat]}基础 +${refine.spec.base}，每级 +${refine.spec.step}；${refine.spec.effects.map(effect => `+${effect.level} ${esc(effect.name)}`).join("、")}。</dd>` : "";
-  return `<dl class="at-item-notes"><dt>用途</dt><dd>${esc(item.use)}</dd><dt>效果</dt><dd>${esc(item.effect)}</dd>${upgrade}<dt>来源</dt><dd>${esc(item.source)}</dd></dl>`;
+  const voyage = Store.profile?.voyage;
+  const supply = voyage?.resources?.map(key => voyage.stages[key]).find(point => point?.prize?.some(prize => prize.item === id));
+  const sail = supply && /^[a-z0-9_]+$/.test(supply.id) ? `<dt>定向获取</dt><dd><button type="button" class="harbor-link" onclick="closeModal(); openVoyage('resources','${supply.id}')">${esc(supply.name)} ›</button></dd>` : "";
+  return `<dl class="at-item-notes"><dt>用途</dt><dd>${esc(item.use)}</dd><dt>效果</dt><dd>${esc(item.effect)}</dd>${upgrade}<dt>来源</dt><dd>${esc(item.source)}</dd>${sail}</dl>`;
 }
 
 function atelierMaterialShelf(group) {

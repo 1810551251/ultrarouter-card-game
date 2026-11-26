@@ -9,8 +9,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = {
-    'index.html', 'style.css', 'mobile.css', 'package.json', 'package-lock.json',
-    '.gitignore',
+    'index.html', 'style.css', 'mobile.css', 'harbor.css', 'voyage.css', 'fleet.css', 'package.json', 'package-lock.json',
+    '.gitignore', '.gitattributes',
     'README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'ASSETS.md',
     'LICENSE', 'NOTICE', 'THIRD-PARTY-LICENSES.md', 'SOURCE.lock.json',
     'release-review.json', 'VALIDATION.md', 'AGENTS.md',
@@ -39,6 +39,11 @@ SCOPED_FILES = {
         'backend/model/gacha_vigil.go', 'backend/model/gacha_vigil.json', 'backend/model/gacha_vigil_test.go',
         'backend/model/gacha_dispatch.go', 'backend/model/gacha_dispatch_boards.go', 'backend/model/gacha_dispatch.json', 'backend/model/gacha_dispatch_test.go',
         'backend/model/gacha_cipher.go', 'backend/model/gacha_cipher_test.go',
+        'backend/model/gacha_captain.go', 'backend/model/gacha_captain_test.go',
+        'backend/model/gacha_voyage.go', 'backend/model/gacha_voyage_test.go',
+        'backend/model/gacha_voyage_sweep.go', 'backend/model/gacha_voyage_sweep_test.go',
+        'backend/model/gacha_fleet.go', 'backend/model/gacha_fleet_test.go',
+        'backend/model/gacha_festival.go', 'backend/model/gacha_festival.json', 'backend/model/gacha_festival_test.go',
         'backend/controller/gacha.go', 'backend/controller/gacha_authority_test.go',
         'backend/integration/gacha-routes.go.example', 'backend/integration/gacha-database.go.example',
     },
@@ -52,8 +57,9 @@ SCOPED_FILES = {
         'tests/refinement-check.js', 'tests/training-check.js',
         'tests/artifact-grades-check.js', 'tests/cases-check.js', 'tests/vigil-check.js', 'tests/dispatch-check.js', 'tests/cipher-check.js',
         'tests/test_release_privacy.py', 'tests/test_preview.py',
+        'tests/festival-check.js', 'tests/captain-check.js', 'tests/voyage-check.js', 'tests/fleet-check.js',
     },
-    'js': {'js/'+name+'.js' for name in ('config', 'store', 'data', 'ui', 'progression', 'atelier', 'carry', 'training', 'experience', 'cases', 'vigil', 'dispatch', 'cipher', 'workshop', 'battle', 'main')},
+    'js': {'js/'+name+'.js' for name in ('config', 'store', 'data', 'ui', 'progression', 'atelier', 'carry', 'training', 'experience', 'cases', 'vigil', 'dispatch', 'cipher', 'workshop', 'battle', 'captain', 'voyage', 'fleet', 'festival', 'main')},
     '.github': {'.github/workflows/game-checks.yml'},
 }
 IGNORED_PARTS = {'node_modules', 'dist', '__pycache__', '.git', '.local', '.cache'}

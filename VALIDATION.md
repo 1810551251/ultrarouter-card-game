@@ -1,5 +1,13 @@
 # Game-Only Export Validation
 
+## Harbor, Voyages And Guilds · 2026-11-27
+
+- Eleven focused DOM tests passed for the captain journal, Beijing meal boundaries, old responses, weekly event previews, dated participation, guild lists and rankings, mobile/desktop voyage routes, chest eligibility and sweep intents. The two shared browser regression harnesses use the script order from the shipped HTML.
+- Nineteen Python preview and release-boundary tests passed. The preview serves the new game styles but does not accept gameplay writes. The existing synthetic fixture matches were compared with the base revision before updating their exact LF file hashes.
+- A separate private loopback preview was exercised through its real HTML and scripts with images blocked. Its fixed example day shows all three meal states, the seven-day calendar, sample chapters, six resource routes and fleet boards. It is deliberately read-only, not a backend simulator, and is not included in the PR or game archive.
+- The local reference client completed ordinary sign-in, server selection, role login and sync. Only code, layout data and protocol event names were inspected; no pictures, account credentials or session data were published. This is reference verification, not a new Starfrost mobile build.
+- Changed Go files passed `gofmt` parsing. Added game-model and database-matrix cases cover captain caps and legacy levels, time windows and request replay, reward capacity, chapter progression, sweep limits, guild visibility and ranking backfill. **Go compilation and SQLite/MySQL/PostgreSQL execution require the compatible host module in the capped container and were not run on this Windows checkout.** No deployment or production data access.
+
 ## Workshop, Investigations And Seven Dispatch Desks — 2026-11-26
 
 - `npm test` passed: **93 server-UI checks and 104 Node tests/subtests**, no failures, skips or cancellations. The suites ran serially on one logical CPU, separately from the browser. Coverage includes Lv.0 ownership, the Lv.150 XP cap, material-only feeding, skill recovery and auto-spend, 12 effort stages, seven artifact qualities and dual growth axes, vigil, cases, all seven desks, ambiguous network results and receipt replay.

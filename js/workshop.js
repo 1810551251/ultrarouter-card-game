@@ -262,8 +262,8 @@ function workshopPortrait(girl, own) {
 }
 
 function workshopCardPanel(girl,own) {
-  const stats = finalStats(girl.id), maximum = typeof cardLevelCost === "function" ? cardLevelCost(own.level) : own.level < GROWTH.maxLevel ? Math.max(1,own.level)*GROWTH.expPerLevel : 0;
-  return `<aside class="ws-card-panel" data-workshop-portrait="${girl.id}">${workshopPortrait(girl,own)}<div class="ws-meter"><span>战力</span><b>${powerOf(girl.id).toLocaleString()}</b></div><div class="ws-card-xp"><small data-workshop-exp>${maximum ? `经验 ${(own.exp || 0).toLocaleString()} / ${maximum.toLocaleString()}` : "经验 · 已满级"}</small><progress aria-label="本级经验" max="${maximum || 1}" value="${maximum ? own.exp || 0 : 1}"></progress></div><dl class="ws-card-values">${Object.entries({hp:"生命",atk:"攻击",def:"防御",spd:"速度",cr:"暴击",cd:"暴伤"}).map(([key,label]) => `<div><dt>${label}</dt><dd>${(stats[key] || 0).toLocaleString()}${key === "cr" || key === "cd" ? "%" : ""}</dd></div>`).join("")}</dl></aside>`;
+  const stats = finalStats(girl.id), maximum = own.level < cardLevelLimit() ? cardLevelCost(own.level) : 0;
+  return `<aside class="ws-card-panel" data-workshop-portrait="${girl.id}">${workshopPortrait(girl,own)}<div class="ws-meter"><span>战力</span><b>${powerOf(girl.id).toLocaleString()}</b></div><div class="ws-card-xp"><small data-workshop-exp>${maximum ? `经验 ${(own.exp || 0).toLocaleString()} / ${maximum.toLocaleString()}` : `已达卡级上限 Lv.${cardLevelLimit()}`}</small><progress aria-label="本级经验" max="${maximum || 1}" value="${maximum ? own.exp || 0 : 1}"></progress></div><dl class="ws-card-values">${Object.entries({hp:"生命",atk:"攻击",def:"防御",spd:"速度",cr:"暴击",cd:"暴伤"}).map(([key,label]) => `<div><dt>${label}</dt><dd>${(stats[key] || 0).toLocaleString()}${key === "cr" || key === "cd" ? "%" : ""}</dd></div>`).join("")}</dl></aside>`;
 }
 
 function workshopSquadButton(id) {

@@ -1,0 +1,115 @@
+body[data-page="page-stage"][data-voyage="open"] #topbar,
+body[data-page="page-stage"][data-voyage="open"] #navbar,
+body[data-page="page-stage"][data-voyage="open"] #page-stage > :not(#voyage-map) { display:none; }
+body[data-page="page-stage"][data-voyage="open"] #app { width:100%; max-width:none; height:100%; }
+body[data-page="page-stage"][data-voyage="open"] #pages { width:100%; padding:0; overflow:hidden; }
+body[data-page="page-stage"][data-voyage="open"] #page-stage.active { display:block; width:100%; height:100%; margin:0; padding:0; }
+#voyage-map:not([hidden]) { display:block; position:relative; isolation:isolate; height:100%; width:100%; overflow:hidden; color:#f1f6f5; font-size:14px; }
+#voyage-map { --sea:#244b55; --trench:#152c40; --island:#4d7568; --coast:#98b797; --sand:#f6d38c; --mist:#bad8db; }
+#voyage-map[data-region="1"] { --sea:#516769; --trench:#283540; --island:#a38462; --coast:#d9bd81; }
+#voyage-map[data-region="2"] { --sea:#386977; --trench:#213d59; --island:#68899a; --coast:#afd4ca; }
+#voyage-map[data-region="3"] { --sea:#40566e; --trench:#252e46; --island:#697689; --coast:#bbc7c4; }
+.voy-map-frame { position:absolute; inset:0; display:grid; grid-template: auto auto minmax(0,1fr) auto / minmax(0,1fr); padding:max(14px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(15px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left)); background:repeating-linear-gradient(0deg,transparent 0 47px,#c0d8d80c 47px 48px),repeating-linear-gradient(90deg,transparent 0 47px,#c0d8d80c 47px 48px),linear-gradient(145deg,var(--trench),var(--sea) 49%,var(--trench)); }
+.voy-map-frame::before { content:""; pointer-events:none; position:absolute; inset:5px; border:1px solid #b8d5d236; }
+#voyage-map button { appearance:none; font:inherit; color:inherit; cursor:pointer; }
+#voyage-map button:focus-visible { outline:3px solid #fff1a7; outline-offset:3px; }
+.voy-head { display:flex; align-items:center; gap:12px; position:relative; z-index:2; }
+.voy-back,.voy-arrows button { min-width:42px; min-height:42px; background:#142e3ce8; border:1px solid #c4ba8b; border-radius:4px; color:var(--sand)!important; }
+#voyage-map .voy-back { font-size:23px; }
+.voy-heading { min-width:0; }
+.voy-heading small { display:block; color:var(--mist); font-size:12px; }
+#voyage-map .voy-heading h2 { margin:2px 0 0; padding:0; border:0; font-size:23px; color:#fff3cc; letter-spacing:0; text-shadow:0 2px 5px #102739; }
+.voy-wallet { align-self:flex-start; display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-left:auto; }
+.voy-wallet > * { display:inline-flex; align-items:center; gap:5px; border:1px solid #b5c9bd78; background:#112b38e8; padding:7px 10px; border-radius:3px; color:#d3e4df; font-size:13px; }
+.voy-wallet b { color:var(--sand); font-variant-numeric:tabular-nums; }
+.voy-port-nav { display:flex; flex-wrap:wrap; gap:2px; justify-self:start; margin:12px 0 0; border-bottom:1px solid #a4c2bd7d; }
+.voy-port-nav button,.voy-difficulties button { min-height:38px; background:transparent; border:0; border-bottom:2px solid transparent; padding:6px 13px; }
+.voy-port-nav button[aria-pressed="true"],.voy-difficulties button[aria-pressed="true"] { background:#102a36b8; border-color:var(--sand); color:#ffe5a0!important; font-weight:bold; }
+.voy-chart { position:relative; min-width:0; min-height:0; }
+.voy-waters { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+.voy-route-lines { stroke:#b5cecc; stroke-width:2; stroke-dasharray:5 7; fill:none; opacity:.85; }
+.voy-route-lines .sailed { stroke:#ffe5a1; stroke-width:2.7; stroke-dasharray:none; }
+.voy-waters .shelf { fill:var(--island); stroke:var(--coast); stroke-width:3; paint-order:stroke; }
+.voy-waters .inland { fill:var(--island); stroke:var(--coast); stroke-opacity:.65; stroke-width:1; }
+#voy-peaks path { fill:none; stroke:var(--coast); stroke-width:2; opacity:.75; }
+.voy-compass { position:absolute; right:0; top:0; display:grid; place-content:center; width:55px; height:55px; border:1px solid #bbcab166; border-radius:50%; color:#c2ccb69c; font:37px Georgia,serif; text-align:center; pointer-events:none; }
+.voy-compass small { position:absolute; inset:1px 0 auto; font:bold 9px Georgia,serif; }
+.voy-landmark { position:absolute; left:48%; top:50%; display:grid; justify-items:center; transform:translate(-50%,-50%); padding:5px 14px; color:#d2e2d4b5; font-size:14px; }
+.voy-landmark svg { width:52px; height:42px; fill:none; stroke:currentColor; stroke-width:1.4; stroke-linejoin:round; stroke-linecap:round; }
+#voyage-map .voy-node { position:absolute; z-index:1; left:var(--vx); top:var(--vy); transform:translate(-50%,-45%); display:grid; justify-items:center; align-content:center; gap:2px; border:0; background:transparent; min-width:65px; max-width:120px; min-height:46px; padding:1px; }
+.voy-node-marker { display:grid; place-items:center; width:31px; height:31px; border:2px solid #f7db91; border-radius:50%; background:#25525a; box-shadow:0 0 0 3px #162e3b99; color:#fff2b8; font-size:17px; font-weight:bold; }
+.voy-node b,.voy-node small { background:#152d3ce8; color:#f6f4e2; padding:2px 7px; border-radius:2px; font-size:13px; line-height:1.2; }
+.voy-node small { padding:0 5px; color:#ffda86; font-size:11px; }
+.voy-node.is-locked .voy-node-marker { background:#34454f; color:#c7d1cd; border-color:#9cada7; }
+.voy-node.is-next .voy-node-marker { box-shadow:0 0 0 4px #f2c16c75,0 0 0 7px #e9c77a38; }
+.voy-node:hover b,.voy-node:focus-visible b { background:#38483c; color:#ffe69c; }
+.voy-arrows { position:absolute; z-index:2; top:44%; left:-11px; display:grid; gap:5px; }
+#voyage-map .voy-arrows button { min-width:32px; min-height:36px; font-size:24px; line-height:1; }
+.voy-foot { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
+.voy-difficulties,.voy-chests,.voy-legend { background:#102735f0; border:1px solid #b7c0a6a1; border-radius:4px; }
+.voy-difficulties { display:flex; align-items:center; padding:2px; }
+.voy-difficulties button { display:inline-flex; align-items:center; gap:6px; }
+.voy-difficulties i { font:17px Georgia,serif; color:#f0d088; }
+.voy-chests { min-width:245px; padding:6px 10px; }
+.voy-chests > div,.voy-chests nav { display:flex; align-items:center; justify-content:space-between; gap:4px; }
+.voy-chests > div { color:#fbe1a0; font-size:13px; }
+.voy-chests nav { margin-block:4px; }
+#voyage-map .voy-chests button { display:inline-flex; align-items:center; justify-content:center; flex:1; gap:3px; min-height:32px; padding:3px 4px; border:1px solid #768885; background:#293f49; border-radius:2px; font-size:12px; }
+.voy-chests button small { font-size:10px; }
+#voyage-map .voy-chests button.is-ready { color:#ffe4a0; border-color:#f1cd7d; background:#4a4736; }
+.voy-chests progress { display:block; width:100%; height:4px; accent-color:var(--sand); }
+.voy-port-label,.voy-legend { padding:8px 12px; }
+.voy-legend { display:grid; gap:3px; font-size:12px; }
+.voy-legend strong { color:var(--sand); }
+.voy-status:not(:empty) { position:absolute; left:50%; bottom:16%; transform:translateX(-50%); max-width:85%; background:#132937f5; border:1px solid #d7c896; border-radius:4px; padding:7px 12px; text-align:center; z-index:3; }
+#modal-box .voy-detail { color:#2b3641; font-size:14px; line-height:1.55; }
+.voy-detail header,.voy-meta,.voy-drop-grid { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.voy-detail header { justify-content:space-between; }
+.voy-detail h4 { font-size:15px; margin:12px 0 3px; color:#31485e; }
+.voy-detail p { margin-block:4px; }
+.voy-meta { color:#36555d; border-block:1px solid #c6bba9; padding:6px 0; }
+.voy-prize { display:inline-block; margin:2px 3px 2px 0; padding:2px 6px; background:#f1e0bd; color:#463820; border:1px solid #d2bd91; border-radius:2px; }
+.voy-milestones { margin-top:8px; border-top:1px solid #c7b99f; padding-top:4px; }
+.voy-sweep { margin-top:10px; padding:4px 0 6px; border-block:1px solid #c5baa5; }
+.voy-sweep-buttons { display:flex; gap:6px; flex-wrap:wrap; }
+.voy-sweep small { color:#694c32; }
+.voy-detail .voy-gate:not(:empty) { border-left:3px solid #9e7440; padding-left:8px; color:#694c32; }
+.voy-legacy-loot .sd-info { padding:0; }
+.voy-legacy-loot .sd-title,.voy-legacy-loot .sd-desc { display:none; }
+.voy-result { text-align:center; color:#39535f; font-weight:700; }
+@media (max-width:650px) and (orientation:portrait) {
+  .voy-map-frame { padding:max(9px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom)); }
+  .voy-head { flex-wrap:wrap; gap:5px 8px; }
+  .voy-wallet { align-self:center; gap:3px; justify-content:flex-end; }
+  .voy-wallet > * { padding:5px 4px; font-size:11px!important; gap:2px; }
+  #voyage-map .voy-heading h2 { font-size:18px; }
+  .voy-heading small { font-size:10px; }
+  .voy-back { min-width:34px; min-height:36px; }
+  .voy-port-nav { margin-top:5px; }
+  .voy-port-nav button { min-height:34px; padding:5px 11px; font-size:13px!important; }
+  .voy-landmark { font-size:11px; padding:3px 6px; }
+  .voy-landmark svg { width:29px; height:23px; }
+  .voy-arrows { left:-6px; }
+  #voyage-map .voy-arrows button { min-width:27px; }
+  .voy-compass { width:35px; height:35px; font-size:25px; }
+  .voy-foot { align-items:stretch; gap:4px; }
+  .voy-difficulties { flex-direction:column; justify-content:space-between; }
+  .voy-difficulties button { font-size:12px!important; gap:3px; min-height:24px; padding:2px 6px; }
+  .voy-chests { flex:1; min-width:0; align-self:end; padding:6px; }
+  .voy-port-label { font-size:11px; }
+  .voy-legend { flex:1; align-content:center; }
+  .voy-node b { font-size:12px; }
+}
+@media (orientation:landscape) and (max-height:520px), (max-width:650px) and (max-height:530px) {
+  .voy-map-frame { padding:5px 11px; }
+  .voy-head { gap:7px; }
+  .voy-back { min-width:30px; min-height:30px; }
+  #voyage-map .voy-heading h2 { font-size:16px; }
+  .voy-heading small,.voy-node small { font-size:10px; }
+  .voy-port-nav { margin-top:2px; }
+  .voy-port-nav button,.voy-difficulties button { min-height:26px; padding:2px 7px; }
+  .voy-node-marker { height:20px; width:20px; font-size:12px; }
+  .voy-node b { font-size:11px; }
+  .voy-chests { padding:3px 6px; }
+  #voyage-map .voy-chests button { min-height:22px; }
+}

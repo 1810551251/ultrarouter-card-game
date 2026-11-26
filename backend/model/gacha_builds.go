@@ -211,10 +211,7 @@ func applyGachaCultivationAction(state *GachaGameState, intent GachaActionIntent
 		}
 		material, cost = gachaCatalog.MatByRarity[girl.Rarity], gachaCultivation.PotentialMats[node]
 	case "use_manual":
-		if own.Level >= gachaCatalog.Growth.MaxLevel {
-			return ErrGachaCultivationLocked
-		}
-		material, cost = "training_manual", 1
+		return applyGachaFeed(state, GachaActionIntent{Action: "card_feed", GirlID: intent.GirlID, Materials: map[string]int{"training_manual": 1}}, result)
 	default:
 		return ErrGachaIntent
 	}
@@ -232,11 +229,6 @@ func applyGachaCultivationAction(state *GachaGameState, intent GachaActionIntent
 	case "potential_unlock":
 		own.Potential++
 		description = fmt.Sprintf("潜能 %d 阶", own.Potential)
-	case "use_manual":
-		if err := awardGachaExperience(state, []string{girl.ID}, gachaCultivation.ManualXP); err != nil {
-			return err
-		}
-		description = fmt.Sprintf("历练手记 · 经验 +%d", gachaCultivation.ManualXP)
 	}
 	state.Mats[material] -= cost
 	result.Drops = append(result.Drops, girl.Name+" · "+description)

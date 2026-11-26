@@ -250,6 +250,8 @@ func settleGachaVigil(state *GachaGameState, stage *GachaStage, snapshot *GachaR
 	if !result.Win || snapshot.Mode != "" {
 		return
 	}
+	point := gachaVoyage.Stages[stage.ID]
+	campaign := stage.RelicTier == 0 && (point == nil || point.Kind != "resources")
 	for _, id := range snapshot.Squad {
 		signed, ok := snapshot.Witnesses[id]
 		own := state.Girls[id]
@@ -266,7 +268,7 @@ func settleGachaVigil(state *GachaGameState, stage *GachaStage, snapshot *GachaR
 		} else if v.Strain > 0 {
 			v.Strain--
 		}
-		met := v.Path == "lantern" && stage.RelicTier == 0 || v.Path == "tide" && stage.RelicTier > 0 || v.Path == "ward" && report.TotalN > 0 && report.AliveN == report.TotalN
+		met := v.Path == "lantern" && campaign || v.Path == "tide" && stage.RelicTier > 0 || v.Path == "ward" && report.TotalN > 0 && report.AliveN == report.TotalN
 		if !met || state.Daily.VigilMarks[id] >= gachaVigil.DailyLimit || v.Marks >= gachaVigil.Ranks[len(gachaVigil.Ranks)-1].Marks {
 			continue
 		}

@@ -11,6 +11,7 @@ import (
 func RegisterGachaRoutes(selfRoute *gin.RouterGroup) {
 	selfRoute.GET("/gacha/profile", middleware.DisableCache(), controller.GetGachaProfile)
 	selfRoute.GET("/gacha/social", middleware.DisableCache(), controller.GetGachaSocial)
+	selfRoute.GET("/gacha/fleet", middleware.DisableCache(), middleware.UserBurstRateLimit("gacha-fleet", 60, 60), controller.GetGachaFleet)
 	selfRoute.GET("/gacha/arena/replay", middleware.DisableCache(), controller.GetGachaArenaReplay)
 	selfRoute.GET("/gacha/arena/queue", middleware.DisableCache(), controller.GetGachaArenaQueue)
 	selfRoute.GET("/gacha/arena/rooms", middleware.DisableCache(), controller.GetGachaArenaRooms)

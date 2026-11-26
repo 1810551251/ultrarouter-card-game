@@ -111,8 +111,8 @@ function harness(t, { signedIn = true, responder, url = "https://example.test/ga
     });
   };
   w.addEventListener("error", event => errors.push(event.message));
-  const files = ["config.js", "store.js", "data.js", "ui.js", "progression.js", "atelier.js", "training.js", "experience.js", "vigil.js", "cases.js", "cipher.js", "dispatch.js", "carry.js", "workshop.js", "battle.js", "main.js"];
-  w.eval(files.map(file => fs.readFileSync(path.join(root, "js", file), "utf8")).join("\n;\n") + `
+  const files = [...w.document.querySelectorAll('script[src^="js/"]')].map(script => script.getAttribute("src").split("?")[0]);
+  w.eval(files.map(file => fs.readFileSync(path.join(root, file), "utf8")).join("\n;\n") + `
     window.__authority = { Store, SITE, nav, doGacha, levelUp, starUp, toggleSquad, unslot, toggleMulti,
       openGirl, pickChapter, pickStage, openWarehouse, startBattle, resumeBattle, exitBattle, recoverBattle,
       closeModal, retryGameAction, onSiteSessionEvent, battleEnd, syncSiteAccount,

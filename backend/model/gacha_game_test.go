@@ -112,6 +112,13 @@ func gachaState(t *testing.T, id int, now time.Time) *model.GachaGameState {
 
 func seedGachaState(t *testing.T, id int, state *model.GachaGameState) {
 	t.Helper()
+	if state.Captain != nil {
+		for _, card := range state.Girls {
+			if card != nil && card.Star > 0 {
+				state.Captain.Level = max(state.Captain.Level, card.Level, card.PeakLevel)
+			}
+		}
+	}
 	var player model.GachaPlayer
 	require.NoError(t, model.DB.Select("state").Where("user_id = ?", id).First(&player).Error)
 	document := struct {
@@ -281,6 +288,9 @@ func TestGachaAuthorityDatabaseMatrix(t *testing.T) {
 				assert.Equal(t, legacyPlayer.Revision, migratedPlayer.Revision)
 				assert.Equal(t, legacyPlayer.UpdatedAt, migratedPlayer.UpdatedAt)
 				assert.Positive(t, migratedPlayer.Power)
+				assert.True(t, migratedPlayer.FleetIndexed)
+				assert.Equal(t, 4, migratedPlayer.CollectionCount)
+				assert.Zero(t, migratedPlayer.FleetMembers)
 				assert.Zero(t, migratedPlayer.ArenaPoints)
 				largeJSON, err := common.Marshal(map[string]string{"payload": strings.Repeat("x", 100*1024)})
 				require.NoError(t, err)
@@ -385,7 +395,7 @@ func TestGachaAuthorityDatabaseMatrix(t *testing.T) {
 
 			t.Run("anonymous_and_PAT_rejected_before_any_game_mutation", func(t *testing.T) {
 				user := gachaUser(t)
-				for _, handler := range []gin.HandlerFunc{controller.GetGachaProfile, controller.ApplyGachaAction, controller.StartGachaRun, controller.FinishGachaRun, controller.GetGachaWarehouse, controller.ActivateGachaCard, controller.GetGachaSocial, controller.GetGachaArenaReplay, controller.GetGachaArenaQueue, controller.GetGachaArenaRooms} {
+				for _, handler := range []gin.HandlerFunc{controller.GetGachaProfile, controller.ApplyGachaAction, controller.StartGachaRun, controller.FinishGachaRun, controller.GetGachaWarehouse, controller.ActivateGachaCard, controller.GetGachaSocial, controller.GetGachaFleet, controller.GetGachaArenaReplay, controller.GetGachaArenaQueue, controller.GetGachaArenaRooms} {
 					for _, id := range []int{0, user.Id} {
 						response := gachaRequest(t, id, false, handler, map[string]any{})
 						assert.Equal(t, http.StatusForbidden, response.Code)
@@ -628,6 +638,10 @@ func TestGachaAuthorityDatabaseMatrix(t *testing.T) {
 					_, err := model.StartGachaRun(user.Id, stage, uuid.NewString(), clock)
 					require.ErrorIs(t, err, model.ErrGachaLocked, stage)
 					state.Cleared[previous] = true
+					if stage == "s7" || stage == "s10" {
+						previousChart := map[string]string{"s7": "v2s5", "s10": "v3s5"}[stage]
+						state.Cleared[previousChart] = true
+					}
 					seedGachaState(t, user.Id, state)
 					run, err := model.StartGachaRun(user.Id, stage, uuid.NewString(), clock)
 					require.NoError(t, err, stage)
@@ -689,6 +703,54 @@ func TestGachaAuthorityDatabaseMatrix(t *testing.T) {
 					require.NoError(t, model.DB.First(&wallet, user.Id).Error)
 					assert.Equal(t, user.Quota+result.Quota, wallet.Quota)
 				}
+			})
+
+			t.Run("voyage_supply_and_star_chest_share_existing_transaction_and_receipts", func(t *testing.T) {
+				user := gachaUser(t)
+				clock := time.Date(2026, 11, 27, 10, 0, 0, 0, time.FixedZone("game", 8*3600))
+				state := gachaState(t, user.Id, clock)
+				strongGachaState(state)
+				state.Cleared["s1"] = true
+				state.Stars["s1"], state.Stars["s5"], state.Stars["s2"] = 3, 3, 2
+				state.MultiOn, state.Multi = true, 2
+				seedGachaState(t, user.Id, state)
+				key := "c1-story-1"
+				claim := model.GachaActionIntent{Action: "voyage_chest", ItemID: &key, RequestID: uuid.NewString()}
+				chest, err := model.ApplyGachaAction(user.Id, claim, clock)
+				require.NoError(t, err)
+				require.True(t, chest.Save.VoyageClaims[key])
+				repeatChest, err := model.ApplyGachaAction(user.Id, claim, clock)
+				require.NoError(t, err)
+				assert.Equal(t, chest, repeatChest)
+				claim.RequestID = uuid.NewString()
+				_, err = model.ApplyGachaAction(user.Id, claim, clock)
+				require.ErrorIs(t, err, model.ErrGachaVoyageChest)
+				for attempt := 1; attempt <= 3; attempt++ {
+					requestID := uuid.NewString()
+					run, err := model.StartGachaRun(user.Id, "res_manifest", requestID, clock)
+					require.NoError(t, err)
+					assert.Equal(t, attempt, run.Save.Daily.VoyageAttempts[run.Stage])
+					assert.Equal(t, 2, run.Save.Multi)
+					again, err := model.StartGachaRun(user.Id, "res_manifest", requestID, clock)
+					require.NoError(t, err)
+					assert.Equal(t, run, again)
+					clock = time.UnixMilli(run.ReadyAt + 1)
+					out, err := model.FinishGachaRun(user.Id, run.ID, attempt != 1, clock)
+					require.NoError(t, err)
+					require.Equal(t, attempt == 1, out.Win)
+					assert.Equal(t, 2, out.Save.Mats["field_notes"], "only the first winning run grants materials")
+					assert.Zero(t, out.Quota)
+					assert.Nil(t, out.Card)
+					assert.Equal(t, user.Quota, out.WalletQuota)
+					finished, err := model.FinishGachaRun(user.Id, run.ID, false, clock)
+					require.NoError(t, err)
+					assert.Equal(t, out, finished)
+				}
+				_, err = model.StartGachaRun(user.Id, "res_manifest", uuid.NewString(), clock)
+				require.ErrorIs(t, err, model.ErrGachaVoyageLimit)
+				next, err := model.StartGachaRun(user.Id, "res_manifest", uuid.NewString(), clock.Add(24*time.Hour))
+				require.NoError(t, err)
+				assert.Equal(t, 1, next.Save.Daily.VoyageAttempts[next.Stage])
 			})
 
 			t.Run("runs_past_twenty_require_stamina_and_abandon_never_pays", func(t *testing.T) {
@@ -1640,6 +1702,9 @@ func TestGachaAuthorityDatabaseMatrix(t *testing.T) {
 				require.NoError(t, model.ExpireGachaArenaSeats(context.Background(), now.Add(24*time.Hour+model.GachaArenaQueueTTL)))
 			})
 
+			t.Run("fleet_boards_backfill_and_cooperative_rewards", func(t *testing.T) { testGachaFleetDatabase(t, now) })
+			t.Run("voyage_sweeps_share_challenge_limits_without_replaying_rewards", func(t *testing.T) { testGachaVoyageSweepDatabase(t, now) })
+
 			t.Run("rankings_are_current_stable_public_snapshots_and_exclude_disabled_players", func(t *testing.T) {
 				user, other := gachaUser(t), gachaUser(t)
 				for _, id := range []int{user.Id, other.Id} {
@@ -2243,6 +2308,34 @@ func TestGachaAuthorityDatabaseMatrix(t *testing.T) {
 			})
 
 			runGachaProgressionMatrix(t, now)
+			t.Run("captain_supplies_are_idempotent_and_survive_profile_reload_and_spending", func(t *testing.T) {
+				user := gachaUser(t)
+				when := time.Date(2026, 11, 27, 1, 0, 0, 0, time.UTC)
+				tag := "2026-11-27:morning"
+				intent := model.GachaActionIntent{Action: "captain_supply", ItemID: &tag, RequestID: uuid.NewString()}
+				out, err := model.ApplyGachaAction(user.Id, intent, when)
+				require.NoError(t, err)
+				assert.Equal(t, 150, out.Save.Stamina)
+				replayed, err := model.ApplyGachaAction(user.Id, intent, when)
+				require.NoError(t, err)
+				assert.Equal(t, out, replayed)
+				intent.RequestID = uuid.NewString()
+				_, err = model.ApplyGachaAction(user.Id, intent, when)
+				require.ErrorIs(t, err, model.ErrGachaCaptainClaim)
+				state := gachaState(t, user.Id, when.Add(time.Hour))
+				assert.Equal(t, 150, state.Stamina)
+				run, err := model.StartGachaRun(user.Id, "s1", uuid.NewString(), when.Add(time.Hour))
+				require.NoError(t, err)
+				assert.Equal(t, 148, run.Save.Stamina)
+				assert.True(t, run.Save.Daily.CaptainLog.Supplies["morning"])
+				next := when.AddDate(0, 0, 1)
+				_, err = model.ApplyGachaAction(user.Id, intent, next)
+				require.ErrorIs(t, err, model.ErrGachaCaptainClaim)
+				tag = "2026-11-28:morning"
+				fresh, err := model.ApplyGachaAction(user.Id, intent, next)
+				require.NoError(t, err)
+				assert.Equal(t, 178, fresh.Save.Stamina)
+			})
 			t.Run("dispatch_clock_and_case_retries_do_not_repeat_awards", func(t *testing.T) {
 				user := gachaUser(t)
 				profile, err := model.GetGachaProfile(user.Id, now)

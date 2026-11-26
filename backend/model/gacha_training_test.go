@@ -30,7 +30,7 @@ func TestGachaTrainingAllGradeStepsAndNoPartialSpending(t *testing.T) {
 		require.Len(t, grade.PlusLevels, grade.MaxPlus)
 		for step := 1; step <= grade.MaxPlus; step++ {
 			for own.Level < grade.PlusLevels[step-1] {
-				require.NoError(t, trainGachaLevel(own, gachaLevelCost(own.Level)))
+				require.NoError(t, trainGachaLevel(own, gachaLevelCost(own.Level), gachaCatalog.Growth.MaxLevel))
 			}
 			level, xp := own.Level, own.Exp
 			ink, seals := state.Mats["training_ink"], state.Mats["break_seal"]
@@ -50,7 +50,7 @@ func TestGachaTrainingAllGradeStepsAndNoPartialSpending(t *testing.T) {
 			if own.Level < next.Level {
 				require.ErrorIs(t, applyGachaTrainingAction(state, intent, &GachaActionResult{}), ErrGachaCultivationLocked)
 				for own.Level < next.Level {
-					require.NoError(t, trainGachaLevel(own, gachaLevelCost(own.Level)))
+					require.NoError(t, trainGachaLevel(own, gachaLevelCost(own.Level), gachaCatalog.Growth.MaxLevel))
 				}
 			}
 			state.Mats["break_seal"] = (completed+1)/3 - 1

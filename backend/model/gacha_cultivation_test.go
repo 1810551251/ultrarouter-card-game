@@ -460,6 +460,7 @@ func runGachaCultivationMatrix(t *testing.T, now time.Time) {
 	t.Run("cultivation_training_manual_for_one_owned_card", func(t *testing.T) {
 		user := gachaUser(t)
 		state := gachaState(t, user.Id, now)
+		state.Captain.Level = 4
 		state.Squad = []string{"c08"}
 		state.Mats["training_manual"] = 2
 		seedGachaState(t, user.Id, state)

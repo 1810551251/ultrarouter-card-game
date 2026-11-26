@@ -25,7 +25,7 @@ async function startBattle(stageId) {
 
 async function resumeBattle(run, starting) {
   if (!requireGame() || (battleRunning && !starting)) return;
-  let st = run.arena ? { id: "arena", name: "竞技场 · " + run.arena.name, type: "玩家对战", waves: 1, img: "assets/d06-observatory.webp" } : STAGES.find(x => x.id === run.stage) || GACHA_RUN_MODES[run.stage];
+  let st = run.arena ? { id: "arena", name: "竞技场 · " + run.arena.name, type: "玩家对战", waves: 1, img: "assets/d06-observatory.webp" } : (typeof voyageStage === "function" && voyageStage(run.stage)) || STAGES.find(x => x.id === run.stage) || GACHA_RUN_MODES[run.stage];
   if (st && run.scene) {
     st = { ...st, name: run.scene.name, img: run.scene.img, starRound: run.scene.star_round };
   }
@@ -492,7 +492,8 @@ async function battleEnd(battle) {
       <span class="${result.fast ? "ok" : ""}">${result.rounds} 回合 · 目标 ${st.starRound}</span>
       ${result.is_best ? `<span class="new">刷新最佳</span>` : ""}
     </div>` : ""}
-    <p style="color:var(--sub);font-size:12px;text-align:center">${st.name} · ${st.type}</p>
+    <p style="color:var(--sub);font-size:12px;text-align:center">${esc(st.name)} · ${esc(st.type)}</p>
+    ${typeof voyageResultSummary === "function" ? voyageResultSummary(st.id, result) : ""}
     <ul class="drop-list">${battleDropLedger(drops)}</ul>
     <div class="modal-btns">
       <button class="gbtn gbtn-sm" onclick="closeModal();nav('${battleDestination(st)}')"><span>${st.progression ? "返回成长" : GACHA_RUN_MODES[st.id] ? "返回玩法" : "返回副本"}</span></button>

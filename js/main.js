@@ -33,7 +33,14 @@ function unlockGame() {
   document.getElementById("title-screen").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   // A same-account refresh must not rebuild tabs, dialogs, or an in-progress form.
-  if (alreadyOpen) { renderTopbar(); return; }
+  if (alreadyOpen) {
+    renderTopbar();
+    const page = document.body.dataset.page;
+    if (page === "page-captain" && typeof renderCaptain === "function") renderCaptain();
+    if (page === "page-festival" && typeof festivalView !== "undefined" && festivalView?.date !== SAVE.daily.date) renderFestival();
+    if (page === "page-home" && typeof renderFestivalToday === "function") renderFestivalToday();
+    return;
+  }
   if (battleRunning && BAT) { renderTopbar(); return; }
   const hash = (location.hash || "").replace(/^#/, "");
   let page = document.body.dataset.page || "page-home";

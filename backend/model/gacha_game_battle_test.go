@@ -1120,28 +1120,34 @@ func TestGachaProgressionCalendarBudgetCannotBeBoughtWithExistingStock(t *testin
 func TestGachaProgressionIntroProvidesAUsableSquadWithoutGoldLevelling(t *testing.T) {
 	now := time.Date(2026, 11, 23, 12, 0, 0, 0, gameZone)
 	state := newGachaState(now)
+	require.NoError(t, syncGachaCaptain(state))
 	rules := DefaultGachaProgressionConfig()
 	state.ProgressionRules = rules
 	require.NoError(t, normalizeGachaProgression(state, now, rules))
 	for range 3 {
 		stage, snapshot, err := specialGachaProgressionStage("training", state, now)
 		require.NoError(t, err)
+		snapshot.RulesVersion = gachaCaptainLootVersion
 		report, err := simulateGachaCombat(state, *stage, battleTestRNG())
 		require.NoError(t, err)
 		require.True(t, report.Win)
-		require.NoError(t, settleGachaProgressionMode(state, &snapshot, &GachaFinishResult{Win: true}, now))
+		result := &GachaFinishResult{Win: true}
+		settleGachaCaptainVictory(state, stage, &snapshot, result)
+		require.NoError(t, settleGachaProgressionMode(state, &snapshot, result, now))
 	}
 	stage := gachaStage("s1")
 	report, err := simulateGachaCombat(state, *stage, battleTestRNG())
 	require.NoError(t, err)
 	require.True(t, report.Win)
-	snapshot := GachaRunSnapshot{Squad: slices.Clone(state.Squad), RulesVersion: 2}
+	snapshot := GachaRunSnapshot{Squad: slices.Clone(state.Squad), RulesVersion: gachaCaptainLootVersion}
+	settleGachaCaptainVictory(state, stage, &snapshot, &GachaFinishResult{Win: true})
 	require.NoError(t, awardGachaGameRewards(state, stage, &snapshot, report, &GachaFinishResult{}))
 	key := "s1"
 	require.NoError(t, applyGachaProgressionAction(nil, 1, state, GachaActionIntent{Action: "mainline_claim", ItemID: &key}, &GachaActionResult{}, now))
 	for _, id := range state.Squad {
 		assert.GreaterOrEqual(t, state.Girls[id].Level, 20)
 		assert.LessOrEqual(t, state.Girls[id].Level, 25)
+		assert.LessOrEqual(t, state.Girls[id].Level, state.Captain.Level)
 	}
 	for _, id := range []string{"s5", "s2"} {
 		stage := gachaStage(id)

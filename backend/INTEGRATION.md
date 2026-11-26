@@ -10,6 +10,10 @@ The game uses ten tables: `GachaRun`, `GachaCard`, `GachaDaily`, `GachaPlayer`, 
 
 Serve the game files at `/gacha/` and the host APIs at the same origin. A navigation link may use `target="_blank"` and `rel="noopener noreferrer"`; no deployment domain or IP is supplied here.
 
+Ship `harbor.css`, `voyage.css`, `fleet.css` and the three feature scripts plus `js/festival.js` alongside the existing UI. `gacha_festival.json` is an embedded game catalog, not a public account store. The authenticated profile supplies `captain_rules`, `voyage` and `festival`. Static-only delivery cannot enable the new game actions.
+
+The journal accepts `captain_task` / `captain_supply` with the issued Beijing `date:id`; the festival accepts `festival_play` with `date:event`, the expected attempt and the player's choice, or `festival_album` with the issued ISO week and threshold. These use the existing transaction/replay store; reject stale dates and do not derive claimability from the browser clock. New combat issues carry loot version 8 for captain XP. Voyage chests take a catalog `item_id` only. The optional sweep takes a stage, issued day and count; it is an inventory operation, not a battle report, wallet operation or first clear.
+
 Expose only the game HTML, CSS, `js/` and artwork as static assets. Do not expose the host's environment/data directories, backend source, development scripts or test files through the game mount.
 
 ## External Host Contracts
@@ -38,6 +42,12 @@ This list describes the integration boundary; it is not an implementation of the
 The route example lists the game GET/POST endpoints. The browser submits only action intent and server-issued run/card identifiers. Controllers reject unexpected fields, uploaded battle results and local saves. PvP is entered voluntarily through the queue or custom-room lobby; escrow and settlement are server-side.
 
 The refresh interface is a host authentication endpoint, not one of the exported game handlers. Match its response contract in `js/store.js` when adapting your own host. Keep HttpOnly session cookies, trusted-origin/CSRF controls, memory-only access tokens and logout invalidation.
+
+### Fleet Directory And Rankings
+
+Register the session-only, uncached `GET /api/user/gacha/fleet`. Set `board=directory` for open guilds (12 per page, pass the returned `next` as `after`); `guild`, `power` and `collection` return the first 50 plus the viewer's own rank, including ranks beyond 50. The public projection contains only display aliases or guild names, the ranking metric and, for listed guilds, member count and public joining code. Accounts with an empty squad can still enter the collection board. Equal scores use stable registration order. Non-public guilds participate in cooperation without appearing in the directory or guild board.
+
+Auto-migrate `GachaPlayer` **before** running `InitializeGachaPower`: it also backfills the new derived recruitment and collection columns in batches using revision checks. No changes to stored game JSON, combat snapshot versions, or site balances are needed. Existing guilds stay unlisted until the founder opts in. The current client offers that choice on creation via `guild_create` with `enabled`; `guild_listing` changes it later. Reuse the existing guild member/leader transaction for `guild_supply` (`item_id=charts|timber|lamps`) and `guild_supply_claim` (`count=1|2|3`). Every intent uses the regular UUID receipt. Daily participation and weekly claims survive membership changes. Test fresh and upgrade schemas and repeat the backfill on SQLite, MySQL and PostgreSQL as part of the host matrix.
 
 ## Card Cultivation And Item Draws
 

@@ -21,6 +21,9 @@ class GamePreviewTests(unittest.TestCase):
             'index.html': b'<main>game preview</main>',
             'style.css': b'body { color: white; }',
             'mobile.css': b'body { margin: 0; }',
+            'harbor.css': b'.harbor-home {}',
+            'voyage.css': b'.voyage-map {}',
+            'fleet.css': b'.fleet-board {}',
             'js/config.js': b'const apiBase = "";',
             'assets/portrait.webp': b'RIFF',
             '.env': b'private configuration',
@@ -54,7 +57,7 @@ class GamePreviewTests(unittest.TestCase):
             connection.close()
 
     def test_game_frontend_and_artwork_are_served(self):
-        for path in ('/gacha/', '/gacha/style.css', '/gacha/mobile.css', '/gacha/js/config.js', '/gacha/assets/portrait.webp'):
+        for path in ('/gacha/', '/gacha/style.css', '/gacha/mobile.css', '/gacha/harbor.css', '/gacha/voyage.css', '/gacha/fleet.css', '/gacha/js/config.js', '/gacha/assets/portrait.webp'):
             with self.subTest(path=path):
                 status, headers, content = self.request(path)
                 self.assertEqual(status, 200)

@@ -43,16 +43,19 @@ func gachaLevelCost(level int) int {
 	return max(1, level)*gachaCatalog.Growth.ExpPerLevel + veteran*veteran*rules.VeteranGrowth + master*master*rules.MasterGrowth
 }
 
-func trainGachaLevel(own *GachaOwnedGirl, amount int) error {
-	if !gachaCardOwned(own) || amount < 0 || amount > gachaMaxResource || own.Exp < 0 || own.Exp > gachaMaxResource-amount {
+func trainGachaLevel(own *GachaOwnedGirl, amount, limit int) error {
+	if !gachaCardOwned(own) || limit < 1 || limit > gachaCatalog.Growth.MaxLevel || own.Level > limit || amount < 0 || amount > gachaMaxResource || own.Exp < 0 || own.Exp > gachaMaxResource-amount {
 		return ErrGachaRunState
 	}
+	if own.Level == limit {
+		return nil
+	}
 	own.Exp += amount
-	for own.Level < gachaCatalog.Growth.MaxLevel && own.Exp >= gachaLevelCost(own.Level) {
+	for own.Level < limit && own.Exp >= gachaLevelCost(own.Level) {
 		own.Exp -= gachaLevelCost(own.Level)
 		own.Level++
 	}
-	if own.Level == gachaCatalog.Growth.MaxLevel {
+	if own.Level == limit {
 		own.Exp = 0
 	}
 	if own.PeakLevel > 0 {
@@ -85,7 +88,8 @@ func applyGachaFeed(state *GachaGameState, intent GachaActionIntent, result *Gac
 		return err
 	}
 	own := state.Girls[*intent.GirlID]
-	if !gachaCardOwned(own) || own.Level >= gachaCatalog.Growth.MaxLevel {
+	limit := gachaCaptainLevel(state)
+	if !gachaCardOwned(own) || own.Level >= limit {
 		return ErrGachaCultivationLocked
 	}
 	for id, count := range intent.Materials {
@@ -94,7 +98,7 @@ func applyGachaFeed(state *GachaGameState, intent GachaActionIntent, result *Gac
 		}
 	}
 	room := -own.Exp
-	for level := own.Level; level < gachaCatalog.Growth.MaxLevel; level++ {
+	for level := own.Level; level < limit; level++ {
 		room += gachaLevelCost(level)
 	}
 	if room <= 0 || own.Exp < 0 {
@@ -110,7 +114,7 @@ func applyGachaFeed(state *GachaGameState, intent GachaActionIntent, result *Gac
 			room -= xp
 		}
 	}
-	if err := trainGachaLevel(own, receipt.Experience); err != nil {
+	if err := trainGachaLevel(own, receipt.Experience, limit); err != nil {
 		return err
 	}
 	for id, count := range receipt.Spent {

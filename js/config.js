@@ -14,6 +14,7 @@ const SITE = {
     warehouse: "/api/user/gacha/warehouse",    // GET  倍率卡仓库
     activate:  "/api/user/gacha/card/activate",// POST {card_id}
     social:    "/api/user/gacha/social",      // GET server shop, rankings, opponents
+    fleet:     "/api/user/gacha/fleet",
     arenaQueue: "/api/user/gacha/arena/queue",
     arenaRooms: "/api/user/gacha/arena/rooms",
     arenaReplay: "/api/user/gacha/arena/replay",

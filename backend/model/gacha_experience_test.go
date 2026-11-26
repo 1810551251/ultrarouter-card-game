@@ -9,6 +9,7 @@ import (
 
 func TestGachaLevelCurveAndBulkFeeding(t *testing.T) {
 	state := battleTestState([]string{"c01"}, 1, 1)
+	state.Captain = &GachaCaptain{Level: gachaCatalog.Growth.MaxLevel}
 	own := state.Girls["c01"]
 	for level, cost := range map[int]int{0: 100, 1: 100, 59: 5900, 60: 6010, 120: 49235, 149: 118400, 150: 0} {
 		assert.Equal(t, cost, gachaLevelCost(level))

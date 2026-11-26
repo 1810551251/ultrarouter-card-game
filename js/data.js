@@ -1348,6 +1348,11 @@ function cardLevelCost(level) {
   return Math.max(1,level)*GROWTH.expPerLevel + veteran*veteran*(rules?.veteran_growth ?? 10) + master*master*(rules?.master_growth ?? 25);
 }
 
+function cardLevelLimit() {
+  const level = SAVE?.captain?.level;
+  return Number.isSafeInteger(level) && level > 0 ? Math.min(GROWTH.maxLevel, level) : GROWTH.maxLevel;
+}
+
 function finalStats(girlId, includeBonds = false) {
   const g = GIRLS.find(x => x.id === girlId);
   const own = SAVE.girls[girlId];

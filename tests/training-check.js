@@ -119,6 +119,19 @@ test("selected books quote a real multi-level gain, clamp at 150 and submit only
   assert.match(document.querySelector("[data-feed-preview]").textContent,/Lv\.0 → Lv\.3/);
 });
 
+test("book preview and submit stop at the current captain level without spending excess books", async context => {
+  const {view,state,document} = setup(context), own = state.girls.c01;
+  state.captain = {level:31,xp:0};
+  own.exp = view.cardLevelCost(30)-1;
+  state.mats.training_manual = 9;
+  view.openWorkshop("c01","upgrade"); view.openUpgradePicker();
+  assert.match(document.querySelector("[data-feed-preview]").textContent,/Lv\.30 → Lv\.31.*实得 1 经验.*历练手记 ×1$/);
+  own.level = 31; own.exp = 0; view.openWorkshop("c01","upgrade"); view.openUpgradePicker();
+  assert.equal(document.querySelector('[data-upgrade-open]').disabled,true);
+  assert.equal(document.querySelector('[data-upgrade-picker]'),null);
+  assert.match(document.querySelector(".xp-ledger").textContent,/提升船长等级/);
+});
+
 test("skills use only confirmed shared points and gold; single, automatic and purchase intents are distinct", async context => {
   const {view,state,document} = setup(context), calls = [];
   view.Store.mutate = async (action,fields) => { calls.push([action,JSON.parse(JSON.stringify(fields))]); return null; };

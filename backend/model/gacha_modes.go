@@ -62,6 +62,9 @@ type GachaGuildState struct {
 	TotalDamage      int                `json:"total_damage"`
 	ContributionWeek string             `json:"contribution_week"`
 	MyDamage         int                `json:"my_damage"`
+	Listed           bool               `json:"listed,omitempty"`
+	Cargo            [3]int             `json:"cargo,omitempty"`
+	MyCargo          int                `json:"my_cargo,omitempty"`
 }
 
 type GachaGuildView struct {
@@ -78,6 +81,8 @@ type GachaGuildView struct {
 	CanClaim      bool               `json:"can_claim"`
 	RewardClaimed bool               `json:"reward_claimed"`
 	BossElement   string             `json:"boss_element"`
+	Listed        bool               `json:"listed"`
+	Harbor        GachaFleetHarbor   `json:"harbor"`
 }
 
 func gachaWeekKey(now time.Time) string {
@@ -123,6 +128,7 @@ func resetGachaWeeklyModes(state *GachaGameState, now time.Time) {
 	state.WeeklyBoss.Mechanic = weeklyBossMechanic(week)
 	if state.Guild != nil && state.Guild.ContributionWeek != week {
 		state.Guild.ContributionWeek, state.Guild.MyDamage = week, 0
+		state.Guild.MyCargo = 0
 	}
 }
 
@@ -311,6 +317,7 @@ func resetGuildBoss(guild *GachaGuildState, now time.Time) {
 	week := gachaWeekKey(now)
 	if guild.Week != week {
 		guild.Week, guild.BossMaxHP, guild.BossHP, guild.TotalDamage = week, gachaGuildBossMaxHP, gachaGuildBossMaxHP, 0
+		guild.Cargo = [3]int{}
 	}
 }
 
@@ -360,7 +367,8 @@ func getGachaGuildView(tx *gorm.DB, userID int, state *GachaGameState, now time.
 	claimed := state.GuildRewardWeek == week
 	return &GachaGuildView{Code: owner.Code, Name: owner.Name, LeaderID: owner.LeaderID, Members: slices.Clone(owner.Members),
 		BossWeek: week, BossHP: viewOwner.BossHP, BossMaxHP: viewOwner.BossMaxHP, TotalDamage: viewOwner.TotalDamage,
-		MyDamage: myDamage, AttackedToday: state.Daily.GuildAttacked, RewardClaimed: claimed,
+		MyDamage: myDamage, AttackedToday: state.Daily.GuildAttacked, RewardClaimed: claimed, Listed: owner.Listed,
+		Harbor:   fleetHarborView(state, &viewOwner, week),
 		CanClaim: viewOwner.BossHP == 0 && myDamage > 0 && !claimed, BossElement: weeklyBossElement(week)}, nil
 }
 
@@ -450,11 +458,11 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 				return ErrGachaGuild
 			}
 			var user User
-			if err := tx.Select("username").First(&user, userID).Error; err != nil {
+			if err := tx.Select("display_name").First(&user, userID).Error; err != nil {
 				return err
 			}
 			state.Guild = &GachaGuildState{Code: fmt.Sprintf("%08X", userID), Name: strings.TrimSpace(*intent.ItemID), LeaderID: userID,
-				Members: []GachaGuildMember{{UserID: userID, Name: user.Username}}, Week: week, BossHP: gachaGuildBossMaxHP, BossMaxHP: gachaGuildBossMaxHP, ContributionWeek: week}
+				Listed: intent.Enabled != nil && *intent.Enabled, Members: []GachaGuildMember{{UserID: userID, Name: fleetPublicName(user.DisplayName, userID)}}, Week: week, BossHP: gachaGuildBossMaxHP, BossMaxHP: gachaGuildBossMaxHP, ContributionWeek: week}
 		case "guild_join":
 			code := strings.ToUpper(*intent.ItemID)
 			if state.Guild != nil || ownerMissing || leaderID == userID || !validGachaGuildOwner(owner.Guild, leaderID, code) {
@@ -474,10 +482,10 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 				return ErrGachaGuild
 			}
 			var user User
-			if err := tx.Select("username").First(&user, userID).Error; err != nil {
+			if err := tx.Select("display_name").First(&user, userID).Error; err != nil {
 				return err
 			}
-			owner.Guild.Members = append(owner.Guild.Members, GachaGuildMember{UserID: userID, Name: user.Username})
+			owner.Guild.Members = append(owner.Guild.Members, GachaGuildMember{UserID: userID, Name: fleetPublicName(user.DisplayName, userID)})
 			state.Guild = &GachaGuildState{Code: code, Name: owner.Guild.Name, LeaderID: leaderID, ContributionWeek: week}
 			ownerChanged = true
 		case "guild_leave":
@@ -494,12 +502,26 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 				}
 			}
 			state.Guild = nil
-		case "guild_attack", "guild_claim":
+		case "guild_attack", "guild_claim", "guild_listing", "guild_supply", "guild_supply_claim":
 			if state.Guild == nil || ownerMissing || !validGachaGuildOwner(owner.Guild, leaderID, state.Guild.Code) ||
 				!slices.ContainsFunc(owner.Guild.Members, func(member GachaGuildMember) bool { return member.UserID == userID }) {
 				return ErrGachaGuild
 			}
 			resetGuildBoss(owner.Guild, now)
+			if intent.Action == "guild_listing" {
+				if leaderID != userID {
+					return ErrGachaGuild
+				}
+				owner.Guild.Listed = *intent.Enabled
+				break
+			}
+			if intent.Action == "guild_supply" || intent.Action == "guild_supply_claim" {
+				if err := applyFleetCargo(state, owner.Guild, intent, result, week); err != nil {
+					return err
+				}
+				ownerChanged = intent.Action == "guild_supply"
+				break
+			}
 			if intent.Action == "guild_claim" {
 				if owner.Guild.BossHP != 0 || state.Guild.MyDamage <= 0 || state.Guild.ContributionWeek != week || state.GuildRewardWeek == week {
 					return ErrGachaGuildLimit

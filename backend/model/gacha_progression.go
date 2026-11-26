@@ -395,7 +395,7 @@ func awardGachaExperience(state *GachaGameState, squad []string, amount int) err
 		if !gachaCardOwned(own) {
 			return ErrGachaTeam
 		}
-		if err := trainGachaLevel(own, amount); err != nil {
+		if err := trainGachaLevel(own, amount, gachaCaptainLevel(state)); err != nil {
 			return err
 		}
 	}
@@ -663,6 +663,7 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 		if len(state.Squad) < 1 {
 			return ErrGachaTeam
 		}
+		grantGachaCaptainXP(state, xp/10, &result.Drops)
 		if err := awardGachaExperience(state, state.Squad, xp); err != nil {
 			return err
 		}

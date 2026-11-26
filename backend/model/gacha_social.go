@@ -226,7 +226,7 @@ func InitializeGachaPower() error {
 			return err
 		}
 		if len(players) == 0 {
-			return nil
+			return initializeGachaFleetIndexes()
 		}
 		for _, player := range players {
 			var state GachaGameState
@@ -265,7 +265,7 @@ func GetGachaSocial(userID int) (*GachaSocialView, error) {
 	view.ShopDailyLimit = GachaShopDailyLimit
 	view.TokenExchange = GachaTokenExchangeRules{Enabled: !common.BatchUpdateEnabled, QuotaPerToken: GachaArenaQuotaPerE, MaxCount: gachaMaxResource}
 	for i, target := range []*[]GachaCompetitor{&view.PowerBoard} {
-		query := gachaCompetitors(DB).Select("gacha_players.user_id, gacha_players.power, gacha_players.arena_points, gacha_players.state, COALESCE(NULLIF(users.display_name, ''), users.username) AS name")
+		query := gachaCompetitors(DB).Select("gacha_players.user_id, gacha_players.power, gacha_players.arena_points, gacha_players.state, COALESCE(users.display_name, '') AS name")
 		switch i {
 		case 0:
 			query = query.Order("gacha_players.power DESC, gacha_players.user_id ASC").Limit(50)
@@ -275,6 +275,7 @@ func GetGachaSocial(userID int) (*GachaSocialView, error) {
 		}
 		for j := range *target {
 			entry := &(*target)[j]
+			entry.Name = fleetPublicName(entry.Name, entry.UserID)
 			var state GachaGameState
 			if err := common.Unmarshal([]byte(entry.State), &state); err != nil {
 				return nil, err

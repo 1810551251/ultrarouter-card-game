@@ -19,12 +19,19 @@ function nav(pageId) {
     p.classList.toggle("active", p.id === pageId));
   document.querySelectorAll(".nav-btn").forEach(b =>
     b.classList.toggle("active", b.dataset.nav === pageId));
+  document.querySelectorAll(".nav-btn").forEach(button => {
+    if (button.dataset.nav === pageId) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
   document.body.classList.toggle("in-battle", pageId === "page-battle");  // 横屏战斗全屏态
   document.body.dataset.page = pageId;                                    // 供样式按页面微调
   const R = { "page-home": renderHome, "page-gacha": renderGacha,
               "page-squad": renderSquad, "page-stage": renderStage,
               "page-modes": renderModes, "page-growth": typeof renderGrowth === "function" ? renderGrowth : null,
-              "page-bag": renderBag, "page-shop": renderShop, "page-arena": renderArena }[pageId];
+              "page-bag": renderBag, "page-shop": renderShop, "page-arena": renderArena,
+              "page-captain": typeof renderCaptain === "function" ? renderCaptain : null,
+              "page-festival": typeof renderFestival === "function" ? renderFestival : null,
+              "page-fleet": typeof renderFleet === "function" ? renderFleet : null }[pageId];
   if (R) R();
   if (pageId === "page-modes") refreshModes();
   renderTopbar();
@@ -33,6 +40,7 @@ function nav(pageId) {
 /* ---------- 顶部资源栏 ---------- */
 function renderTopbar() {
   if (!SAVE) return;
+  if (typeof renderCaptainSummary === "function") renderCaptainSummary();
   document.getElementById("res-stamina").textContent = SAVE.stamina + "/" + SAVE.staminaMax;
   document.getElementById("res-token").textContent = SAVE.token;
   document.getElementById("res-gold").textContent = SAVE.gold;
@@ -132,6 +140,7 @@ function renderHome() {
       </button>
     </div>`;
   renderSiteAccount();
+  if (typeof renderFestivalToday === "function") renderFestivalToday();
   if (typeof renderGrowthSummary === "function") renderGrowthSummary();
 }
 
@@ -750,7 +759,7 @@ function cultivationOptions(id) {
     { action: "weapon_upgrade", label: level < levelCosts.length ? `强化至 +${level + 1}` : "专武已满级", detail: level < levelCosts.length ? `星锻矿 ${ore}/${levelCosts[level]}` : `强化 +${level}`, ready: level < levelCosts.length && ore >= levelCosts[level] },
     { action: "weapon_awaken", label: awake < rules.weapon_cores.length ? `专武觉醒 ${awake + 1} 阶` : "专武觉醒已满", detail: awake < rules.weapon_cores.length ? `觉醒棱芯 ${cores}/${rules.weapon_cores[awake]} · 专武 +${rules.weapon_level_gates[awake]} · 角色觉醒 ${rules.weapon_awakening_gates[awake]} 阶` : `${awake} 阶`, ready: awake < rules.weapon_cores.length && cores >= rules.weapon_cores[awake] && level >= rules.weapon_level_gates[awake] && (own.awakening || 0) >= rules.weapon_awakening_gates[awake] },
     { action: "potential_unlock", label: potential < rules.potential_stars.length ? `解锁潜能 ${potential + 1}` : "潜能已全开", detail: potential < rules.potential_stars.length ? `${rules.potential_stars[potential]} 星 · ${MATS[mat].name} ${matCount}/${rules.potential_mats[potential]}` : `${potential} 个节点`, ready: potential < rules.potential_stars.length && own.star >= rules.potential_stars[potential] && matCount >= rules.potential_mats[potential] },
-    { action: "use_manual", label: own.level < GROWTH.maxLevel ? "研读手记" : "等级已满", detail: `持有 ${manuals} 份 · 每份 ${rules.manual_xp} 经验`, ready: own.level < GROWTH.maxLevel && manuals > 0 },
+    { action: "use_manual", label: own.level < cardLevelLimit() ? "研读手记" : "已达卡级上限", detail: `持有 ${manuals} 份 · 每份 ${rules.manual_xp} 经验`, ready: own.level < cardLevelLimit() && manuals > 0 },
   ];
   for (const choice of ["edge", "ward", "tempo"]) {
     const rune = rules.engravings[choice];
@@ -798,7 +807,7 @@ function refreshCultivationViews(id) {
     const selected = document.getElementById("manual-target")?.value;
     renderBag();
     const select = document.getElementById("manual-target");
-    if (select && selected && SAVE.girls[selected]?.level < GROWTH.maxLevel) {
+    if (select && selected && SAVE.girls[selected]?.level < cardLevelLimit()) {
       select.value = selected;
       updateManualTarget();
     }
@@ -918,7 +927,7 @@ function openGirl(id) {
     ${talentMarkup(id, own, matKey)}
     ${typeof awakeningDetailMarkup === "function" ? awakeningDetailMarkup(id, own) : ""}
     <div class="modal-btns">
-      <button class="gbtn gbtn-sm" onclick="levelUp('${id}')" ${own.level >= GROWTH.maxLevel ? "disabled" : ""}>
+      <button class="gbtn gbtn-sm" onclick="levelUp('${id}')" ${own.level >= cardLevelLimit() ? "disabled" : ""}>
         <span>经验培养</span><span class="sub">${Store.profile?.training?.experience ? "选择材料 · 一键升级" : "副本或固定经验训练"}</span></button>
     </div>
     ${decomposableShards > 0 ? `<div class="modal-btns">
@@ -981,6 +990,7 @@ function updateStageRunLimits() {
   if (button && stage) button.disabled = stageLocked(stage) || seconds > 0;
   const note = document.getElementById("stage-rest-note");
   if (note) note.textContent = seconds ? `连续挑战休整中 · ${seconds} 秒后可出战，期间可养成和编队` : "出战可用 · 连续高速挑战会触发短暂休整，不影响养成与整理背包";
+  if (typeof voyageUpdateRunButton === "function") voyageUpdateRunButton(seconds);
   if (seconds) stageRestTimer = setTimeout(updateStageRunLimits, 1000);
 }
 
@@ -992,6 +1002,7 @@ function stageItemReward(id, quantity, source, fallback) {
 
 function renderStage() {
   if (!requireGame()) return;
+  if (typeof renderVoyage === "function" && renderVoyage()) return;
   if (!CHAPTERS[stageView.ch]) stageView.ch = 0;
   const ch = CHAPTERS[stageView.ch];
   document.getElementById("node-track").classList.toggle("many-nodes", ch.stages.length > 3);
@@ -1050,7 +1061,11 @@ function renderStage() {
       <div class="cc-note">${ch.note}</div>
     </div>`;
 
-  const s = STAGES.find(x => x.id === stageView.sel);
+  document.getElementById("stage-detail").innerHTML = legacyStageDetailHTML(STAGES.find(x => x.id === stageView.sel));
+  updateStageRunLimits();
+}
+
+function legacyStageDetailHTML(s, inVoyage = false) {
   const locked = stageLocked(s);
   const prev = s.unlockStage ? STAGES.find(x => x.id === s.unlockStage) : null;
   const best = stageStars(s.id);
@@ -1059,7 +1074,7 @@ function renderStage() {
   const family = SIGIL_FAMILIES[s.lootFamily];
   const rules = Store.profile?.run_rules || { burst_limit: 12, rest_seconds: 120, relic_daily_limit: 30 };
   const gear = Store.profile?.equipment, lootKind = s.relicTier >= 2 ? "nightmare" : s.relicTier === 1 ? "rift" : s.hasBoss ? "campaign_boss" : "campaign";
-  document.getElementById("stage-detail").innerHTML = `
+  return `
     <div class="sd-info">
       <div class="sd-title">${s.name}<span class="type-chip">${s.type}</span>
         ${best ? `<span class="sd-best">最佳 ${starsHTML(best, 12)}</span>` : ""}</div>
@@ -1082,12 +1097,9 @@ function renderStage() {
       ${s.mechanic ? `<p class="sd-mechanic">${DUNGEON_MECHANICS[s.mechanic]}</p>` : ""}
       ${quotaReward ? `<p class="sd-reward-note">以上为一星奖励，二星 +10%，三星 +20%；副本总次数与余额产出不设每日上限，高收益本需要更多体力。</p>` : ""}
       ${s.relicTier ? `<p class="sd-reward-note">今日灵印补给 ${SAVE.daily.relic_runs || 0}/${rules.relic_daily_limit}，开局即计次，失败/撤退不返还；超出后仍可获得普通材料、金币与经验。</p>` : ""}
-      <p class="sd-reward-note">10分钟内连续 ${rules.burst_limit} 局，当前局结算后休整 ${Math.ceil(rules.rest_seconds / 60)} 分钟。</p><p id="stage-rest-note" class="sd-rest-note" role="status"></p>
+      <p class="sd-reward-note">10分钟内连续 ${rules.burst_limit} 局，当前局结算后休整 ${Math.ceil(rules.rest_seconds / 60)} 分钟。</p>${inVoyage ? "" : '<p id="stage-rest-note" class="sd-rest-note" role="status"></p>'}
     </div>
-    <button id="stage-start" class="gbtn gbtn-primary" ${locked || gameRestSeconds() ? "disabled" : ""} onclick="startBattle('${s.id}')">
-      <span>出战</span><span class="sub">体力 ${s.cost}</span>
-    </button>`;
-  updateStageRunLimits();
+    ${inVoyage ? "" : `<button id="stage-start" class="gbtn gbtn-primary" ${locked || gameRestSeconds() ? "disabled" : ""} onclick="startBattle('${s.id}')"><span>出战</span><span class="sub">体力 ${s.cost}</span></button>`}`;
 }
 
 function renderModes() {
@@ -1102,17 +1114,7 @@ function renderModes() {
   const stamina = SAVE.stamina || 0;
   const guild = Store.profile?.guild;
   const expeditionDone = expedition.floor > 10;
-  const guildMarkup = guild ? (() => {
-    const percent = guild.boss_max_hp > 0 ? Math.max(0, Math.min(100, guild.boss_hp / guild.boss_max_hp * 100)) : 0;
-    const names = (guild.members || []).map(m => `<span>${esc(m.name)}${m.user_id === guild.leader_id ? " · 会长" : ""}</span>`).join("");
-    const guildElement = ELEM[guild.boss_element];
-    return `<article class="mode-card guild-card"><div class="mode-card-head"><div><p class="social-kicker">协力讨伐 · ${guild.members?.length || 1}/10 人</p><h3>${esc(guild.name)}</h3></div><span class="guild-code">邀请码 ${esc(guild.code)}</span></div>
-      <div class="guild-members">${names}</div><div class="mode-progress" role="progressbar" aria-label="公会首领剩余生命" aria-valuemin="0" aria-valuemax="${guild.boss_max_hp}" aria-valuenow="${Math.max(0,guild.boss_hp)}"><div style="width:${percent}%"></div></div><div class="guild-boss-line"><b>本周公会首领</b><span>${esc(guildElement?.name || "元素")}系 · HP ${Math.max(0,guild.boss_hp).toLocaleString()} / ${guild.boss_max_hp.toLocaleString()}</span></div>
-      <p class="mode-note">你本周贡献 ${guild.my_damage.toLocaleString()} · 公会累计 ${guild.total_damage.toLocaleString()} · ${guild.attacked_today ? "今日已出战" : "今日尚未出战"}</p>
-      <div class="mode-actions"><button type="button" class="gbtn gbtn-primary" onclick="attackGuildBoss()" ${guild.attacked_today || guild.boss_hp <= 0 || stamina < 10 ? "disabled" : ""}><span>${guild.boss_hp <= 0 ? "本周首领已讨伐" : guild.attacked_today ? "今日已挑战" : stamina < 10 ? "体力不足" : "出战讨伐"}</span><span class="sub">消耗 10 体力 · 金币奖励 · 伤害按队伍战力结算</span></button>
-      <button type="button" class="gbtn gbtn-gold" onclick="claimGuildReward()" ${guild.can_claim ? "" : "disabled"}><span>${guild.reward_claimed ? "本周奖励已领取" : "领取讨伐奖励"}</span><span class="sub">参与讨伐后领取 · 金币 250 + 元素结晶 3</span></button>
-      <button type="button" class="gbtn" onclick="copyGuildCode('${esc(guild.code)}')"><span>复制邀请码</span></button><button type="button" class="gbtn" onclick="leaveGuild()" ${guild.leader_id === Store.profile?.user_id && guild.members.length > 1 ? "disabled" : ""}><span>退出公会</span></button></div><p class="mode-help">每天每个账号只能出战一次，加入其他公会不会增加次数。击败后，所有参与者均可领取本周协作奖励；会长需待其他成员退出后才能退出。</p></article>`;
-  })() : `<article class="mode-card guild-card"><div class="mode-card-head"><div><p class="social-kicker">最多 10 人 · 每日协作</p><h3>创建或加入公会</h3></div><span>不消耗站点余额</span></div><p class="mode-note">公会成员每天可用 10 体力讨伐一次首领，伤害共享；本周击败后全公会等待下周首领刷新。</p><div class="guild-forms"><label>公会名称<input id="guild-name" type="text" maxlength="12" placeholder="星穹旅团"></label><button type="button" class="gbtn gbtn-primary" onclick="createGuild()"><span>创建公会</span></button><label>邀请码<input id="guild-join-code" type="text" maxlength="8" placeholder="8 位邀请码" autocapitalize="characters"></label><button type="button" class="gbtn" onclick="joinGuild()"><span>加入公会</span></button></div></article>`;
+  const guildMarkup = `<article class="mode-card guild-card"><div class="mode-card-head"><div><p class="social-kicker">母港共建 · 公会讨伐</p><h3>${guild ? esc(guild.name) : "公会招募"}</h3></div></div><p class="mode-note">${guild ? `本周公会航绩 ${fleetNumber(guild.harbor?.score)} · ${guild.attacked_today ? "今日已讨伐" : "今日可讨伐"}` : "查看正在招募的公会，或邀请同伴一起建会。"}</p><button type="button" class="gbtn gbtn-primary" onclick="nav('page-fleet')"><span>进入港务厅</span></button></article>`;
   const bondLabels = squadBondLabels(SAVE.squad);
   body.innerHTML = `<div class="mode-grid">
     <article class="mode-card expedition-card"><div class="mode-card-head"><div><p class="social-kicker">每周 10 层 · 路线增益</p><h3>星穹远征</h3></div><span>${expedition.week || weekly.week || "本周"}</span></div>
@@ -1151,44 +1153,6 @@ async function refreshModes() {
   renderTopbar();
   if (document.body.dataset.page === "page-modes") renderModes();
 }
-async function createGuild() {
-  const name = document.getElementById("guild-name")?.value?.trim();
-  if (!name) return toast("先填写公会名称");
-  if (!await Store.mutate("guild_create", { item_id: name })) return;
-  await refreshModes();
-  toast("公会已创建，邀请码可分享给其他玩家");
-}
-async function joinGuild() {
-  const code = document.getElementById("guild-join-code")?.value?.trim().toUpperCase();
-  if (!/^[A-F0-9]{8}$/.test(code || "")) return toast("请输入 8 位邀请码");
-  if (!await Store.mutate("guild_join", { item_id: code })) return;
-  await refreshModes();
-  toast("已加入公会");
-}
-async function leaveGuild() {
-  const guild = Store.profile?.guild;
-  if (!guild) return;
-  if (guild.leader_id === Store.profile.user_id && guild.members.length > 1) return toast("请先请成员离开，或暂不退出公会");
-  showModal(`<h3>退出公会？</h3><div class="social-confirm"><p>退出后需要新的邀请码才能加入其他公会。</p></div><div class="modal-btns"><button class="gbtn" onclick="closeModal()"><span>取消</span></button><button class="gbtn gbtn-primary" onclick="confirmLeaveGuild()"><span>确认退出</span></button></div>`);
-}
-async function confirmLeaveGuild() {
-  if (!await Store.mutate("guild_leave", {})) return;
-  closeModal();
-  await refreshModes();
-  toast("已退出公会");
-}
-async function attackGuildBoss() {
-  const result = await Store.mutate("guild_attack", {});
-  if (!result) return;
-  await refreshModes();
-  toast((result.drops || []).join(" · ") || "公会讨伐完成");
-}
-async function claimGuildReward() {
-  const result = await Store.mutate("guild_claim", {});
-  if (!result) return;
-  await refreshModes();
-  toast((result.drops || []).join(" · "));
-}
 async function copyGuildCode(code) {
   try { await navigator.clipboard.writeText(code); toast("邀请码已复制"); }
   catch { toast("邀请码：" + code); }
@@ -1198,7 +1162,7 @@ async function copyGuildCode(code) {
 function bagCultivationMarkup(includeStock = true) {
   const rules = cultivationRules();
   if (!rules) return "";
-  const targets = GIRLS.filter(girl => SAVE.girls[girl.id]?.star > 0 && SAVE.girls[girl.id].level < GROWTH.maxLevel);
+  const targets = GIRLS.filter(girl => SAVE.girls[girl.id]?.star > 0 && SAVE.girls[girl.id].level < cardLevelLimit());
   return `<section class="bag-cultivation"><h3>${includeStock ? "培养道具" : "研读手记"}</h3>${includeStock ? `<div class="cultivation-stock">${Object.entries(CULTIVATION_ITEMS).map(([key, item]) => `<div><small>${item.use}</small><b>${item.name} <strong>×${SAVE.mats[key] || 0}</strong></b><span>${item.from}</span></div>`).join("")}</div>` : ""}
     <div class="manual-choice"><label class="growth-select">历练手记 · 研读角色<select id="manual-target" onchange="updateManualTarget()"><option value="">${targets.length ? "选择角色" : "没有未满级角色"}</option>${targets.map(girl => `<option value="${girl.id}">${esc(girl.name)} · Lv${SAVE.girls[girl.id].level}</option>`).join("")}</select></label><button type="button" class="gbtn gbtn-sm" data-cultivation-action="use_manual" id="bag-use-manual" onclick="cultivateGirl('use_manual',document.getElementById('manual-target').value)" disabled><span>消耗 1 份</span><span class="sub">经验 +${rules.manual_xp}</span></button></div></section>`;
 }

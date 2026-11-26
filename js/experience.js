@@ -1,7 +1,7 @@
 function upgradeRules() { return Store.profile?.training?.experience; }
 
 function upgradeEstimate(own, selected) {
-  const cap = GROWTH.maxLevel, spent = {};
+  const cap = cardLevelLimit(), spent = {};
   let room = -(own.exp || 0), experience = 0;
   for (let level = own.level; level < cap; level++) room += cardLevelCost(level);
   for (const material of upgradeRules().materials) {
@@ -17,11 +17,11 @@ function upgradeEstimate(own, selected) {
 }
 
 function upgradeWorkshopSheet(view, girl, own) {
-  const cap = GROWTH.maxLevel, full = own.level >= cap, cost = cardLevelCost(own.level);
+  const cap = cardLevelLimit(), full = own.level >= cap, cost = cardLevelCost(own.level);
   return `<section class="ws-paper xp-chapter" data-upgrade-sheet="${girl.id}"><header><small class="ws-kicker">成长手册 · 角色等级</small><h4>历练研读</h4><p>为${esc(girl.name)}选一批书卷，一次结算，可连续跨级。</p></header>
-    <div class="xp-ledger"><small>当前等级</small><strong>Lv.${own.level} <em>/ ${cap}</em></strong><progress aria-label="当前等级经验" value="${full ? 1 : own.exp || 0}" max="${full ? 1 : cost}"></progress><span>${full ? "等级已圆满" : `${(own.exp || 0).toLocaleString()} / ${cost.toLocaleString()} 经验`}</span></div>
+    <div class="xp-ledger"><small>当前等级 / 卡牌上限</small><strong>Lv.${own.level} <em>/ ${cap}</em></strong><progress aria-label="当前等级经验" value="${full ? 1 : own.exp || 0}" max="${full ? 1 : cost}"></progress><span>${full ? cap < GROWTH.maxLevel ? "提升船长等级可继续培养" : "等级已圆满" : `${(own.exp || 0).toLocaleString()} / ${cost.toLocaleString()} 经验`}</span></div>
     <button type="button" data-upgrade-open class="ws-command" onclick="openUpgradePicker()" ${full ? "disabled" : ""}>${full ? "已达等级上限" : "一键升级 · 选择材料"}</button><div class="xp-chapters">${[1,60,120].map((level,index) => `<div><b>${["启程","远征","星轨"][index]} · Lv.${level}</b><small>本级升一级 ${cardLevelCost(level).toLocaleString()} 经验</small></div>`).join("")}</div>
-    <p>副本与日常训练也能获取经验。120 级后仍可继续培养到 150 级；不同突破色共用这条曲线。</p></section>`;
+    <p>出航或完成每日任务可获得船长经验。伙伴可培养至船长当前等级，最高 ${GROWTH.maxLevel} 级。</p></section>`;
 }
 
 function activeUpgradePicker() {
@@ -31,7 +31,7 @@ function activeUpgradePicker() {
 
 function openUpgradePicker() {
   const view = currentWorkshop(), own = SAVE?.girls[view?.id], rules = upgradeRules();
-  if (!Store.ready() || view?.tab !== "upgrade" || !own?.star || !rules || own.level >= GROWTH.maxLevel || activeUpgradePicker()) return;
+  if (!Store.ready() || view?.tab !== "upgrade" || !own?.star || !rules || own.level >= cardLevelLimit() || activeUpgradePicker()) return;
   const pane = document.querySelector(`[data-upgrade-sheet="${view.id}"]`);
   if (!pane) return;
   const dialog = document.createElement("dialog");

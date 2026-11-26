@@ -140,6 +140,9 @@ type GachaDailyView struct {
 }
 
 type GachaProfile struct {
+	CaptainRules   *GachaCaptainRules              `json:"captain_rules"`
+	Voyage         *GachaVoyageCatalog             `json:"voyage"`
+	Festival       *GachaFestivalRules             `json:"festival"`
 	Dispatch       *GachaDispatchRules             `json:"dispatch"`
 	Vigil          *GachaVigilRules                `json:"vigil"`
 	Cases          *GachaCaseRules                 `json:"cases"`
@@ -284,13 +287,16 @@ func GetGachaProfile(userID int, now time.Time) (*GachaProfile, error) {
 		profile.Name = user.Username
 		profile.Cultivation = &gachaCultivation
 		profile.Training = &gachaTraining
+		profile.CaptainRules = &gachaCaptainRules
 		profile.Vigil = &gachaVigil
 		profile.Dispatch = &gachaDispatch
+		profile.Festival = festivalEdition(now)
 		profile.Cases = &gachaCases
 		profile.Equipment = &gachaEquipment
 		profile.ArtifactGrades = &gachaArtifactGrades
 		profile.Carry = &gachaCarry
 		profile.Items = &gachaItems
+		profile.Voyage = &gachaVoyage
 		profile.Progression = GachaProgressionView{Rules: state.ProgressionRules, Branches: map[string][]GachaAwakeningBranch{},
 			CanConfigure: user.Role >= common.RoleAdminUser, DailyBankDays: 7, WeeklyBankWeeks: 2, PowerWeights: maps.Clone(gachaAwakeningPowerWeights)}
 		for _, girl := range gachaCatalog.Girls {
