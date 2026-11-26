@@ -110,10 +110,9 @@ func sweepGachaVoyage(tx *gorm.DB, userID int, state *GachaGameState, intent Gac
 	if err != nil {
 		return err
 	}
-	if state.Stamina >= state.StaminaMax {
-		state.StaminaTs = now.UnixMilli()
+	if err := spendGachaStamina(state, point.Cost*count, now, &drops); err != nil {
+		return err
 	}
-	state.Stamina -= point.Cost * count
 	state.Activity = budget.Activity
 	result.Drops = drops
 	return nil

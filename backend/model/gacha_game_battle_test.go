@@ -1117,9 +1117,10 @@ func TestGachaProgressionCalendarBudgetCannotBeBoughtWithExistingStock(t *testin
 	}
 }
 
-func TestGachaProgressionIntroProvidesAUsableSquadWithoutGoldLevelling(t *testing.T) {
+func TestGachaProgressionIntroUsesEarnedCaptainHeadroomWithoutGoldLevelling(t *testing.T) {
 	now := time.Date(2026, 11, 23, 12, 0, 0, 0, gameZone)
 	state := newGachaState(now)
+	state.Captain.Level = 20
 	require.NoError(t, syncGachaCaptain(state))
 	rules := DefaultGachaProgressionConfig()
 	state.ProgressionRules = rules
@@ -1127,23 +1128,26 @@ func TestGachaProgressionIntroProvidesAUsableSquadWithoutGoldLevelling(t *testin
 	for range 3 {
 		stage, snapshot, err := specialGachaProgressionStage("training", state, now)
 		require.NoError(t, err)
-		snapshot.RulesVersion = gachaCaptainLootVersion
+		snapshot.RulesVersion = gachaStaminaXPVersion
 		report, err := simulateGachaCombat(state, *stage, battleTestRNG())
 		require.NoError(t, err)
 		require.True(t, report.Win)
 		result := &GachaFinishResult{Win: true}
-		settleGachaCaptainVictory(state, stage, &snapshot, result)
+		settleGachaCaptainRun(state, stage, &snapshot, result)
 		require.NoError(t, settleGachaProgressionMode(state, &snapshot, result, now))
 	}
+	assert.Equal(t, GachaCaptain{Level: 20}, *state.Captain)
 	stage := gachaStage("s1")
 	report, err := simulateGachaCombat(state, *stage, battleTestRNG())
 	require.NoError(t, err)
 	require.True(t, report.Win)
-	snapshot := GachaRunSnapshot{Squad: slices.Clone(state.Squad), RulesVersion: gachaCaptainLootVersion}
-	settleGachaCaptainVictory(state, stage, &snapshot, &GachaFinishResult{Win: true})
+	snapshot := GachaRunSnapshot{Squad: slices.Clone(state.Squad), RulesVersion: gachaStaminaXPVersion}
+	require.NoError(t, spendGachaStamina(state, stage.Cost, now, &snapshot.StaminaDrops))
+	settleGachaCaptainRun(state, stage, &snapshot, &GachaFinishResult{Win: true})
 	require.NoError(t, awardGachaGameRewards(state, stage, &snapshot, report, &GachaFinishResult{}))
 	key := "s1"
 	require.NoError(t, applyGachaProgressionAction(nil, 1, state, GachaActionIntent{Action: "mainline_claim", ItemID: &key}, &GachaActionResult{}, now))
+	assert.Equal(t, GachaCaptain{Level: 20, XP: stage.Cost}, *state.Captain)
 	for _, id := range state.Squad {
 		assert.GreaterOrEqual(t, state.Girls[id].Level, 20)
 		assert.LessOrEqual(t, state.Girls[id].Level, 25)

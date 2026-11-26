@@ -265,11 +265,10 @@ func settleGachaVoyagePoint(state *GachaGameState, point *GachaVoyagePoint, snap
 	if err != nil {
 		return err
 	}
-	if err := awardGachaExperience(state, snapshot.Squad, point.Exp); err != nil {
+	result.Drops = append(result.Drops, drops...)
+	if err := awardGachaExperience(state, snapshot.Squad, point.Exp, &result.Drops); err != nil {
 		return err
 	}
-	result.Drops = append(result.Drops, drops...)
-	result.Drops = append(result.Drops, fmt.Sprintf("出战伙伴经验 +%d", point.Exp))
 	result.Stars = report.Stars
 	result.IsBest = report.Stars > state.Stars[point.ID]
 	state.Cleared[point.ID] = true

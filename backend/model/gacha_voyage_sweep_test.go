@@ -14,6 +14,29 @@ func sweepCommand(id, day string, count int) model.GachaActionIntent {
 	return model.GachaActionIntent{RequestID: uuid.NewString(), Action: "voyage_sweep", ItemID: &id, Count: &count, Choice: &day}
 }
 
+func requireGachaTestMail(t *testing.T, state *model.GachaGameState, id string) *model.GachaMailMessage {
+	t.Helper()
+	require.NotNil(t, state.Mailbox)
+	var found []*model.GachaMailMessage
+	for _, message := range state.Mailbox.Messages {
+		if message.ID == id {
+			found = append(found, message)
+		}
+	}
+	require.Len(t, found, 1)
+	return found[0]
+}
+
+func claimGachaTestMail(t *testing.T, userID int, message *model.GachaMailMessage, now time.Time) *model.GachaGameState {
+	t.Helper()
+	require.False(t, message.Claimed)
+	claim := model.GachaActionIntent{Action: "mail_claim", RequestID: uuid.NewString(), ItemID: &message.ID}
+	receipt, err := model.ApplyGachaAction(userID, claim, now)
+	require.NoError(t, err)
+	require.True(t, requireGachaTestMail(t, receipt.Save, message.ID).Claimed)
+	return receipt.Save
+}
+
 func TestGachaVoyageSweepIntent(t *testing.T) {
 	day := "2026-11-27"
 	for _, point := range []string{"s1", "v1h1", "res_manifest"} {
@@ -47,6 +70,7 @@ func testGachaVoyageSweepDatabase(t *testing.T, clock time.Time) {
 	assert.Empty(t, profile.Voyage.Stages["v1n1"].SweepPrize)
 	assert.Equal(t, []model.GachaVoyagePrize{{Item: "forge_ore", Amount: 2}, {Item: "training_ink", Amount: 1}}, profile.Voyage.Stages["s1"].SweepPrize)
 	state := profile.Save
+	state.Captain.Level = 5
 	state.Cleared[stage], state.Stars[stage], state.MultiOn = true, 3, true
 	seedGachaState(t, user.Id, state)
 	_, err = model.ApplyGachaAction(user.Id, sweepCommand(stage, day, 1), now)
@@ -59,21 +83,25 @@ func testGachaVoyageSweepDatabase(t *testing.T, clock time.Time) {
 	seedGachaState(t, user.Id, state)
 	run, err := model.StartGachaRun(user.Id, stage, uuid.NewString(), now)
 	require.NoError(t, err)
+	assert.Equal(t, state.Captain.XP+point.Cost, run.Save.Captain.XP)
 	_, err = model.ApplyGachaAction(user.Id, sweepCommand(stage, day, 1), now)
 	require.ErrorIs(t, err, model.ErrGachaRunState)
 	abandoned, err := model.FinishGachaRun(user.Id, run.ID, true, now)
 	require.NoError(t, err)
+	assert.Equal(t, run.Save.Captain, abandoned.Save.Captain)
 	_, err = model.ApplyGachaAction(user.Id, sweepCommand(stage, day, 3), now)
 	require.ErrorIs(t, err, model.ErrGachaVoyageLimit)
 	one := sweepCommand(stage, day, 1)
 	first, err := model.ApplyGachaAction(user.Id, one, now)
 	require.NoError(t, err)
+	letter := requireGachaTestMail(t, first.Save, "action:"+one.RequestID)
 	for _, prize := range point.Prize {
-		assert.Equal(t, abandoned.Save.Mats[prize.Item]+prize.Amount, first.Save.Mats[prize.Item])
+		assert.Equal(t, abandoned.Save.Mats[prize.Item], first.Save.Mats[prize.Item])
+		assert.Equal(t, prize.Amount, letter.Resources[prize.Item])
 	}
 	assert.Equal(t, abandoned.Save.Stamina-point.Cost, first.Save.Stamina)
 	assert.Equal(t, 2, first.Save.Daily.VoyageAttempts[stage])
-	assert.Equal(t, abandoned.Save.Captain, first.Save.Captain)
+	assert.Equal(t, abandoned.Save.Captain.XP+point.Cost, first.Save.Captain.XP)
 	assert.Equal(t, abandoned.Save.Daily.CaptainLog, first.Save.Daily.CaptainLog)
 	assert.Equal(t, abandoned.Save.Girls, first.Save.Girls)
 	assert.Equal(t, abandoned.Save.Multi, first.Save.Multi)
@@ -82,7 +110,12 @@ func testGachaVoyageSweepDatabase(t *testing.T, clock time.Time) {
 	replay, err := model.ApplyGachaAction(user.Id, one, now)
 	require.NoError(t, err)
 	assert.Equal(t, first.Revision, replay.Revision)
-	assert.Equal(t, first.Save.Stamina, replay.Save.Stamina)
+	assert.Equal(t, first.Save, replay.Save)
+	collected := claimGachaTestMail(t, user.Id, letter, now)
+	assert.Equal(t, first.Save.Captain, collected.Captain)
+	for _, prize := range point.Prize {
+		assert.Equal(t, first.Save.Mats[prize.Item]+prize.Amount, collected.Mats[prize.Item])
+	}
 	last, err := model.ApplyGachaAction(user.Id, sweepCommand(stage, day, 1), now)
 	require.NoError(t, err)
 	assert.Equal(t, 3, last.Save.Daily.VoyageAttempts[stage])
@@ -99,16 +132,9 @@ func testGachaVoyageSweepDatabase(t *testing.T, clock time.Time) {
 	nextDay := tomorrow.Format("2006-01-02")
 	_, err = model.ApplyGachaAction(user.Id, sweepCommand(stage, day, 3), tomorrow)
 	require.ErrorIs(t, err, model.ErrGachaSweepDate)
-	state = gachaState(t, user.Id, tomorrow)
-	state.Mats[point.Prize[1].Item] = 1_000_000_000
-	seedGachaState(t, user.Id, state)
-	_, err = model.ApplyGachaAction(user.Id, sweepCommand(stage, nextDay, 3), tomorrow)
-	require.ErrorIs(t, err, model.ErrGachaCapacity)
 	unspent := gachaState(t, user.Id, tomorrow)
-	assert.Equal(t, state.Mats, unspent.Mats)
-	assert.Equal(t, state.Stamina, unspent.Stamina)
 	assert.Zero(t, unspent.Daily.VoyageAttempts[stage])
-	unspent.Mats[point.Prize[1].Item], unspent.Stamina = 0, 1
+	unspent.Mats[point.Prize[1].Item], unspent.Stamina = 1_000_000_000, 1
 	seedGachaState(t, user.Id, unspent)
 	_, err = model.ApplyGachaAction(user.Id, sweepCommand(stage, nextDay, 3), tomorrow)
 	require.ErrorIs(t, err, model.ErrGachaFunds)
@@ -120,13 +146,21 @@ func testGachaVoyageSweepDatabase(t *testing.T, clock time.Time) {
 	unchanged := gachaState(t, user.Id, tomorrow)
 	assert.Equal(t, unspent.Activity, unchanged.Activity)
 	assert.Equal(t, unspent.Stamina, unchanged.Stamina)
+	assert.Equal(t, unspent.Captain, unchanged.Captain)
 	unchanged.Activity.Starts = 9
 	seedGachaState(t, user.Id, unchanged)
-	batch, err := model.ApplyGachaAction(user.Id, sweepCommand(stage, nextDay, 3), tomorrow)
+	batchCommand := sweepCommand(stage, nextDay, 3)
+	batch, err := model.ApplyGachaAction(user.Id, batchCommand, tomorrow)
 	require.NoError(t, err)
 	assert.Equal(t, 3, batch.Save.Daily.VoyageAttempts[stage])
 	assert.Equal(t, unchanged.Stamina-3*point.Cost, batch.Save.Stamina)
-	assert.Equal(t, 3*point.Prize[1].Amount, batch.Save.Mats[point.Prize[1].Item])
+	assert.Equal(t, unchanged.Captain.XP+3*point.Cost, batch.Save.Captain.XP)
+	assert.Equal(t, 1_000_000_000, batch.Save.Mats[point.Prize[1].Item])
+	batchMail := requireGachaTestMail(t, batch.Save, "action:"+batchCommand.RequestID)
+	assert.Equal(t, 3*point.Prize[1].Amount, batchMail.Resources[point.Prize[1].Item])
+	_, err = model.ApplyGachaAction(user.Id, model.GachaActionIntent{Action: "mail_claim", RequestID: uuid.NewString(), ItemID: &batchMail.ID}, tomorrow)
+	require.ErrorIs(t, err, model.ErrGachaCapacity)
+	assert.False(t, requireGachaTestMail(t, gachaState(t, user.Id, tomorrow), batchMail.ID).Claimed)
 	assert.Greater(t, batch.Save.Activity.RestUntil, tomorrow.UnixMilli())
 	batch.Save.Stars["s1"] = 3
 	seedGachaState(t, user.Id, batch.Save)

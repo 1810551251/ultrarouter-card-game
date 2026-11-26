@@ -386,17 +386,36 @@ func recordGachaProgressionActivity(state *GachaGameState, kind string, now time
 	}
 }
 
-func awardGachaExperience(state *GachaGameState, squad []string, amount int) error {
+func awardGachaExperience(state *GachaGameState, squad []string, amount int, drops *[]string) error {
 	if amount < 0 || amount > 100_000 {
 		return ErrGachaIntent
 	}
+	limit, total := gachaCaptainLevel(state), 0
+	entries := make([]string, 0, len(squad))
 	for _, id := range squad {
-		own := state.Girls[id]
-		if !gachaCardOwned(own) {
+		own, girl := state.Girls[id], gachaGirl(id)
+		if !gachaCardOwned(own) || girl == nil {
 			return ErrGachaTeam
 		}
-		if err := trainGachaLevel(own, amount, gachaCaptainLevel(state)); err != nil {
+		credited, err := trainGachaLevel(own, amount, limit)
+		if err != nil {
 			return err
+		}
+		total += credited
+		entry := fmt.Sprintf("%s +%d", girl.Name, credited)
+		if credited < amount {
+			entry += "（已达等级上限）"
+		}
+		entries = append(entries, entry)
+	}
+	if len(entries) > 0 && amount > 0 {
+		switch {
+		case len(entries) > 1 && total == 0:
+			*drops = append(*drops, fmt.Sprintf("伙伴经验 +0（全员已达 Lv.%d 上限）", limit))
+		case len(entries) > 1 && total == len(entries)*amount:
+			*drops = append(*drops, fmt.Sprintf("伙伴经验：每人 +%d", amount))
+		default:
+			*drops = append(*drops, "伙伴经验："+strings.Join(entries, "、"))
 		}
 	}
 	return nil
@@ -634,11 +653,11 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 		} else {
 			own.Star, own.Level = 3, 1
 		}
-		if err := awardGachaExperience(state, []string{girl.ID}, 19_000); err != nil {
-			return err
-		}
 		p.StarterClaimed = true
 		result.Drops = append(result.Drops, "\u9996\u6838\u5fc3\u81ea\u9009\uff1a"+girl.Name+"\uff08\u5df2\u62e5\u6709\u65f6\u8f6c\u4e3a\u4e13\u5c5e\u788e\u7247\uff09")
+		if err := awardGachaExperience(state, []string{girl.ID}, 19_000, &result.Drops); err != nil {
+			return err
+		}
 	case "shard_unlock":
 		girl := gachaGirl(*intent.GirlID)
 		own := state.Girls[girl.ID]
@@ -663,14 +682,13 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 		if len(state.Squad) < 1 {
 			return ErrGachaTeam
 		}
-		grantGachaCaptainXP(state, xp/10, &result.Drops)
-		if err := awardGachaExperience(state, state.Squad, xp); err != nil {
+		result.Drops = append(result.Drops, fmt.Sprintf("主线首通里程碑：招募券 +%d、金币 +%d", permits, gold))
+		if err := awardGachaExperience(state, state.Squad, xp, &result.Drops); err != nil {
 			return err
 		}
 		p.Permits += permits
 		state.Gold += gold
 		p.MainlineClaims = append(p.MainlineClaims, stageID)
-		result.Drops = append(result.Drops, fmt.Sprintf("\u4e3b\u7ebf\u9996\u901a\u91cc\u7a0b\u7891\uff1a\u62db\u52df\u5238 +%d\u3001\u91d1\u5e01 +%d\u3001\u51fa\u6218\u7ecf\u9a8c +%d", permits, gold, xp))
 	case "awakening", "awakening_branch":
 		own := state.Girls[*intent.GirlID]
 		if own == nil || own.Star < 3 || own.Level < 40 {
@@ -943,11 +961,11 @@ func settleGachaProgressionMode(state *GachaGameState, snapshot *GachaRunSnapsho
 				return ErrGachaRunState
 			}
 		}
-		if err := awardGachaExperience(state, snapshot.Squad, snapshot.ProgressionStage.Exp); err != nil {
+		if err := awardGachaExperience(state, snapshot.Squad, snapshot.ProgressionStage.Exp, &result.Drops); err != nil {
 			return err
 		}
 		recordGachaProgressionActivity(state, "training", now)
-		result.Drops = append(result.Drops, fmt.Sprintf("\u51fa\u6218\u5c11\u5973\u7ecf\u9a8c +%d\uff08\u8bad\u7ec3\u4e0d\u4ea7\u51faE\uff09", snapshot.ProgressionStage.Exp))
+		result.Drops = append(result.Drops, "训练不产出 E")
 	case "dual_trial":
 		if snapshot.Week != p.Dual.Week {
 			if snapshot.Floor == 2 {

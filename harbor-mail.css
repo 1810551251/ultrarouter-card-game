@@ -1,0 +1,53 @@
+#page-mail { color:var(--ink,#3d3227); padding-bottom:100px; }
+#harbor-mail-body { width:min(1100px,100%); margin:auto; }
+.mail-tabs { display:flex; gap:5px; border-bottom:3px solid #96744f; }
+.mail-tabs button { cursor:pointer; padding:12px 24px; font:inherit; font-weight:700; font-size:16px; color:#5e4c37; border:1px solid #ad9270; border-bottom:0; border-radius:8px 8px 0 0; background:#e6d4b8; }
+.mail-tabs button[aria-pressed=true] { background:linear-gradient(#314b67,#1a324e); color:#ffedc7; }
+.mail-tabs small { margin-left:8px; font-size:12px; padding:2px 6px; background:#6c422c; color:#fff4db; border-radius:12px; }
+.mail-layout { display:grid; grid-template-columns:minmax(230px,2fr) minmax(0,3fr); min-height:360px; border:1px solid #c0a27c; background:linear-gradient(120deg,#fff9ec,#eee1cb); box-shadow:0 7px 20px #7253291b; }
+.mail-list { max-height:540px; overflow:auto; padding:10px; background:#ddc8a940; border-right:1px solid #c6ad89; }
+.mail-row { display:flex; align-items:center; gap:12px; text-align:left; width:100%; min-width:0; padding:15px 9px; border:0; border-bottom:1px solid #c6af90; color:#4a3525; background:transparent; cursor:pointer; }
+.mail-row.is-selected { background:#faf1dc; box-shadow:inset 4px 0 #a6783f; }
+.mail-row > span:nth-child(2) { min-width:0; flex:1; }
+.mail-row b { display:block; font-size:15px; overflow-wrap:anywhere; }
+.mail-row small { display:block; margin-top:6px; font-size:11px; color:#746550; }
+.mail-row em { flex-shrink:0; font-style:normal; font-size:11px; color:#916034; }
+.mail-envelope { position:relative; font-size:32px; color:#927041; }
+.mail-envelope i { position:absolute; top:0; right:-1px; width:8px; height:8px; border-radius:50%; background:#ad3f32; box-shadow:0 0 0 2px #f7e7c7; }
+.mail-letter { min-width:0; padding:28px; display:flex; flex-direction:column; align-items:flex-start; gap:16px; }
+.mail-letter header { width:100%; padding-bottom:15px; border-bottom:1px solid #bc9d72; }
+.mail-letter h3 { margin:5px 0 9px; font-size:21px; }
+.mail-letter time,.mail-letter header small { color:#746550; font-size:12px; }
+.mail-letter p { line-height:1.8; margin:0; }
+.mail-attachments { display:flex; flex-wrap:wrap; gap:10px; list-style:none; margin:6px 0 12px; padding:0; }
+.mail-attachments li { display:flex; align-items:center; gap:8px; min-width:130px; padding:10px; border:1px solid #c2a678; background:#fff8e7; border-radius:4px; }
+.mail-attachments b { display:block; color:#8f5725; margin-top:4px; font-variant-numeric:tabular-nums; }
+.mail-attachments .at-icon { width:40px; height:40px; flex-shrink:0; }
+.mail-gift-symbol { color:#a4702a; font-size:29px; }
+.mail-letter > button { margin-top:auto; align-self:center; min-width:160px; }
+.mail-footer { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; padding:16px 0; }
+.mail-footer span { margin-right:auto; font-size:12px; color:#6e5b43; }
+.mail-redeem { max-width:600px; margin:30px auto; text-align:center; padding:30px 35px; border:double 4px #ac8a5d; background:linear-gradient(#fff8e8,#ead9b9); box-shadow:0 12px 30px #57412620; }
+.mail-seal { font:54px Georgia,serif; color:#94703b; }
+.mail-redeem h3 { margin:8px 0; font-size:24px; }
+.mail-redeem form { display:grid; gap:10px; text-align:left; margin:24px 0; }
+.mail-redeem input { width:100%; min-width:0; padding:12px; border:1px solid #a58e6a; background:#fffdf7; border-radius:4px; font:inherit; }
+.mail-redeem button { justify-self:center; min-width:180px; margin-top:10px; }
+.mail-rule,.mail-status { color:#695740; font-size:13px; line-height:1.7; }
+.mail-status { min-height:24px; }
+.mail-empty { text-align:center; align-items:center; justify-content:center; padding:24px 12px; }
+[data-harbor-mail-badge] { display:inline-grid; place-items:center; min-width:17px; height:17px; border-radius:12px; background:#a6382e; color:#fff7db; font:700 10px/1 system-ui; }
+[data-harbor-mail-badge][hidden] { display:none; }
+#page-mail button:focus-visible,#page-mail input:focus-visible { outline:3px solid #b66c31; outline-offset:3px; }
+@media (max-width:700px) {
+  .mail-tabs button { flex:1; padding:10px 5px; font-size:14px; }
+  .mail-layout { grid-template-columns:minmax(0,1fr); }
+  .mail-list { max-height:205px; border-right:0; border-bottom:1px solid #c6ad89; }
+  .mail-row { padding:10px 6px; }
+  .mail-letter { padding:20px 16px; }
+  .mail-attachments { gap:6px; }
+  .mail-attachments li { min-width:120px; font-size:13px; }
+  .mail-footer { gap:6px; }
+  .mail-footer span { width:100%; }
+  .mail-redeem { margin:20px 0; padding:22px 16px; }
+}

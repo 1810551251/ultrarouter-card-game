@@ -61,7 +61,7 @@ func TestGachaFestivalReceiptsAndCalendar(t *testing.T) {
 	require.NoError(t, applyGachaFestival(state, intent, result, now))
 	require.Empty(t, result.Drops)
 	require.Empty(t, state.Festival.Stamps)
-	require.ErrorIs(t, applyGachaFestival(state, intent, result, now), ErrGachaMode)
+	require.ErrorIs(t, applyGachaFestival(state, intent, result, now), ErrGachaFestivalAttempt)
 	attempt++
 	intent.Choice = &wins[0]
 	state.Mats["field_notes"] = gachaMaxResource
@@ -71,18 +71,18 @@ func TestGachaFestivalReceiptsAndCalendar(t *testing.T) {
 	state.Mats["field_notes"] = 0
 	require.NoError(t, applyGachaFestival(state, intent, result, now))
 	require.Equal(t, 2, state.Mats["field_notes"])
-	require.ErrorIs(t, applyGachaFestival(state, intent, result, now), ErrGachaMode)
-	require.ErrorIs(t, applyGachaFestival(state, intent, result, now.AddDate(0, 0, 1)), ErrGachaMode)
+	require.ErrorIs(t, applyGachaFestival(state, intent, result, now), ErrGachaFestivalAttempt)
+	require.ErrorIs(t, applyGachaFestival(state, intent, result, now.AddDate(0, 0, 1)), ErrGachaFestivalDate)
 	week, threshold := gachaWeekKey(now), 3
 	album := GachaActionIntent{Action: "festival_album", RequestID: uuid.NewString(), ItemID: &week, Count: &threshold}
-	require.ErrorIs(t, applyGachaFestival(state, album, result, now), ErrGachaMode)
+	require.ErrorIs(t, applyGachaFestival(state, album, result, now), ErrGachaFestivalAlbum)
 	state.Festival.Stamps["whisper"] = true
 	state.Festival.Stamps["wards"] = true
 	state.Festival.Tries["whisper"], state.Festival.Tries["wards"] = 1, 1
 	require.NoError(t, applyGachaFestival(state, album, result, now))
 	require.True(t, state.Festival.Claimed[3])
-	require.ErrorIs(t, applyGachaFestival(state, album, result, now), ErrGachaMode)
-	require.ErrorIs(t, applyGachaFestival(state, album, result, now.AddDate(0, 0, 7)), ErrGachaMode)
+	require.ErrorIs(t, applyGachaFestival(state, album, result, now), ErrGachaFestivalAlbum)
+	require.ErrorIs(t, applyGachaFestival(state, album, result, now.AddDate(0, 0, 7)), ErrGachaFestivalDate)
 	require.Empty(t, state.Festival.Stamps)
 	require.Empty(t, state.Festival.Claimed)
 }

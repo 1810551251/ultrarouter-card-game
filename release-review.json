@@ -4,7 +4,7 @@
   "credential_values_recorded": false,
   "files": {
     "backend/model/gacha_game_test.go": {
-      "sha256": "d5e505e1dda1e26d32933c8b085bd84a5f2340e7a32cde9942a89c6f273fd852",
+      "sha256": "bf18e6c00ff1d3f8b3d21ff5979aa49b965916bf16b042b5e19a005bc2f5187e",
       "categories": [
         "quoted_secret"
       ],

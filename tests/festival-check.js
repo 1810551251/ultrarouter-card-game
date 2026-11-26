@@ -9,7 +9,7 @@ const events = JSON.parse(fs.readFileSync(path.join(root,"backend/model/gacha_fe
 function festivalHarness() {
   const dom = new JSDOM('<body data-page="page-festival"><div id="festival-body"></div></body>', {runScripts:"outside-only"});
   const window = dom.window;
-  window.Store = {profile:{festival:{events,week:"2026-W48",album:{3:{forge_ore:10}}}},sessionEpoch:3, ready:() => true};
+  window.Store = {profile:{festival:{events,week:"2026-W48",album:{3:{forge_ore:10}}}},sessionEpoch:3,ready:() => true,serverNow:() => Date.parse("2026-11-23T15:59:59Z")};
   window.SAVE = {daily:{date:"2026-11-23"},festival:{week:"2026-W48",day:0,stamps:{},tries:{},claimed:{}}};
   window.esc = value => String(value).replaceAll("<", "&lt;");
   window.renderTopbar = () => {};
@@ -53,5 +53,36 @@ test("port forms submit the dated proposal only and display the server award", a
     assert.equal(doc.querySelector('[data-fest-id="relief"]'), null);
     window.Store.profile.festival.week = "2026-W49"; window.renderFestival();
     assert.equal(doc.querySelector("form"),null); assert.match(doc.querySelector("#festival-body").textContent,/同步/);
+  } finally { dom.window.close(); }
+});
+
+test("permanent desks open a supported workshop for the current party without a write", () => {
+  const dom = festivalHarness(), window = dom.window, doc = window.document;
+  try {
+    const permanent = doc.createElement("div"); permanent.id = "festival-permanent"; doc.body.append(permanent);
+    window.workshopRules = () => ({}); window.workshopTabKeys = () => ["cases", "dispatch"];
+    window.SAVE.squad = ["c01"]; window.SAVE.girls = {c01:{star:2}};
+    let opened; window.openWorkshop = (...args) => { opened = args; };
+    window.renderFestival();
+    assert.equal(permanent.querySelectorAll("button").length, 2);
+    permanent.querySelector('[data-desk="dispatch"]').click();
+    assert.deepEqual(opened,["c01","dispatch"]); assert.equal(permanent.querySelector('[data-desk="vigil"]'),null);
+  } finally { dom.window.close(); }
+});
+
+test("an open proposal crossing Beijing midnight offers the new rotation without spending an attempt", async () => {
+  const dom = festivalHarness(), window = dom.window, doc = window.document;
+  try {
+    const form = doc.querySelector('form[data-fest-id="relief"]');
+    let writes = 0;
+    window.Store.mutate = async () => { writes++; };
+    window.Store.serverNow = () => Date.parse("2026-11-23T16:00:00Z");
+    form.querySelector('input[value="0"]').click(); form.querySelector('input[value="1"]').click();
+    form.requestSubmit();
+    assert.equal(writes,0); assert.equal(doc.querySelector("form"),null); assert.match(doc.querySelector("[role=status]").textContent,/待同步/);
+    window.Store.refresh = async () => { window.SAVE.daily.date = "2026-11-24"; window.SAVE.festival.day = 1; };
+    await window.refreshFestival();
+    assert.equal(doc.querySelector("[data-day='1']").getAttribute("aria-pressed"),"true");
+    assert.equal(doc.querySelectorAll("form[data-fest-id]").length,2); assert.equal(writes,0);
   } finally { dom.window.close(); }
 });

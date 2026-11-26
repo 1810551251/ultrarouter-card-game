@@ -258,10 +258,9 @@ func settleGachaMode(state *GachaGameState, stage *GachaStage, snapshot *GachaRu
 	result.Drops = append(result.Drops, fmt.Sprintf("金币 +%d", gold))
 	matName := map[string]string{"mat_r": "微光结晶", "mat_sr": "元素结晶", "mat_ssr": "星屑"}[stage.MatKey]
 	result.Drops = append(result.Drops, fmt.Sprintf("%s x%d", matName, material))
-	if err := awardGachaExperience(state, snapshot.Squad, stage.Exp); err != nil {
+	if err := awardGachaExperience(state, snapshot.Squad, stage.Exp, &result.Drops); err != nil {
 		return err
 	}
-	result.Drops = append(result.Drops, fmt.Sprintf("出战少女经验 +%d", stage.Exp))
 	if state.Expedition.Week == snapshot.Week {
 		state.Expedition.Best = max(state.Expedition.Best, snapshot.Floor)
 		state.Expedition.Floor++
@@ -443,6 +442,11 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 			return err
 		}
 		*result = GachaActionResult{}
+		mailTitle := gachaMailActionTitle(intent.Action)
+		var mailBefore map[string]int
+		if mailTitle != "" {
+			mailBefore = beginGachaMailRewards(state)
+		}
 		owner := &ownerState
 		if leaderID == userID {
 			owner = state
@@ -516,7 +520,7 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 				break
 			}
 			if intent.Action == "guild_supply" || intent.Action == "guild_supply_claim" {
-				if err := applyFleetCargo(state, owner.Guild, intent, result, week); err != nil {
+				if err := applyFleetCargo(state, owner.Guild, intent, result, now); err != nil {
 					return err
 				}
 				ownerChanged = intent.Action == "guild_supply"
@@ -553,14 +557,16 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 				return err
 			}
 			damage := min(owner.Guild.BossHP, max(250, min(3000, int(int64(power)*int64(variance)*18/10000))))
-			state.Stamina -= 10
+			if err := spendGachaStamina(state, 10, now, &result.Drops); err != nil {
+				return err
+			}
 			state.Daily.GuildAttacked = true
 			state.Gold += 80
 			state.Guild.MyDamage += damage
 			owner.Guild.BossHP -= damage
 			owner.Guild.TotalDamage += damage
 			ownerChanged = true
-			result.Drops = []string{fmt.Sprintf("本次造成 %d 伤害 · 金币 +80", damage)}
+			result.Drops = append(result.Drops, fmt.Sprintf("本次造成 %d 伤害 · 金币 +80", damage))
 			if owner.Guild.BossHP == 0 {
 				result.Drops = append(result.Drops, "首领已讨伐，参与者可领取本周协作奖励")
 			}
@@ -574,6 +580,11 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 		}
 		if intent.Action == "guild_attack" {
 			recordGachaProgressionActivity(state, "weekly", now)
+		}
+		if mailTitle != "" {
+			if err := mailGachaRewards(state, mailBefore, "action:"+intent.RequestID, mailTitle, now, &result.Drops); err != nil {
+				return err
+			}
 		}
 		if err := storeGachaPlayer(tx, player, state, now); err != nil {
 			return err

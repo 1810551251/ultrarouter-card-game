@@ -55,3 +55,105 @@
   .fleet-lanes article > button { grid-column:2; grid-row:1/4; }
   .fleet-row { grid-template-columns:24px minmax(0,1fr) auto auto; gap:4px; }
 }
+
+#fleet-rank-hall,.rank-detail { box-sizing:border-box; color:#443e32; border:2px solid #9b7850; background:#eee7d5; box-shadow:0 12px 45px #132f3970; font:inherit; }
+#fleet-rank-hall[open] { position:fixed; inset:0; z-index:120; display:flex; flex-direction:column; width:min(1120px,100%); height:min(710px,100%); height:min(710px,100dvh); max-width:100%; max-height:100%; margin:auto; padding:0; border-radius:7px; overflow:hidden; background:linear-gradient(112deg,#e1ddc9,#f7f1de 54%,#e5e4d1); }
+#fleet-rank-hall::backdrop,.rank-detail::backdrop { background:#142d3ccc; }
+#fleet-rank-hall button { font:inherit; cursor:pointer; }
+#fleet-rank-hall :focus-visible { outline:3px solid #18776e; outline-offset:-3px; }
+.rank-heading { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; padding:10px 16px; color:#fff4cf; border-bottom:3px solid #c9a867; background:linear-gradient(110deg,#264842,#3c645b 52%,#294c47); }
+.rank-heading h2 { margin:0; text-align:center; color:inherit; font-size:25px; line-height:1.16; }
+.rank-heading h2 small { display:block; font-size:10px; color:#ead8ab; }
+.rank-heading .rank-back { justify-self:start; width:43px; height:39px; border:1px solid #d7bb7c; border-radius:7px; background:#325950; color:#ffedc2; font-size:25px; line-height:1; }
+.rank-source { justify-self:end; display:grid; justify-items:end; gap:3px; text-align:right; }
+.rank-source b { font-size:12px; }
+.rank-source button,.rank-empty button,.rank-detail button { padding:4px 11px; border:1px solid #a37e44; border-radius:5px; background:#fff2cd; color:#60421b; font-size:13px; font-weight:700; }
+.rank-source button[hidden] { display:none; }
+.rank-layout { flex:1; min-height:0; display:grid; grid-template-columns:158px minmax(0,1fr); gap:15px; padding:15px; }
+.rank-sidebar { display:flex; flex-direction:column; gap:7px; min-height:0; overflow:auto; }
+.rank-sidebar button { min-height:55px; padding:7px 10px; border:1px solid #987852; border-radius:5px; background:linear-gradient(#f1dfb7,#d8b98a); box-shadow:inset 0 1px #fff3ce; color:#583f27; }
+.rank-sidebar button b,.rank-sidebar button small { display:block; }
+.rank-sidebar button small { font-size:10px; }
+.rank-sidebar button[aria-pressed="true"] { color:#fff7dc; border-color:#76542a; background:linear-gradient(#997045,#76502e); box-shadow:inset 4px 0 #ffc866; }
+.rank-content { --rank-cols:50px minmax(98px,1.2fr) minmax(72px,.68fr) minmax(134px,1fr); display:flex; flex-direction:column; min-width:0; min-height:0; }
+.rank-columns,.rank-row { display:grid; grid-template-columns:var(--rank-cols); align-items:center; column-gap:9px; padding:5px 11px; }
+.rank-columns { color:#675847; font-size:14px; font-weight:700; }
+.rank-columns span:first-child { text-align:center; }
+.rank-scroll { min-height:0; flex:1; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
+.rank-scroll .rank-list { margin:0; padding:0 2px 2px 0; }
+.rank-list li { list-style:none; margin:0 0 7px; }
+.rank-row { color:#413b31; width:100%; min-height:78px; text-align:left; border:1px solid #ceb994; border-radius:10px; background:#fffcef; box-shadow:0 2px 3px #6044241c; }
+.rank-row:hover,.rank-row:focus-visible { background:#fff6d6; }
+.rank-row.rank-mine { border-color:#498174; background:#e9f1df; }
+.rank-medal { display:grid; justify-self:center; place-content:center; min-width:30px; height:36px; font-size:19px; font-weight:900; color:#6a5537; font-variant-numeric:tabular-nums; }
+.rank-medal:not([data-medal="0"]) { width:35px; height:40px; clip-path:polygon(50% 0,63% 11%,82% 8%,87% 25%,100% 38%,91% 55%,93% 73%,76% 78%,66% 96%,50% 89%,34% 96%,24% 78%,7% 73%,9% 55%,0 38%,13% 25%,18% 8%,37% 11%); color:#4b310e; background:linear-gradient(140deg,#ffefab,#dba131); }
+.rank-medal[data-medal="2"] { color:#354854; background:linear-gradient(140deg,#edf7ff,#9eafb7); }
+.rank-medal[data-medal="3"] { color:#4c3023; background:linear-gradient(140deg,#f4ccab,#bf8861); }
+.rank-player { min-width:0; display:flex; align-items:center; gap:9px; }
+.rank-player > span:last-child { min-width:0; }
+.rank-player b,.rank-player small { overflow-wrap:anywhere; }
+.rank-player b { display:block; font-size:15px; line-height:1.25; }
+.rank-player small,.rank-score small,.rank-unformed { display:block; color:#62594b; font-size:11px; font-weight:500; }
+.rank-avatar,.rank-faces img { object-fit:cover; object-position:50% 24%; border:2px solid #bd9b65; background:#f5e5c4; }
+.rank-avatar { flex:none; width:50px; height:56px; border-radius:7px; }
+.rank-emblem { display:grid; place-content:center; color:#516c56; font-size:22px; }
+.rank-score { color:#99501e; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.rank-faces { display:flex; gap:4px; min-width:0; align-items:start; }
+.rank-faces > span { display:grid; justify-items:center; min-width:0; }
+.rank-faces img { display:block; width:39px; height:41px; max-width:100%; border-width:1px; border-radius:3px; }
+.rank-faces small { color:#665844; font-size:10px; line-height:1.25; white-space:nowrap; }
+.rank-standing { flex:none; margin-top:7px; border:1px solid #b69252; border-radius:6px; padding:7px 12px; gap:7px 13px; background:#e5bf84; color:#50351b; }
+.rank-standing strong { margin-left:auto; color:#493a28; font-size:14px; }
+.rank-standing span,.rank-standing b { overflow-wrap:anywhere; }
+.rank-empty { display:grid; justify-items:center; align-content:center; gap:7px; padding:18px; margin:auto; color:#665844; text-align:center; }
+.rank-empty p,.rank-detail p { margin:3px 0; line-height:1.55; }
+.rank-detail[open] { position:fixed; inset:0; z-index:121; width:min(390px,calc(100% - 20px)); margin:auto; padding:20px; max-height:90%; overflow:auto; border-radius:8px; background:#fff8e6; text-align:center; }
+.rank-detail header small,.rank-detail h4 { color:#4d6656; }
+.rank-detail h3,.rank-detail h4 { margin:2px 0 7px; overflow-wrap:anywhere; }
+.rank-detail .rank-faces { margin:8px 0; justify-content:center; }
+.rank-detail .rank-faces img { width:57px; height:65px; }
+.rank-detail .rank-rule { color:#675c4b; font-size:13px; margin:8px 0 14px; }
+@media (max-width:760px) {
+  .rank-layout { grid-template-columns:99px minmax(0,1fr); padding:8px; gap:8px; }
+  .rank-content { --rank-cols:33px minmax(75px,1.12fr) minmax(54px,.72fr) minmax(82px,1fr); }
+  .rank-columns,.rank-row { column-gap:5px; padding:4px 6px; }
+  .rank-avatar { width:35px; height:41px; }
+  .rank-player { gap:5px; }
+  .rank-player b { font-size:13px; }
+  .rank-faces { gap:2px; }
+  .rank-faces img { height:32px; width:28px; }
+  .rank-score { font-size:14px; }
+}
+@media (max-width:550px) {
+  .rank-heading { grid-template-columns:36px minmax(0,1fr) auto; padding:6px 8px; gap:5px; }
+  .rank-heading h2 { font-size:20px; }
+  .rank-heading .rank-back { width:35px; height:35px; }
+  .rank-source b { font-size:10px; }
+  .rank-layout { grid-template-columns:70px minmax(0,1fr); gap:4px; padding:5px; }
+  .rank-sidebar { gap:5px; }
+  .rank-sidebar button { min-height:46px; padding:4px 1px; font-size:12px !important; }
+  .rank-sidebar button small { font-size:8px; }
+  .rank-content { --rank-cols:25px minmax(50px,1fr) minmax(36px,.65fr) minmax(38px,.64fr); }
+  .rank-columns,.rank-row { column-gap:3px; padding:4px; }
+  .rank-columns { font-size:11px; }
+  .rank-row { min-height:66px; border-radius:6px; }
+  .rank-medal,.rank-medal:not([data-medal="0"]) { min-width:22px; width:24px; height:29px; font-size:15px; }
+  .rank-avatar { display:none; }
+  .rank-player small,.rank-score small,.rank-unformed { font-size:10px; }
+  .rank-row .rank-faces { display:grid; grid-template-columns:repeat(2,minmax(0,19px)); }
+  .rank-row .rank-faces small { display:none; }
+  .rank-row .rank-faces img { width:19px; height:22px; }
+  .rank-standing { padding:5px; gap:2px 6px; font-size:11px; }
+  .rank-standing strong { font-size:11px; }
+}
+@media (max-height:460px) and (min-width:551px) {
+  .rank-heading { padding:3px 10px; }
+  .rank-heading h2 { font-size:19px; }
+  .rank-heading .rank-back { height:32px; }
+  .rank-layout { padding:5px 8px; }
+  .rank-sidebar { gap:4px; }
+  .rank-sidebar button { min-height:36px; padding:3px; }
+  .rank-row { min-height:57px; }
+  .rank-avatar { height:42px; width:36px; }
+  .rank-faces img { width:29px; height:32px; }
+}

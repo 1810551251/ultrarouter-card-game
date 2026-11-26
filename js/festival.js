@@ -2,13 +2,32 @@ const festivalDays = ["周一", "周二", "周三", "周四", "周五", "周六"
 const festivalKinds = { cargo: "装船配载", sound: "海雾定位", relay: "灯阵调配", tide: "潮汐择时" };
 let festivalView = null;
 
+function festivalDateCurrent() {
+  return SAVE?.daily?.date === new Date(Store.serverNow() + 8 * 3600000).toISOString().slice(0, 10);
+}
+
 function festivalPrizes(reward) {
   return Object.entries(reward).map(([id, count]) => `${esc(Store.profile.items?.items?.[id]?.name || id)} ×${count}`).join(" · ");
 }
 
 function renderFestivalToday() {
   const target = document.getElementById("home-festival-today"), log = SAVE?.festival, rules = Store.profile?.festival;
-  if (target) target.textContent = rules && log?.week === rules.week ? rules.events.slice(log.day * 2, log.day * 2 + 2).map(event => event.name).join(" · ") : "本周日历 · 集章奖励";
+  if (target) target.textContent = rules && log?.week === rules.week && festivalDateCurrent() ? rules.events.slice(log.day * 2, log.day * 2 + 2).map(event => event.name).join(" · ") : "本周日历 · 集章奖励";
+}
+
+function renderPermanentActivities() {
+  const host = document.getElementById("festival-permanent");
+  if (!host) return;
+  const options = typeof workshopRules === "function" && workshopRules() ? workshopTabKeys() : [];
+  const places = [["cases", "异闻调查", "调查局"], ["dispatch", "密务厅", "七张委托桌"], ["vigil", "夜巡仪轨", "守夜人的誓约"]].filter(([key]) => options.includes(key));
+  host.innerHTML = places.length ? `<section class="fest-permanent"><h3>常驻去处</h3><div>${places.map(([key, name, note]) => `<button type="button" class="harbor-route" data-desk="${key}"><b>${name}</b><small>${note}</small></button>`).join("")}</div></section>` : "";
+  host.onclick = event => {
+    const target = event.target.closest("[data-desk]");
+    if (!target || !Store.ready() || !places.some(([key]) => key === target.dataset.desk)) return;
+    const leader = SAVE.squad.find(id => SAVE.girls[id]?.star) || Object.keys(SAVE.girls).find(id => SAVE.girls[id]?.star);
+    if (leader) openWorkshop(leader, target.dataset.desk);
+    else nav("page-squad");
+  };
 }
 
 function festivalCell(index) { return "ABC"[Math.floor(index / 3)] + (index % 3 + 1); }
@@ -49,6 +68,7 @@ async function refreshFestival() {
 async function submitFestival(action, fields, id) {
   const view = festivalView;
   if (!view || view.busy || !Store.ready()) return;
+  if (!festivalDateCurrent() || view.date !== SAVE.daily.date) { renderFestival(); return; }
   view.busy = true;
   document.querySelectorAll("#festival-body fieldset, #festival-body [data-album]").forEach(control => {control.disabled = true;});
   try {
@@ -66,8 +86,9 @@ async function submitFestival(action, fields, id) {
 function renderFestival() {
   const body = document.getElementById("festival-body"), log = SAVE?.festival, rules = Store.profile?.festival;
   if (!body) return;
-  if (!rules || !log || rules.week !== log.week) {
-    body.innerHTML = '<p>活动日历尚未同步。</p><button type="button" class="harbor-link" onclick="refreshFestival()">同步日历</button>';
+  renderPermanentActivities();
+  if (!rules || !log || rules.week !== log.week || !festivalDateCurrent()) {
+    body.innerHTML = '<p role="status">活动日历待同步，请查看当前航海日的轮值。</p><button type="button" class="harbor-link" onclick="refreshFestival()">同步日历</button>';
     return;
   }
   if (festivalView?.epoch !== Store.sessionEpoch || festivalView.date !== SAVE.daily.date) festivalView = {epoch:Store.sessionEpoch, date:SAVE.daily.date, day:log.day, busy:false, note:""};

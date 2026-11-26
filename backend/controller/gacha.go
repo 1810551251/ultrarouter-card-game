@@ -61,11 +61,11 @@ func writeGachaError(c *gin.Context, err error) {
 	case errors.Is(err, model.ErrGachaVoyageLimit):
 		status, code, message = http.StatusConflict, "GACHA_VOYAGE_LIMIT", "此航点的今日次数已用完，北京时间零点刷新"
 	case errors.Is(err, model.ErrGachaVoyageChest):
-		status, code, message = http.StatusConflict, "GACHA_VOYAGE_CHEST", "本档星箱已领或本章此难度星数不足，请查看航图"
+		status, code, message = http.StatusConflict, "GACHA_VOYAGE_CHEST", "本档星箱已寄送或本章此难度星数不足，请查看副本与邮箱"
 	case errors.Is(err, model.ErrGachaSweepStars):
 		status, code, message = http.StatusConflict, "GACHA_SWEEP_STARS", "先在此航点取得三星，才能扫荡"
 	case errors.Is(err, model.ErrGachaSweepDate):
-		status, code, message = http.StatusConflict, "GACHA_SWEEP_DATE", "已进入新的北京时间游戏日，请同步航图后再扫荡"
+		status, code, message = http.StatusConflict, "GACHA_SWEEP_DATE", "已进入新的北京时间游戏日，请同步副本后再扫荡"
 	case errors.Is(err, model.ErrGachaSweepBurst):
 		status, code, message = http.StatusConflict, "GACHA_SWEEP_BATCH", "本批扫荡将跨过休整节点，请改为单次扫荡"
 	case errors.Is(err, model.ErrGachaFunds):
@@ -74,6 +74,18 @@ func writeGachaError(c *gin.Context, err error) {
 		status, code, message = http.StatusConflict, "GACHA_EXPERIENCE_REQUIRED", "等级需要真实经验，金币不能直升；请完成经验训练或挑战副本"
 	case errors.Is(err, model.ErrGachaCaptainClaim):
 		status, code, message = http.StatusConflict, "GACHA_CAPTAIN_CLAIM", "这份奖励不在可领取状态，请同步船长日志查看今日进度和补给时段"
+	case errors.Is(err, model.ErrGachaMailUnavailable):
+		status, code, message = http.StatusConflict, "GACHA_MAIL_UNAVAILABLE", "附件已领取或邮件已更新，请同步邮箱"
+	case errors.Is(err, model.ErrGachaMailboxFull):
+		status, code, message = http.StatusConflict, "GACHA_MAILBOX_FULL", "邮箱待领附件已达200封，请先收取邮件再继续"
+	case errors.Is(err, model.ErrGachaRedeemCode):
+		status, code, message = http.StatusConflict, "GACHA_REDEEM_CODE", "兑换码无效、已过期或本账号已领取，请核对兑换码"
+	case errors.Is(err, model.ErrGachaFestivalDate):
+		status, code, message = http.StatusConflict, "GACHA_FESTIVAL_DATE", "活动轮值已更新，请同步日历查看今日的两场活动和本周集章册"
+	case errors.Is(err, model.ErrGachaFestivalAttempt):
+		status, code, message = http.StatusConflict, "GACHA_FESTIVAL_ATTEMPT", "本场已集章或可用次数已变化，请同步日历查看最新进度"
+	case errors.Is(err, model.ErrGachaFestivalAlbum):
+		status, code, message = http.StatusConflict, "GACHA_FESTIVAL_ALBUM", "本档航章尚未集齐或奖励已领取，请同步集章册查看进度"
 	case errors.Is(err, model.ErrGachaPermits):
 		status, code, message = http.StatusConflict, "GACHA_PERMITS_REQUIRED", "招募券不足，请到成长页面领取日常、周常或主线奖励"
 	case errors.Is(err, model.ErrGachaProgressionLimit):

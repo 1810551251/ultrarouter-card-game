@@ -9,6 +9,7 @@ function boot() {
 }
 
 function lockGame(message) {
+  if (typeof closeFleetOfficial === "function") closeFleetOfficial();
   document.getElementById("app").classList.add("hidden");
   document.getElementById("title-screen").classList.remove("hidden");
   document.getElementById("auth-status").textContent = message;

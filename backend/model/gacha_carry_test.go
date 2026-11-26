@@ -81,6 +81,7 @@ func runGachaCarryMatrix(t *testing.T, now time.Time) {
 		}{
 			{"s1", 5, true, false, 0}, {"s1", 6, false, false, 0}, {"s1", 6, true, true, 0},
 			{"s1", 6, true, false, 1}, {"s3", 6, true, false, 2}, {"r1", 6, true, false, 3}, {"n1", 6, true, false, 4},
+			{"r1", 9, true, false, 3},
 		} {
 			before := gachaState(t, user.Id, now).Mats
 			snapshot, err := common.Marshal(model.GachaRunSnapshot{Version: 1, Squad: []string{"c01"}, RulesVersion: attempt.rules, MultiUsed: true})
@@ -91,7 +92,14 @@ func runGachaCarryMatrix(t *testing.T, now time.Time) {
 			require.NoError(t, model.DB.Create(&record).Error)
 			out, err := model.FinishGachaRun(user.Id, record.ID, attempt.abandon, now)
 			require.NoError(t, err)
-			assert.Equal(t, before["route_badge"]+attempt.amount, out.Save.Mats["route_badge"])
+			saved := out.Save
+			if attempt.rules == 9 {
+				assert.Equal(t, before["route_badge"], out.Save.Mats["route_badge"])
+				letter := requireGachaTestMail(t, out.Save, "battle:"+record.ID)
+				assert.Equal(t, attempt.amount, letter.Resources["route_badge"])
+				saved = claimGachaTestMail(t, user.Id, letter, now)
+			}
+			assert.Equal(t, before["route_badge"]+attempt.amount, saved.Mats["route_badge"])
 			if attempt.amount == 0 {
 				assert.Equal(t, before["training_ink"], out.Save.Mats["training_ink"])
 				assert.Equal(t, before["break_seal"], out.Save.Mats["break_seal"])

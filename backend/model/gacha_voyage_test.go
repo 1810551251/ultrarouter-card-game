@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestVoyageRoutesHaveIndependentKeysAndRealBattleDefinitions(t *testing.T) {
+func TestGachaVoyageRoutesHaveIndependentKeysAndRealBattleDefinitions(t *testing.T) {
 	seen := map[string]bool{}
 	chests := map[string]bool{}
 	require.Len(t, gachaVoyage.Chapters, 4)
@@ -58,7 +58,7 @@ func TestVoyageRoutesHaveIndependentKeysAndRealBattleDefinitions(t *testing.T) {
 	}
 }
 
-func TestVoyageFreshOldChapterAndDifficultyGates(t *testing.T) {
+func TestGachaVoyageFreshOldChapterAndDifficultyGates(t *testing.T) {
 	state := newGachaState(time.Now())
 	state.Captain = &GachaCaptain{Level: 7}
 	state.Cleared["s2"] = true
@@ -88,7 +88,7 @@ func TestVoyageFreshOldChapterAndDifficultyGates(t *testing.T) {
 	require.NoError(t, checkGachaVoyagePoint(state, secondHard))
 }
 
-func TestVoyageChestCannotBorrowStarsOrClaimTwice(t *testing.T) {
+func TestGachaVoyageChestCannotBorrowStarsOrClaimTwice(t *testing.T) {
 	state := newGachaState(time.Now())
 	result := &GachaActionResult{}
 	id := "c1-hard-1"
@@ -114,7 +114,7 @@ func TestVoyageChestCannotBorrowStarsOrClaimTwice(t *testing.T) {
 	assert.ErrorIs(t, ValidateGachaAction(intent), ErrGachaIntent)
 }
 
-func TestVoyageReplayKeepsBestStarsAndSeparatesOneTimeAwards(t *testing.T) {
+func TestGachaVoyageReplayKeepsBestStarsAndSeparatesOneTimeAwards(t *testing.T) {
 	state := newGachaState(time.Now())
 	state.Captain = &GachaCaptain{Level: 8}
 	point := gachaVoyage.Stages["v1h1"]
@@ -129,4 +129,17 @@ func TestVoyageReplayKeepsBestStarsAndSeparatesOneTimeAwards(t *testing.T) {
 	assert.True(t, state.Cleared[point.ID])
 	assert.Equal(t, 1, state.Mats["field_notes"])
 	assert.Equal(t, 1, state.Mats["expedition_atlas"])
+}
+
+func TestGachaVoyageSupplyCombatPaysBorrowedOathCostWithoutCampaignMarks(t *testing.T) {
+	state := newGachaState(time.Now())
+	state.Captain = &GachaCaptain{Level: 10}
+	own := state.Girls[state.Squad[0]]
+	own.Vigil = &GachaVigil{Path: "lantern", Rank: 1, Overdraw: true}
+	snapshot := &GachaRunSnapshot{Squad: state.Squad}
+	issueGachaVigil(state, snapshot)
+	point := gachaVoyage.Stages["res_manifest"]
+	require.NoError(t, settleGachaVoyagePoint(state, point, snapshot, &GachaBattleReport{Win: true, Stars: 2}, &GachaFinishResult{Win: true}))
+	assert.Equal(t, gachaVigil.StrainGain, own.Vigil.Strain)
+	assert.Zero(t, own.Vigil.Marks)
 }

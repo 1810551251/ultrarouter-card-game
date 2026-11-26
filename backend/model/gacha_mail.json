@@ -1,0 +1,4 @@
+[
+  {"id":"welcome-2026","code":"STARFROST2026","name":"启航欢迎礼包","starts":"2026-11-27","ends":"2027-12-31","resources":{"gold":300,"stamina":30,"field_notes":2}},
+  {"id":"voyage-2026","code":"VOYAGEGIFT","name":"副本探索礼包","starts":"2026-11-27","ends":"2027-12-31","resources":{"gold":100,"training_ink":2,"gear_rivet":5}}
+]

@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -12,6 +13,20 @@ import (
 const fleetCargoLimit = 10
 const fleetBoardLimit = 50
 const fleetDirectoryLimit = 12
+const fleetEdition = 2
+const fleetNeedsIndex = "(fleet_indexed = ? OR fleet_indexed IS NULL OR fleet_edition < ? OR fleet_edition IS NULL)"
+
+var fleetStoryPoints = func() map[string]bool {
+	points := map[string]bool{}
+	for _, chapter := range gachaVoyage.Chapters {
+		for _, difficulty := range []string{"story", "hard", "nightmare"} {
+			for _, id := range chapter.Routes[difficulty] {
+				points[id] = true
+			}
+		}
+	}
+	return points
+}()
 
 type GachaFleetClaims struct {
 	Week string `json:"week"`
@@ -106,7 +121,8 @@ func fleetHarborView(state *GachaGameState, guild *GachaGuildState, week string)
 	return view
 }
 
-func applyFleetCargo(state *GachaGameState, owner *GachaGuildState, intent GachaActionIntent, result *GachaActionResult, week string) error {
+func applyFleetCargo(state *GachaGameState, owner *GachaGuildState, intent GachaActionIntent, result *GachaActionResult, now time.Time) error {
+	week := gachaWeekKey(now)
 	if intent.Action == "guild_supply" {
 		index := fleetCargoIndex(*intent.ItemID)
 		rule := fleetCargo[index]
@@ -118,7 +134,9 @@ func applyFleetCargo(state *GachaGameState, owner *GachaGuildState, intent Gacha
 		}
 		switch rule.Resource {
 		case "stamina":
-			state.Stamina -= rule.Cost
+			if err := spendGachaStamina(state, rule.Cost, now, &result.Drops); err != nil {
+				return err
+			}
 		case "gold":
 			state.Gold -= rule.Cost
 		default:
@@ -127,7 +145,7 @@ func applyFleetCargo(state *GachaGameState, owner *GachaGuildState, intent Gacha
 		state.Daily.GuildSupplied = true
 		state.Guild.MyCargo++
 		owner.Cargo[index]++
-		result.Drops = []string{rule.Name + "已完成，公会航绩 +2"}
+		result.Drops = append(result.Drops, rule.Name+"已完成，公会航绩 +2")
 		return nil
 	}
 	index := *intent.Count - 1
@@ -155,14 +173,39 @@ func fleetPublicName(name string, id int) string {
 	return fmt.Sprintf("航海员 %04X", id)
 }
 
-func gachaFleetIndex(userID int, state *GachaGameState) map[string]any {
+type GachaFleetPortrait struct {
+	Level int               `json:"level,omitempty"`
+	Team  []GachaPublicGirl `json:"team,omitempty"`
+}
+
+func gachaFleetIndex(userID int, state *GachaGameState) (map[string]any, error) {
 	owned := 0
 	for _, girl := range gachaCatalog.Girls {
 		if gachaCardOwned(state.Girls[girl.ID]) {
 			owned++
 		}
 	}
-	columns := map[string]any{"fleet_indexed": true, "collection_count": owned, "fleet_leader": 0,
+	stars := 0
+	for id := range fleetStoryPoints {
+		stars += min(gachaMaxStars, max(0, state.Stars[id]))
+	}
+	portrait := GachaFleetPortrait{}
+	if state.Captain != nil {
+		portrait.Level = min(gachaCatalog.Growth.MaxLevel, max(1, state.Captain.Level))
+	}
+	for index, id := range state.Squad {
+		if len(portrait.Team) == 4 {
+			break
+		}
+		if card := state.Girls[id]; gachaGirl(id) != nil && gachaCardOwned(card) && !slices.Contains(state.Squad[:index], id) {
+			portrait.Team = append(portrait.Team, GachaPublicGirl{ID: id, Level: card.Level, Star: card.Star})
+		}
+	}
+	encoded, err := common.Marshal(portrait)
+	if err != nil {
+		return nil, err
+	}
+	columns := map[string]any{"fleet_indexed": true, "fleet_edition": fleetEdition, "fleet_stars": stars, "fleet_wins": max(0, state.Arena.Wins), "fleet_portrait": string(encoded), "collection_count": owned, "fleet_leader": 0,
 		"fleet_members": 0, "fleet_week": "", "fleet_score": 0, "fleet_name": ""}
 	if guild := state.Guild; guild != nil {
 		columns["fleet_leader"] = guild.LeaderID
@@ -171,34 +214,39 @@ func gachaFleetIndex(userID int, state *GachaGameState) map[string]any {
 			columns["fleet_week"], columns["fleet_score"] = guild.Week, fleetScore(guild)
 		}
 	}
-	return columns
+	return columns, nil
 }
 
 func initializeGachaFleetIndexes() error {
 	cursor := 0
 	for {
 		var batch []GachaPlayer
-		if err := DB.Select("user_id", "revision", "state").Where("(fleet_indexed = ? OR fleet_indexed IS NULL) AND user_id > ?", false, cursor).Order("user_id ASC").Limit(100).Find(&batch).Error; err != nil {
+		if err := DB.Select("user_id", "revision", "state").Where(fleetNeedsIndex+" AND user_id > ?", false, fleetEdition, cursor).Order("user_id ASC").Limit(100).Find(&batch).Error; err != nil {
 			return err
 		}
 		if len(batch) == 0 {
 			return nil
 		}
 		for _, row := range batch {
-			var state GachaGameState
-			if err := common.Unmarshal([]byte(row.State), &state); err != nil {
-				return err
-			}
-			if err := DB.Model(&GachaPlayer{}).Where("user_id = ? AND revision = ? AND (fleet_indexed = ? OR fleet_indexed IS NULL)", row.UserID, row.Revision, false).
-				UpdateColumns(gachaFleetIndex(row.UserID, &state)).Error; err != nil {
-				return err
-			}
 			cursor = row.UserID
+			var state GachaGameState
+			if err := common.Unmarshal([]byte(row.State), &state); err != nil || state.Girls == nil {
+				continue
+			}
+			columns, err := gachaFleetIndex(row.UserID, &state)
+			if err != nil {
+				return err
+			}
+			if err := DB.Model(&GachaPlayer{}).Where("user_id = ? AND revision = ? AND "+fleetNeedsIndex, row.UserID, row.Revision, false, fleetEdition).
+				UpdateColumns(columns).Error; err != nil {
+				return err
+			}
 		}
 	}
 }
 
 type GachaFleetEntry struct {
+	GachaFleetPortrait
 	Name    string `json:"name"`
 	Value   int    `json:"value"`
 	Mine    bool   `json:"mine,omitempty"`
@@ -212,6 +260,9 @@ type GachaFleetBoard struct {
 	Entries     []GachaFleetEntry `json:"entries"`
 	MyRank      int64             `json:"my_rank"`
 	MyValue     int               `json:"my_value"`
+	MyName      string            `json:"my_name,omitempty"`
+	MyLevel     int               `json:"my_level,omitempty"`
+	StarLimit   int               `json:"star_limit"`
 	CatalogSize int               `json:"catalog_size"`
 	MemberLimit int               `json:"member_limit"`
 	Next        int               `json:"next,omitempty"`
@@ -219,7 +270,7 @@ type GachaFleetBoard struct {
 
 func fleetEligible() *gorm.DB {
 	return DB.Model(&GachaPlayer{}).Joins("JOIN users ON users.id = gacha_players.user_id").
-		Where("users.status = ? AND users.deleted_at IS NULL", common.UserStatusEnabled)
+		Where("users.status = ? AND users.deleted_at IS NULL AND gacha_players.fleet_indexed = ? AND gacha_players.fleet_edition = ?", common.UserStatusEnabled, true, fleetEdition)
 }
 
 func GetGachaFleet(userID int, board string, after int, now time.Time) (*GachaFleetBoard, error) {
@@ -244,29 +295,45 @@ func GetGachaFleet(userID int, board string, after int, now time.Time) (*GachaFl
 		column = "gacha_players.collection_count"
 	case "power":
 		column = "gacha_players.power"
+	case "stars":
+		column = "gacha_players.fleet_stars"
+	case "arena":
+		column = "gacha_players.fleet_wins"
 	default:
 		return nil, ErrGachaIntent
 	}
-	var viewer GachaPlayer
-	requester := fleetEligible().Select("gacha_players.user_id", "gacha_players.fleet_leader").Where("gacha_players.user_id = ?", userID).Limit(1).Find(&viewer)
+	var viewer struct {
+		UserID, FleetLeader int
+		Name, Portrait      string
+	}
+	requester := fleetEligible().Select("gacha_players.user_id, gacha_players.fleet_leader, gacha_players.fleet_portrait AS portrait, COALESCE(users.display_name, '') AS name").Where("gacha_players.user_id = ?", userID).Limit(1).Find(&viewer)
 	if requester.Error != nil {
 		return nil, requester.Error
 	}
 	if requester.RowsAffected != 1 {
 		return nil, ErrGachaIntent
 	}
-	view := &GachaFleetBoard{Board: board, Week: week, Entries: []GachaFleetEntry{}, CatalogSize: len(gachaCatalog.Girls), MemberLimit: gachaGuildMemberLimit}
+	view := &GachaFleetBoard{Board: board, Week: week, Entries: []GachaFleetEntry{}, CatalogSize: len(gachaCatalog.Girls), MemberLimit: gachaGuildMemberLimit, StarLimit: len(fleetStoryPoints) * gachaMaxStars}
 	ownerID := userID
 	if board == "directory" || board == "guild" {
 		ownerID = viewer.FleetLeader
+	} else {
+		view.MyName = fleetPublicName(viewer.Name, userID)
+		var portrait GachaFleetPortrait
+		if common.Unmarshal([]byte(viewer.Portrait), &portrait) == nil {
+			view.MyLevel = portrait.Level
+		}
 	}
 	var rows []struct {
 		UserID, Value, Members int
-		Name, Week             string
+		Name, Week, Portrait   string
 	}
 	projection := "gacha_players.user_id, " + name + " AS name, " + column + " AS value"
 	if board == "directory" || board == "guild" {
 		projection += ", gacha_players.fleet_members AS members, gacha_players.fleet_week AS week"
+	}
+	if board != "directory" {
+		projection += ", gacha_players.fleet_portrait AS portrait"
 	}
 	query := criteria().Select(projection)
 	if board == "directory" {
@@ -283,6 +350,11 @@ func GetGachaFleet(userID int, board string, after int, now time.Time) (*GachaFl
 	}
 	for index, row := range rows {
 		entry := GachaFleetEntry{Name: row.Name, Value: row.Value, Mine: row.UserID == ownerID}
+		if board != "directory" && row.Portrait != "" {
+			if err := common.Unmarshal([]byte(row.Portrait), &entry.GachaFleetPortrait); err != nil {
+				entry.GachaFleetPortrait = GachaFleetPortrait{}
+			}
+		}
 		if board == "directory" || board == "guild" {
 			entry.Code, entry.Members = fmt.Sprintf("%08X", row.UserID), row.Members
 			if row.Week != week {
@@ -292,15 +364,31 @@ func GetGachaFleet(userID int, board string, after int, now time.Time) (*GachaFl
 			entry.Name = fleetPublicName(row.Name, row.UserID)
 		}
 		if entry.Mine && board != "directory" {
-			view.MyRank, view.MyValue = int64(index+1), entry.Value
+			view.MyRank, view.MyValue, view.MyName, view.MyLevel = int64(index+1), entry.Value, entry.Name, entry.Level
 		}
 		view.Entries = append(view.Entries, entry)
 	}
 	if board != "directory" && ownerID > 0 && view.MyRank == 0 {
-		if err := criteria().Where("gacha_players.user_id = ?", ownerID).Pluck(column, &view.MyValue).Error; err != nil {
+		fields := column + " AS value"
+		if board == "guild" {
+			fields += ", gacha_players.fleet_name AS name, gacha_players.fleet_portrait AS portrait"
+		}
+		var standing struct {
+			Value          int
+			Name, Portrait string
+		}
+		if err := criteria().Select(fields).Where("gacha_players.user_id = ?", ownerID).Limit(1).Scan(&standing).Error; err != nil {
 			return nil, err
 		}
+		view.MyValue = standing.Value
 		if view.MyValue > 0 {
+			if board == "guild" {
+				view.MyName = standing.Name
+				var portrait GachaFleetPortrait
+				if common.Unmarshal([]byte(standing.Portrait), &portrait) == nil {
+					view.MyLevel = portrait.Level
+				}
+			}
 			if err := criteria().Where("("+column+" > ? OR ("+column+" = ? AND gacha_players.user_id < ?))", view.MyValue, view.MyValue, ownerID).Count(&view.MyRank).Error; err != nil {
 				return nil, err
 			}

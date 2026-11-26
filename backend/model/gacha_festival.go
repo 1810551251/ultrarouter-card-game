@@ -2,10 +2,17 @@ package model
 
 import (
 	_ "embed"
+	"errors"
 	"slices"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+)
+
+var (
+	ErrGachaFestivalDate    = errors.New("festival rotation changed")
+	ErrGachaFestivalAttempt = errors.New("festival attempt unavailable")
+	ErrGachaFestivalAlbum   = errors.New("festival album reward unavailable")
 )
 
 type GachaFestivalEvent struct {
@@ -206,8 +213,11 @@ func applyGachaFestival(state *GachaGameState, intent GachaActionIntent, receipt
 	}
 	log, key, count := state.Festival, *intent.ItemID, *intent.Count
 	if intent.Action == "festival_album" {
-		if key != log.Week || log.Claimed[count] || len(log.Stamps) < count {
-			return ErrGachaMode
+		if key != log.Week {
+			return ErrGachaFestivalDate
+		}
+		if log.Claimed[count] || len(log.Stamps) < count {
+			return ErrGachaFestivalAlbum
 		}
 		if err := grantGachaDispatch(state, festivalAlbum[count], receipt); err != nil {
 			return err
@@ -217,8 +227,11 @@ func applyGachaFestival(state *GachaGameState, intent GachaActionIntent, receipt
 	}
 	id := key[11:]
 	index := festivalEntry(id)
-	if key[:10] != gachaDay(now) || index/2 != log.Day || log.Stamps[id] || log.Tries[id]+1 != count {
-		return ErrGachaMode
+	if key[:10] != gachaDay(now) || index/2 != log.Day {
+		return ErrGachaFestivalDate
+	}
+	if log.Stamps[id] || log.Tries[id]+1 != count {
+		return ErrGachaFestivalAttempt
 	}
 	event := festivalEdition(now).Events[index]
 	_, win := festivalGuess(event, *intent.Choice)

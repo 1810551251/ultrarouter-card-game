@@ -14,6 +14,48 @@ func captainTestIntent(day, action, id string) GachaActionIntent {
 	return GachaActionIntent{Action: action, ItemID: &tag, RequestID: uuid.NewString()}
 }
 
+func TestGachaCaptainXPTracksActualStaminaDebitsAndIssuedRuns(t *testing.T) {
+	now := time.Date(2026, 11, 27, 12, 0, 0, 0, gameZone)
+	state := newGachaState(now)
+	require.NoError(t, syncGachaCaptain(state))
+	var drops []string
+	require.NoError(t, spendGachaStamina(state, 0, now, &drops))
+	require.ErrorIs(t, spendGachaStamina(state, -1, now, &drops), ErrGachaRunState)
+	require.ErrorIs(t, spendGachaStamina(state, state.Stamina+1, now, &drops), ErrGachaFunds)
+	assert.Equal(t, 120, state.Stamina)
+	assert.Empty(t, drops)
+	assert.Equal(t, GachaCaptain{Level: 1}, *state.Captain)
+	state.Captain.XP = gachaCaptainCost(1) - 1
+	stage := &GachaStage{Cost: 6, Exp: 2000}
+	snapshot := GachaRunSnapshot{RulesVersion: gachaStaminaXPVersion}
+	require.NoError(t, spendGachaStamina(state, stage.Cost, now, &snapshot.StaminaDrops))
+	assert.Equal(t, 114, state.Stamina)
+	assert.Equal(t, GachaCaptain{Level: 2, XP: 5}, *state.Captain)
+	regenGachaState(state, now.Add(time.Hour))
+	assert.Equal(t, 120, state.Stamina)
+	for _, won := range []bool{true, false} {
+		result := &GachaFinishResult{Win: won}
+		settleGachaCaptainRun(state, stage, &snapshot, result)
+		assert.Equal(t, snapshot.StaminaDrops, result.Drops)
+		assert.Equal(t, GachaCaptain{Level: 2, XP: 5}, *state.Captain)
+	}
+	for _, won := range []bool{true, false} {
+		legacy := newGachaState(now)
+		legacy.Stamina -= stage.Cost
+		result := &GachaFinishResult{Win: won}
+		settleGachaCaptainRun(legacy, stage, &GachaRunSnapshot{RulesVersion: gachaCaptainLootVersion}, result)
+		assert.Equal(t, GachaCaptain{Level: 1, XP: stage.Cost}, *legacy.Captain)
+		assert.Equal(t, 114, legacy.Stamina)
+		assert.Equal(t, []string{"船长经验 +6"}, result.Drops)
+	}
+	for _, version := range []int{gachaExperienceLootVersion, gachaCaptainLootVersion, gachaStaminaXPVersion} {
+		result := &GachaFinishResult{Win: true}
+		settleGachaCaptainRun(state, &GachaStage{Exp: 2000}, &GachaRunSnapshot{Mode: "training", RulesVersion: version}, result)
+		assert.Empty(t, result.Drops)
+		assert.Equal(t, GachaCaptain{Level: 2, XP: 5}, *state.Captain)
+	}
+}
+
 func TestGachaCaptainMigrationAndExperienceCeilings(t *testing.T) {
 	state := battleTestState([]string{"c01", "c08"}, 12, 1)
 	state.Girls["c01"].PeakLevel = 36
@@ -24,7 +66,8 @@ func TestGachaCaptainMigrationAndExperienceCeilings(t *testing.T) {
 	assert.Equal(t, 10, state.Captain.XP)
 	partner := state.Girls["c08"]
 	partner.Level, partner.Exp = 36, 73
-	require.NoError(t, awardGachaExperience(state, []string{"c08"}, 10_000))
+	var drops []string
+	require.NoError(t, awardGachaExperience(state, []string{"c08"}, 10_000, &drops))
 	assert.Equal(t, 73, partner.Exp)
 	state.Mats["training_manual"] = 8
 	partnerID := "c08"
@@ -64,15 +107,18 @@ func TestGachaCaptainDailyTasksRequireConfirmedPlay(t *testing.T) {
 		cost int
 		win  bool
 	}{{"", 2, false}, {"trial_c01_1", 0, true}, {"", 2, true}, {"training", 0, true}, {"", 2, true}, {"", 2, true}} {
-		settleGachaCaptainVictory(state, &GachaStage{Cost: sample.cost, Exp: 2000}, &GachaRunSnapshot{Mode: sample.mode, RulesVersion: gachaCaptainLootVersion}, &GachaFinishResult{Win: sample.win})
+		settleGachaCaptainRun(state, &GachaStage{Cost: sample.cost, Exp: 2000}, &GachaRunSnapshot{Mode: sample.mode, RulesVersion: gachaStaminaXPVersion}, &GachaFinishResult{Win: sample.win})
 	}
 	previous := *state.Captain
-	settleGachaCaptainVictory(state, &GachaStage{Cost: 30}, &GachaRunSnapshot{RulesVersion: gachaExperienceLootVersion}, &GachaFinishResult{Win: true})
+	settleGachaCaptainRun(state, &GachaStage{Cost: 30}, &GachaRunSnapshot{RulesVersion: gachaExperienceLootVersion}, &GachaFinishResult{Win: true})
 	require.Equal(t, previous, *state.Captain)
 	log := state.Daily.CaptainLog
 	assert.Equal(t, map[string]int{"rollcall": 1, "voyage": 3, "drill": 1}, log.Progress)
 	gold := state.Gold
 	require.NoError(t, applyGachaCaptainClaim(state, intent, receipt, now))
+	assert.Equal(t, gold, state.Gold)
+	mailID := "daily:" + gachaDay(now) + ":voyage"
+	require.NoError(t, applyGachaMail(state, mailTestIntent("mail_claim", mailID), receipt, now))
 	assert.Equal(t, gold+gachaCaptainTask("voyage").Gold, state.Gold)
 	require.ErrorIs(t, applyGachaCaptainClaim(state, intent, receipt, now), ErrGachaCaptainClaim)
 	for _, action := range []string{"squad", "wish", "gear_upgrade", "card_feed"} {
@@ -87,8 +133,10 @@ func TestGachaCaptainDailyTasksRequireConfirmedPlay(t *testing.T) {
 	require.ErrorIs(t, applyGachaCaptainClaim(state, intent, receipt, next), ErrGachaCaptainClaim)
 	state.Gold = gachaMaxResource
 	rollcall := captainTestIntent(gachaDay(next), "captain_task", "rollcall")
-	require.ErrorIs(t, applyGachaCaptainClaim(state, rollcall, receipt, next), ErrGachaCapacity)
-	assert.False(t, state.Daily.CaptainLog.Claimed["rollcall"])
+	require.NoError(t, applyGachaCaptainClaim(state, rollcall, receipt, next))
+	assert.True(t, state.Daily.CaptainLog.Claimed["rollcall"])
+	mailID = "daily:" + gachaDay(next) + ":rollcall"
+	require.ErrorIs(t, applyGachaMail(state, mailTestIntent("mail_claim", mailID), receipt, next), ErrGachaCapacity)
 	for _, bad := range []GachaActionIntent{captainTestIntent("2026-02-30", "captain_task", "rollcall"), captainTestIntent(gachaDay(now), "captain_supply", "rollcall"), captainTestIntent(gachaDay(now), "captain_task", "extra")} {
 		require.ErrorIs(t, ValidateGachaAction(bad), ErrGachaIntent)
 	}
@@ -116,6 +164,9 @@ func TestGachaCaptainBeijingMealBoundariesAndOverflow(t *testing.T) {
 			continue
 		}
 		require.NoError(t, err)
+		assert.Equal(t, 120, state.Stamina)
+		mailID := "meal:" + gachaDay(base) + ":" + check.id
+		require.NoError(t, applyGachaMail(state, mailTestIntent("mail_claim", mailID), &GachaActionResult{}, now))
 		assert.Equal(t, 150, state.Stamina)
 		require.ErrorIs(t, applyGachaCaptainClaim(state, intent, &GachaActionResult{}, now), ErrGachaCaptainClaim)
 		state.Token = 100

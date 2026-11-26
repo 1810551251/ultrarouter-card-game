@@ -32,25 +32,51 @@ function voyageHarness(context) {
   context.after(() => dom.window.close());
   const doc = dom.window.document, book = sampleVoyage();
   const save = {gold:700, token:20, stamina:120, staminaMax:120, squad:["c08"], girls:{}, mats:{}, daily:{date:"2026-11-27", voyage_attempts:{}}, captain:{level:7}, cleared:{}, stars:{}, voyage_claims:{}};
-  dom.window.eval(["config","data","store","ui","voyage"].map(name => read(`js/${name}.js`)).join("\n;\n") + `\nconst BAT=null;function requireGame(){return Store.ready()} function renderTopbar(){} function toast(){} function closeOnly(){closeModal()} function nav(page){document.body.dataset.page=page;if(page==='page-stage')renderStage()} function startBattle(id){window.started=id} window.mapAPI={Store,openVoyage,renderStage,renderVoyage,voyageResultSummary,voyageStage,voyageCoordinates,closeOnly,setup(state){SAVE=state}};`);
+  dom.window.eval(["config","data","store","ui","voyage-map","voyage"].map(name => read(`js/${name}.js`)).join("\n;\n") + `\nconst BAT=null;function requireGame(){return Store.ready()} function renderTopbar(){} function toast(){} function closeOnly(){closeModal()} function nav(page){document.body.dataset.page=page;if(page==='page-stage')renderStage()} function startBattle(id){window.started=id} window.mapAPI={Store,openVoyage,openVoyageChests,renderStage,renderVoyage,renderVoyageSummary,voyageLedger,updateStageRunLimits,voyageResultSummary,voyageStage,closeOnly,setup(state){SAVE=state}};`);
   const api = dom.window.mapAPI, find = selector => doc.querySelector(selector), all = selector => [...doc.querySelectorAll(selector)];
   api.Store.ready = () => true; api.Store.profile = {voyage:book,items:JSON.parse(read("backend/model/gacha_items.json"))}; api.setup(save);
+  api.Store.serverNow = () => Date.parse("2026-11-27T12:00:00+08:00");
   const calls = []; api.Store.mutate = async (action, fields) => {calls.push([action,JSON.parse(JSON.stringify(fields))]);return null;};
   doc.body.dataset.page = "page-stage"; api.renderStage();
   return {dom,doc,api,save,book,calls,find,all};
 }
 
 test("voyage draws navigable desktop and portrait routes, independent modes and chapter gates", context => {
-  const {api,save,find,all} = voyageHarness(context);
+  const {dom,save,api,find,all} = voyageHarness(context);
   assert.equal(all("[data-voy-point]").length,8); assert.equal(all("[data-voy-mode]").length,3); assert.equal(all("[data-voy-chest]").length,3);
+  assert.ok(find(".map-panel > .map-scroll > #seaMap .voyage-route-plane")); assert.ok(find("#seaMap .voyage-ocean .voyage-depth")); assert.ok(find("#seaMap .voyage-landmark text"));
+  assert.equal(all(".voyage-island").length,8); assert.equal(all(".voyage-route").length,7); assert.equal(all(".voyage-node-portrait img").length,8);
+  assert.ok(find(".map-panel > .map-back")); assert.ok(find(".map-panel > #wallet .wallet-plus")); assert.ok(find(".map-bottom-layer > #difficultyNav")); assert.ok(find(".map-bottom-layer > #starRewards"));
   find('[data-voy-step="1"]').click(); assert.match(find(".voy-status").textContent,/完成前章/); assert.match(find(".voy-heading").textContent,/海域1/);
   save.voyage_passes = {s4:true}; find('[data-voy-step="1"]').click(); assert.match(find(".voy-heading").textContent,/海域2/);
   find('[data-voy-step="-1"]').click(); find('[data-voy-mode="hard"]').click(); assert.equal(all("[data-voy-point]").length,3);
   find("[data-voy-point]").click(); assert.equal(find("[data-voy-start]").disabled,true); assert.match(find(".voy-gate").textContent,/Lv\.8/);
   api.closeOnly(); find('[data-voy-mode="nightmare"]').click(); assert.equal(all("[data-voy-point]").length,2);
-  assert.equal(new Set(api.voyageCoordinates(8,true).map(pair => pair[0])).size,2);
-  assert.equal(new Set(api.voyageCoordinates(8,true).map(pair => pair[1])).size,4);
-  assert.notDeepEqual(api.voyageCoordinates(8,false),api.voyageCoordinates(8,true));
+  find('[data-voy-mode="story"]').click();
+  for (const [width,height,layout,box,left,top] of [[390,844,"portrait","0 0 400 640",95/400*100,530/640*100],[844,390,"compact","0 0 820 260",95/820*100,181/260*100],[1366,900,"landscape","0 0 820 510",87/820*100,((345-124)*1.28+94)/510*100]]) {
+    dom.window.innerWidth=width; dom.window.innerHeight=height; dom.window.dispatchEvent(new dom.window.Event("resize"));
+    assert.equal(find(".voyage-world").dataset.layout,layout); assert.equal(find(".voyage-chart").getAttribute("viewBox"),box);
+    assert.ok(Math.abs(parseFloat(find("[data-voy-point]").style.left)-left)<.0001); assert.ok(Math.abs(parseFloat(find("[data-voy-point]").style.top)-top)<.0001);
+  }
+});
+
+test("home star rewards count unique mainline records and deep-link to a claimable tier without claiming it", context => {
+  const {save,book,api,calls,find,all} = voyageHarness(context);
+  Object.assign(save.stars,{s1:3,v1h1:3,v2n1:1,res_manifest:3,r1:3,unknown:3});
+  book.chapters[1].routes.story[0]="s1";
+  api.renderVoyageSummary();
+  assert.match(find("#home-chest-progress").textContent,/7 \/ 75 星 · 1 档可领取/);
+  assert.match(find("#home-campaign-progress").textContent,/2 章/);
+  api.openVoyageChests();
+  assert.equal(find('[data-voy-mode="hard"]').getAttribute("aria-pressed"),"true");
+  assert.equal(find("[data-voy-chest-detail]").dataset.voyChestDetail,"c1-hard-1"); assert.equal(find("[data-voy-claim]").disabled,false);
+  assert.match(find('[data-voy-chest="c1-hard-1"]').textContent,/可领取/); assert.match(find('[data-voy-chest="c1-hard-2"]').textContent,/还差 3 星/);
+  assert.equal(all('#starRewards .chest-art svg').length,3); assert.equal(find('#starRewards progress').max,9); assert.deepEqual(calls,[]);
+  api.closeOnly(); save.voyage_claims['c1-hard-1']=true; api.openVoyageChests(); assert.equal(find("[data-voy-chest-detail]").dataset.voyChestDetail,"c1-story-1");
+  assert.match(find("[data-voy-claim]").textContent,/还差 5 星/); assert.equal(find("[data-voy-claim]").disabled,true);
+  api.closeOnly(); delete api.Store.profile.voyage; api.renderVoyageSummary(); api.openVoyageChests();
+  assert.match(find("#home-chest-progress").textContent,/待同步/); assert.equal(find("#voyage-unavailable").hidden,false);
+  assert.equal(find("#voyage-unavailable a").hash,"#rank-demo-stars"); assert.equal(find("#voyage-map").hidden,true); assert.deepEqual(calls,[]);
 });
 
 test("locked resource previews name the fixed loot and direct links issue only the selected stage", context => {
@@ -82,4 +108,61 @@ test("sweeps require three stars, available attempts and stamina and submit only
   save.daily.voyage_attempts.res_manifest=0; api.Store.activeRun={id:"in_progress"}; api.openVoyage("resources","res_manifest"); assert.equal(find('[data-voy-sweep="1"]').disabled,true);
   api.Store.activeRun=null; api.openVoyage("resources","res_manifest"); await find('[data-voy-sweep="3"]').onclick();
   assert.deepEqual(calls,[["voyage_sweep",{item_id:"res_manifest",count:3,choice:"2026-11-27"}]]); assert.equal(save.stamina,120); assert.equal(save.daily.voyage_attempts.res_manifest,0);
+});
+
+test("an idle voyage detail crosses Beijing midnight; only the confirmed new attempts unlock actions", async context => {
+  const {dom,save,api,find,calls} = voyageHarness(context);
+  let now = Date.parse("2026-11-27T15:59:59.900Z"), boundary, finishRefresh, reads = 0;
+  api.Store.serverNow = () => now;
+  dom.window.setTimeout = (callback, delay) => { if (delay === 150) boundary = callback; return 0; };
+  api.Store.refresh = () => { reads++; return new Promise(resolve => { finishRefresh = resolve; }); };
+  save.cleared.s1 = true; save.stars.res_manifest = 3; save.daily.voyage_attempts.res_manifest = 3;
+  api.openVoyage("resources","res_manifest");
+  assert.match(find('[data-voy-left]').textContent,/0\/3/);
+  const oldStart = find('[data-voy-start]'), oldSweep = find('[data-voy-sweep="1"]');
+  now += 150; boundary(); api.updateStageRunLimits();
+  assert.equal(find('[data-voy-start]').disabled,true); assert.equal(find('[data-voy-sweep="1"]').disabled,true);
+  assert.equal(find('[data-voy-left]').textContent,"今日次数待同步"); assert.match(find('.voy-gate').textContent,/正在同步/);
+  await new Promise(done => setImmediate(done)); assert.equal(reads,1);
+  save.daily = {date:"2026-11-28",voyage_attempts:{res_manifest:1}}; finishRefresh({save});
+  await new Promise(done => setImmediate(done));
+  assert.match(find('[data-voy-left]').textContent,/2\/3/); assert.equal(find('[data-voy-start]').disabled,false);
+  assert.equal(find('[data-voy-sweep="1"]').disabled,false); assert.equal(find('[data-voy-sweep="3"]').disabled,true);
+  oldStart.onclick(); await oldSweep.onclick(); assert.equal(dom.window.started,undefined); assert.deepEqual(calls,[]);
+  await find('[data-voy-sweep="1"]').onclick();
+  assert.deepEqual(calls,[["voyage_sweep",{item_id:"res_manifest",count:1,choice:"2026-11-28"}]]);
+});
+
+test("a click racing the midnight timer cannot start or sweep; failed refresh waits for explicit retry", async context => {
+  const {dom,save,api,find,calls} = voyageHarness(context);
+  save.cleared.s1 = true; save.stars.res_manifest = 3; api.openVoyage("resources","res_manifest");
+  let reads = 0;
+  api.Store.serverNow = () => Date.parse("2026-11-27T16:00:00Z");
+  api.Store.refresh = async () => { reads++; throw Error("offline"); };
+  const start = find('[data-voy-start]'), sweep = find('[data-voy-sweep="3"]');
+  assert.equal(start.disabled,false); assert.equal(sweep.disabled,false);
+  await sweep.onclick(); start.onclick(); await new Promise(done => setImmediate(done));
+  api.updateStageRunLimits(); api.renderStage();
+  assert.equal(reads,1); assert.equal(start.disabled,true); assert.equal(sweep.disabled,true);
+  assert.equal(dom.window.started,undefined); assert.deepEqual(calls,[]);
+  assert.match(find('.voy-gate').textContent,/尚未同步/);
+  assert.ok(find('.voy-status [data-voy-retry]')); assert.ok(find('.voy-gate [data-voy-retry]'));
+  api.Store.refresh = async () => { reads++; save.daily = {date:"2026-11-28",voyage_attempts:{}}; return {save}; };
+  find('.voy-gate [data-voy-retry]').click(); await new Promise(done => setImmediate(done));
+  assert.equal(reads,2); assert.match(find('[data-voy-left]').textContent,/3\/3/);
+  assert.equal(find('.voy-status [data-voy-retry]'),null); assert.equal(find('[data-voy-sweep="3"]').disabled,false);
+  find('[data-voy-start]').click(); assert.equal(dom.window.started,"res_manifest");
+});
+
+test("a stale challenge click never opens a run and a late refresh cannot reopen a dismissed detail", async context => {
+  const {dom,save,api,find} = voyageHarness(context);
+  save.cleared.s1 = true; api.openVoyage("resources","res_manifest");
+  api.Store.serverNow = () => Date.parse("2026-11-27T16:00:00Z");
+  let finishRefresh;
+  api.Store.refresh = () => new Promise(resolve => { finishRefresh = resolve; });
+  find('[data-voy-start]').click(); await new Promise(done => setImmediate(done));
+  assert.equal(dom.window.started,undefined); assert.equal(find('[data-voy-start]').disabled,true);
+  assert.match(find('.voy-gate').textContent,/同步/); api.closeOnly();
+  save.daily = {date:"2026-11-28",voyage_attempts:{}}; finishRefresh({save}); await new Promise(done => setImmediate(done));
+  assert.equal(find('#modal-mask').classList.contains('hidden'),true); assert.equal(dom.window.started,undefined);
 });

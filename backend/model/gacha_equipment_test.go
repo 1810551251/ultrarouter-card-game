@@ -229,7 +229,7 @@ func runGachaEquipmentMatrix(t *testing.T, now time.Time) {
 		require.NoError(t, model.DB.First(&current, "id = ?", run.ID).Error)
 		var issued model.GachaRunSnapshot
 		require.NoError(t, common.Unmarshal([]byte(current.Snapshot), &issued))
-		assert.Equal(t, 7, issued.RulesVersion)
+		assert.Equal(t, 9, issued.RulesVersion)
 		clock := time.UnixMilli(run.ReadyAt + 1)
 		out, err := model.FinishGachaRun(user.Id, run.ID, true, clock)
 		require.NoError(t, err)
@@ -255,20 +255,30 @@ func runGachaEquipmentMatrix(t *testing.T, now time.Time) {
 		}{
 			{"s3", 4, true, [3]int{}}, {"s3", 5, false, [3]int{}}, {"s1", 5, true, [3]int{2, 1, 0}},
 			{"s3", 5, true, [3]int{3, 2, 1}}, {"r1", 5, true, [3]int{1, 4, 2}}, {"n1", 5, true, [3]int{2, 6, 3}},
+			{"s3", issued.RulesVersion, true, [3]int{3, 2, 1}},
 		} {
-			before := out.Save.Mats
+			before := gachaState(t, user.Id, clock).Mats
 			runID := issue(test.stage, test.rules, test.win)
 			out, err = model.FinishGachaRun(user.Id, runID, false, clock)
 			require.NoError(t, err)
+			saved := out.Save
+			if test.rules == issued.RulesVersion {
+				letter := requireGachaTestMail(t, out.Save, "battle:"+runID)
+				for index, id := range ids {
+					assert.Equal(t, before[id], out.Save.Mats[id])
+					assert.Equal(t, test.delta[index], letter.Resources[id])
+				}
+				saved = claimGachaTestMail(t, user.Id, letter, clock)
+			}
 			for index, id := range ids {
-				assert.Equal(t, before[id]+test.delta[index], out.Save.Mats[id])
+				assert.Equal(t, before[id]+test.delta[index], saved.Mats[id])
 			}
 			replay, err := model.FinishGachaRun(user.Id, runID, false, clock)
 			require.NoError(t, err)
 			assert.Equal(t, out.Revision, replay.Revision)
 			assert.Equal(t, out.Save.Mats, replay.Save.Mats)
 		}
-		state := out.Save
+		state := gachaState(t, user.Id, clock)
 		state.Mats["gear_rivet"] = 1_000_000_000
 		seedGachaState(t, user.Id, state)
 		blocked := issue("s3", 5, true)

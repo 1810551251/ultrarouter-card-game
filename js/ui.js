@@ -31,7 +31,8 @@ function nav(pageId) {
               "page-bag": renderBag, "page-shop": renderShop, "page-arena": renderArena,
               "page-captain": typeof renderCaptain === "function" ? renderCaptain : null,
               "page-festival": typeof renderFestival === "function" ? renderFestival : null,
-              "page-fleet": typeof renderFleet === "function" ? renderFleet : null }[pageId];
+              "page-fleet": typeof renderFleet === "function" ? renderFleet : null,
+              "page-mail": typeof renderHarborMail === "function" ? renderHarborMail : null }[pageId];
   if (R) R();
   if (pageId === "page-modes") refreshModes();
   renderTopbar();
@@ -40,6 +41,7 @@ function nav(pageId) {
 /* ---------- 顶部资源栏 ---------- */
 function renderTopbar() {
   if (!SAVE) return;
+  if (typeof renderHarborMailBadge === "function") renderHarborMailBadge();
   if (typeof renderCaptainSummary === "function") renderCaptainSummary();
   document.getElementById("res-stamina").textContent = SAVE.stamina + "/" + SAVE.staminaMax;
   document.getElementById("res-token").textContent = SAVE.token;

@@ -21,7 +21,7 @@ function upgradeWorkshopSheet(view, girl, own) {
   return `<section class="ws-paper xp-chapter" data-upgrade-sheet="${girl.id}"><header><small class="ws-kicker">成长手册 · 角色等级</small><h4>历练研读</h4><p>为${esc(girl.name)}选一批书卷，一次结算，可连续跨级。</p></header>
     <div class="xp-ledger"><small>当前等级 / 卡牌上限</small><strong>Lv.${own.level} <em>/ ${cap}</em></strong><progress aria-label="当前等级经验" value="${full ? 1 : own.exp || 0}" max="${full ? 1 : cost}"></progress><span>${full ? cap < GROWTH.maxLevel ? "提升船长等级可继续培养" : "等级已圆满" : `${(own.exp || 0).toLocaleString()} / ${cost.toLocaleString()} 经验`}</span></div>
     <button type="button" data-upgrade-open class="ws-command" onclick="openUpgradePicker()" ${full ? "disabled" : ""}>${full ? "已达等级上限" : "一键升级 · 选择材料"}</button><div class="xp-chapters">${[1,60,120].map((level,index) => `<div><b>${["启程","远征","星轨"][index]} · Lv.${level}</b><small>本级升一级 ${cardLevelCost(level).toLocaleString()} 经验</small></div>`).join("")}</div>
-    <p>出航或完成每日任务可获得船长经验。伙伴可培养至船长当前等级，最高 ${GROWTH.maxLevel} 级。</p></section>`;
+    <p>每实际消耗 1 点体力，获得 1 点船长经验。每日任务另奖经验。伙伴可培养至船长当前等级，最高 ${GROWTH.maxLevel} 级。</p></section>`;
 }
 
 function activeUpgradePicker() {

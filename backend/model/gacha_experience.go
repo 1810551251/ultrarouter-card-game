@@ -43,12 +43,12 @@ func gachaLevelCost(level int) int {
 	return max(1, level)*gachaCatalog.Growth.ExpPerLevel + veteran*veteran*rules.VeteranGrowth + master*master*rules.MasterGrowth
 }
 
-func trainGachaLevel(own *GachaOwnedGirl, amount, limit int) error {
+func trainGachaLevel(own *GachaOwnedGirl, amount, limit int) (int, error) {
 	if !gachaCardOwned(own) || limit < 1 || limit > gachaCatalog.Growth.MaxLevel || own.Level > limit || amount < 0 || amount > gachaMaxResource || own.Exp < 0 || own.Exp > gachaMaxResource-amount {
-		return ErrGachaRunState
+		return 0, ErrGachaRunState
 	}
 	if own.Level == limit {
-		return nil
+		return 0, nil
 	}
 	own.Exp += amount
 	for own.Level < limit && own.Exp >= gachaLevelCost(own.Level) {
@@ -56,12 +56,13 @@ func trainGachaLevel(own *GachaOwnedGirl, amount, limit int) error {
 		own.Level++
 	}
 	if own.Level == limit {
+		amount = max(0, amount-own.Exp)
 		own.Exp = 0
 	}
 	if own.PeakLevel > 0 {
 		own.PeakLevel = gachaPeakLevel(own)
 	}
-	return nil
+	return amount, nil
 }
 
 func validateGachaFeedIntent(intent GachaActionIntent) error {
@@ -114,9 +115,11 @@ func applyGachaFeed(state *GachaGameState, intent GachaActionIntent, result *Gac
 			room -= xp
 		}
 	}
-	if err := trainGachaLevel(own, receipt.Experience, limit); err != nil {
+	credited, err := trainGachaLevel(own, receipt.Experience, limit)
+	if err != nil {
 		return err
 	}
+	receipt.Experience = credited
 	for id, count := range receipt.Spent {
 		state.Mats[id] -= count
 	}

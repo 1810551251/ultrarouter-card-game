@@ -4,8 +4,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM } = require("jsdom");
 
-function setup(context, guild = null) {
-  const dom = new JSDOM('<body data-page="page-fleet"><div id="fleet-body"></div></body>', { runScripts: "outside-only" });
+function setup(context, guild = null, hash = "") {
+  const dom = new JSDOM('<body data-page="page-fleet"><button id="opener" data-rank-demo-launch>打开</button><div id="fleet-body"></div></body>', { runScripts: "outside-only", url: `https://example.invalid/gacha/${hash}` });
   context.after(() => dom.window.close());
   const calls = [], reads = [], notices = [];
   const store = {
@@ -18,16 +18,21 @@ function setup(context, guild = null) {
       const board = query.get("board"), after = Number(query.get("after"));
       reads.push([board, after]);
       const entries = board === "directory" ? [{ name: after ? "后续" : "<img src=x>", members: 3, code: "00000002", value: 4 }] : [{ name: "藏家", mine: true, value: 7 }];
-      return { board, entries, catalog_size: 28, member_limit: 10, my_rank: 78, my_value: 7, next: board === "directory" && !after ? 12 : 0 };
+      return { board, entries, catalog_size: 28, star_limit: 156, member_limit: 10, my_name: "藏家", my_rank: 78, my_value: 7, next: board === "directory" && !after ? 12 : 0 };
     },
   };
   const window = dom.window;
   Object.assign(window, { Store: store, SITE: { ep: { fleet: "/api/user/gacha/fleet" } }, ELEM: {}, SAVE: { stamina: 90, squad: ["c01"] }, requireGame: () => true, renderTopbar() {}, toast: notice => notices.push(notice) });
   const ui = fs.readFileSync(path.join(__dirname, "../js/ui.js"), "utf8");
   window.eval(ui.slice(ui.indexOf("function esc("), ui.indexOf("/* ---------- 页面路由")));
+  window.eval(`${fs.readFileSync(path.join(__dirname, "../js/data.js"), "utf8")}\nwindow.GIRLS = GIRLS;`);
   window.eval(fs.readFileSync(path.join(__dirname, "../js/fleet.js"), "utf8"));
   const document = window.document;
-  const click = selector => window.fleetClick({ target: document.querySelector(selector) });
+  const click = selector => {
+    const target = document.querySelector(selector);
+    assert.ok(target, selector);
+    return target.closest("#fleet-rank-hall") ? window.fleetRankClick({ target }) : window.fleetClick({ target });
+  };
   return { window, document, store, reads, calls, click, notices };
 }
 
@@ -43,10 +48,11 @@ test("directory shows safe public entries, pages by cursor, and posts only the j
   await click('[data-fleet-act="previous"]');
   await click('[data-fleet-act="recruit"]');
   assert.deepEqual(calls, [["guild_join", { item_id: "00000002" }]]);
+  await click('[data-fleet-act="hall"]');
   await click('[data-fleet-tab="collection"]');
   assert.match(document.querySelector(".fleet-standing").textContent, /第 78 名/);
-  assert.match(document.querySelector(".fleet-list").textContent, /25\.0%/);
-  assert.match(document.querySelector(".fleet-list").textContent, /7 \/ 28 张整卡/);
+  assert.match(document.querySelector(".rank-list").textContent, /25\.0%/);
+  assert.match(document.querySelector(".rank-list").textContent, /7 \/ 28 张整卡/);
   assert.equal(document.querySelector('[data-fleet-tab="collection"]').getAttribute("aria-pressed"), "true");
 });
 
@@ -68,6 +74,7 @@ test("cooperative commands use server eligibility and wait for confirmed grants"
 test("older rankings and late session responses cannot replace the current tab", async context => {
   const { window, document, click, store } = setup(context);
   await window.renderFleet();
+  await click('[data-fleet-act="hall"]');
   const immediate = store.api;
   let release;
   store.api = () => new Promise(done => { release = done; });
@@ -76,11 +83,73 @@ test("older rankings and late session responses cannot replace the current tab",
   await click('[data-fleet-tab="collection"]');
   release({ board: "power", entries: [{ name: "过时榜单" }] });
   await old;
-  assert.doesNotMatch(document.getElementById("fleet-pane").textContent, /过时榜单/);
+  assert.doesNotMatch(document.getElementById("fleet-rank-hall").textContent, /过时榜单/);
   store.api = () => new Promise(done => { release = done; });
   const outgoing = click('[data-fleet-tab="power"]');
   store.sessionEpoch++;
   release({ board: "power", entries: [{ name: "其他账号" }] });
   await outgoing;
-  assert.doesNotMatch(document.getElementById("fleet-pane").textContent, /其他账号/);
+  assert.doesNotMatch(document.getElementById("fleet-rank-hall").textContent, /其他账号/);
+  window.closeFleetOfficial();
+  assert.equal(document.getElementById("fleet-rank-hall"), null);
+});
+
+test("standalone demo uses only original local portraits, five boards, focusable details and a return path without a session", async context => {
+  const { window, document, store, click, reads, calls } = setup(context, null, "#rank-demo-stars");
+  store.ready = () => false;
+  const opener = document.getElementById("opener"); opener.focus();
+  window.fleetRankHash();
+  const hall = document.getElementById("fleet-rank-hall");
+  assert.equal(hall.dataset.rankBoard, "stars");
+  assert.equal(hall.dataset.rankSource, "demo");
+  assert.match(hall.querySelector("[data-rank-origin]").textContent, /演示榜/);
+  assert.equal(hall.querySelectorAll(".rank-columns span").length, 4);
+  assert.equal(hall.querySelectorAll(".rank-list [data-rank-row]").length, 8);
+  for (const medal of [1,2,3]) assert.equal(hall.querySelector(`[data-medal="${medal}"]`).textContent, String(medal));
+  assert.equal(hall.querySelectorAll('[data-rank-row="0"] .rank-faces img').length, 4);
+  for (const image of hall.querySelectorAll("img")) {
+    assert.match(image.getAttribute("src"), /^assets\/c\d\d-[a-z0-9-]+\.webp$/i);
+    assert.ok(fs.existsSync(path.join(__dirname, "..", image.getAttribute("src"))));
+  }
+  assert.match(hall.querySelector(".rank-standing").textContent, /蓝檐回声/);
+  await click('[data-rank-row="1"]');
+  const detail = document.getElementById("fleet-rank-detail");
+  assert.match(detail.textContent, /演示榜.*第 2 名/s);
+  assert.equal(detail.querySelectorAll(".rank-faces img").length, 4);
+  detail.dispatchEvent(new window.Event("cancel", { cancelable:true }));
+  assert.equal(document.activeElement.dataset.rankRow, "1");
+  for (const board of ["power", "collection", "guild", "arena", "stars"]) {
+    await click(`[data-fleet-tab="${board}"]`);
+    assert.equal(hall.dataset.rankBoard, board);
+    assert.equal(hall.querySelector(`[data-fleet-tab="${board}"]`).getAttribute("aria-pressed"), "true");
+  }
+  hall.querySelector('[data-fleet-tab="stars"]').dispatchEvent(new window.KeyboardEvent("keydown", { key:"Home", bubbles:true }));
+  assert.equal(document.activeElement.dataset.fleetTab, "power");
+  assert.equal(hall.dataset.rankBoard, "power");
+  await click('[data-rank-action="back"]');
+  assert.equal(document.activeElement, opener);
+  assert.equal(window.location.hash, "");
+  assert.deepEqual(reads, []); assert.deepEqual(calls, []);
+});
+
+test("empty and unavailable live rankings offer an explicit demo, never filling or mutating the real board", async context => {
+  const { window, document, store, calls, click } = setup(context);
+  let reads = 0;
+  store.api = async () => { reads++; return { board:"stars", entries:[], star_limit:156, my_rank:0, my_value:0 }; };
+  await window.openFleetRanking("stars", document.getElementById("opener"));
+  const hall = document.getElementById("fleet-rank-hall");
+  assert.equal(hall.dataset.rankSource, "live");
+  assert.match(hall.textContent, /暂无上榜记录/);
+  assert.equal(hall.querySelectorAll(".rank-row").length, 0);
+  await click('[data-rank-action="demo"]');
+  assert.equal(hall.dataset.rankSource, "demo"); assert.equal(reads, 1);
+  store.api = async () => { reads++; throw new Error("暂离线"); };
+  await click('[data-rank-action="source"]');
+  assert.match(hall.textContent, /暂未取得正式榜/);
+  assert.equal(hall.querySelectorAll(".rank-row").length, 0);
+  await click('[data-rank-action="demo"]');
+  window.closeFleetOfficial();
+  assert.equal(hall.dataset.rankSource, "demo");
+  assert.equal(hall.querySelector('[data-rank-action="source"]').hidden, true);
+  assert.equal(reads, 2); assert.deepEqual(calls, []);
 });
