@@ -1,0 +1,17 @@
+{
+  "level_max":120,"rank_max":12,"gem_default":"blue","chip_default":"purple",
+  "qualities":[{"id":"white","name":"素白","weight":4200},{"id":"green","name":"青绿","weight":2800},{"id":"blue","name":"苍蓝","weight":1650},{"id":"purple","name":"绛紫","weight":860},{"id":"gold","name":"鎏金","weight":350},{"id":"orange","name":"焰橙","weight":120},{"id":"red","name":"绯红","weight":20}],
+  "level_cost":{"base":3,"linear":2,"square_divisor":100,"ore_base":1,"ore_every":20},
+  "rank_levels":[2,5,9,14,20,28,38,50,65,85,110],"rank_rivets":[2,4,7,11,17,25,36,52,75,105,150],"rank_tickets":[1,1,2,2,3,4,5,7,9,12,16],
+  "growth":{"early_steps":12,"late_every":4,"late_hp":2},
+  "families":{
+    "ruby":{"base":[3,5,8,12,17,23,31],"rank_effect":{"name":"燃魂","effect":"skill"},"rare":[{"name":"焰饮","effect":"leech","value":1},{"name":"燃机","effect":"rage_gain","value":2},{"name":"赤日","effect":"rage","value":6}]},
+    "jade":{"base":[15,28,45,65,90,125,170],"rank_effect":{"name":"生息","effect":"heal"},"rare":[{"name":"青帐","effect":"shield","value":2},{"name":"还春","effect":"leech","value":1},{"name":"萌动","effect":"rage_gain","value":3}]},
+    "sapphire":{"base":[2,4,6,8,11,15,20],"rank_effect":{"name":"岩响","effect":"counter"},"rare":[{"name":"石心","effect":"shield","value":2},{"name":"断层","effect":"skill","value":4},{"name":"山鸣","effect":"rage","value":6}]},
+    "wind":{"base":[2,3,4,5,6,7,9],"rank_effect":{"name":"扬帆","effect":"rage"},"rare":[{"name":"余风","effect":"rage_gain","value":2},{"name":"风剪","effect":"skill","value":4},{"name":"回岚","effect":"shield","value":3}]},
+    "amethyst":{"base":[0,1,2,3,4,6,8],"rank_effect":{"name":"辉音","effect":"skill"},"rare":[{"name":"紫涌","effect":"rage","value":4},{"name":"蚀光","effect":"leech","value":1},{"name":"极夜","effect":"counter","value":6}]},
+    "edge":{"base":[1,2,3,5,8,12,17],"rank_effect":{"name":"刃频","effect":"skill"},"rare":[{"name":"截击","effect":"counter","value":4},{"name":"汲能","effect":"leech","value":1},{"name":"过载","effect":"rage_gain","value":3}]},
+    "aegis":{"base":[1,2,3,5,8,12,17],"rank_effect":{"name":"折射","effect":"counter"},"rare":[{"name":"预护","effect":"shield","value":2},{"name":"补偿","effect":"heal","value":5},{"name":"反冲","effect":"rage","value":6}]},
+    "tempo":{"base":[5,9,15,22,33,48,68],"rank_effect":{"name":"谐振","effect":"skill"},"rare":[{"name":"节流","effect":"heal","value":4},{"name":"同拍","effect":"rage_gain","value":2},{"name":"环振","effect":"shield","value":3}]}
+  }
+}

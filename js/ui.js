@@ -11,6 +11,7 @@ function esc(value) {
 /* ---------- 页面路由 ---------- */
 function nav(pageId) {
   if (!requireGame()) return;
+  if (typeof discardArtifactReturn === "function") discardArtifactReturn();
   stopArenaPolling();
   if (typeof stopGrowthRestTimer === "function") stopGrowthRestTimer();
   if (pageId === "page-arena") arenaTab = "queue";
@@ -305,6 +306,7 @@ function cardHTML(g, isNew, extra) {
 
 function renderGacha() {
   if (!requireGame()) return;
+  if (typeof renderArtifactPool === "function" && renderArtifactPool()) return;
   const pityDone = SAVE.pity % GACHA.pitySSR;
   const pityPct = Math.max(pityDone / GACHA.pitySSR, 0.04) * 100;
   document.getElementById("gacha-pity").innerHTML = `
@@ -380,6 +382,31 @@ function squadBondLabels(ids) {
   if (selected.length === 4 && new Set(selected.map(g => g.elem)).size === 4) labels.push("四象协奏 · 防御 +5%");
   return labels.length ? labels : ["编队两名同元素少女触发元素共鸣；三名同定位触发职能协奏"];
 }
+
+function codexSummary() {
+  const flat = codexBonuses();
+  return `生命 +${flat.hp} · 攻击 +${flat.atk} · 防御 +${flat.def}`;
+}
+
+function collectionCrewMarkup(bond, cardId) {
+  const { spec, owned, percent } = bond, rules = cultivationRules();
+  const members = spec.members.map(member => GIRLS.find(girl => girl.id === member));
+  const stat = CULTIVATION_STATS[spec.stat], advanced = percent > 0 && members.every(girl => SAVE.girls[girl.id]?.star >= rules.bond_star);
+  return `<article class="at-bond ${percent ? "is-active" : ""}" ${cardId ? "data-card-bond" : "data-album-bond"}="${spec.members.join('-')}"><div class="at-bond-title"><h4>${esc(spec.name)}</h4><em>${advanced ? "进阶已生效" : percent ? "已激活" : `待集齐 ${owned}/${members.length}`}</em></div><div class="at-partners">${members.map(girl => {
+    const star = SAVE.girls[girl.id]?.star || 0, contents = `<img src="${girl.img}" alt="" loading="lazy"><span><b>${esc(girl.name)}</b><small>${star ? `${star} 星` : "未获得"}</small></span>`;
+    return girl.id === cardId ? `<div class="collection-partner ${star ? "" : "is-missing"}">${contents}</div>` : `<button type="button" class="collection-partner ${star ? "" : "is-missing"}" aria-label="查看${esc(girl.name)}" onclick="openGirl('${girl.id}')">${contents}</button>`;
+  }).join("")}</div><p><b>当前${stat} +${percent}%</b> · 集齐 +${spec.base}% · 全员 ${rules.bond_star} 星增至 +${spec.advanced}%</p></article>`;
+}
+
+function collectionAlbumMarkup() {
+  const rules = cultivationRules();
+  if (!rules) return "";
+  const crews = rules.crews || rules.fellowships || rules.bonds, active = crews.filter(spec => spec.members.every(id => SAVE.girls[id]?.star > 0)).length;
+  return `<details class="collection-album"><summary>收藏图鉴 · 羁绊 ${active}/${crews.length} <small>全员 ${codexSummary()}</small></summary><p>获得同组全部整卡，即为组员激活羁绊；碎片不计，也不要求上阵。</p><div class="at-squad-bonds">${SAVE.squad.map(id => {
+    const girl = GIRLS.find(entry => entry.id === id), bonds = collectionBonds(id);
+    return `<button type="button" class="collection-partner" onclick="${typeof openWorkshop === "function" && workshopRules() ? `openWorkshop('${id}','bonds')` : `openGirl('${id}')`}"><img src="${girl.img}" alt="" loading="lazy"><span><b>${esc(girl.name)}</b><small>羁绊 ${bonds.filter(bond => bond.percent).length}/${bonds.length}</small></span></button>`;
+  }).join("")}</div></details>`;
+}
 function renderSquad() {
   if (!requireGame()) return;
   const slots = document.getElementById("squad-slots");
@@ -395,12 +422,12 @@ function renderSquad() {
     power += powerOf(id);
     const s = finalStats(id, true);
     agg.hp += s.hp; agg.atk += s.atk; agg.def += s.def; agg.spd += s.spd;
-    return `<div class="team-slot filled r-${g.rarity}" onclick="unslot(${i})" title="点击移出队伍">
+    return `<div class="team-slot filled r-${g.rarity}" ${typeof trainingFrame === "function" ? trainingFrame(own) : ""} onclick="unslot(${i})" title="点击移出队伍">
       <span class="ts-idx">${i + 1}</span>
       <span class="ts-x">×</span>
       <img src="${g.img}" loading="lazy" alt="">
       <div class="tn-name">${g.name}</div>
-      <div class="tn-sub">Lv${own.level} · ${own.star}星</div>
+      <div class="tn-sub">Lv${own.level} · ${own.star}星 ${typeof trainingGradeTag === "function" ? trainingGradeTag(own) : ""}</div>
     </div>`;
   }).join("");
   document.getElementById("team-count").textContent = SAVE.squad.length + "/4";
@@ -411,7 +438,7 @@ function renderSquad() {
     <span>攻击 <b>${agg.atk.toLocaleString()}</b></span>
     <span>防御 <b>${agg.def.toLocaleString()}</b></span>
     <span>均速 <b>${Math.round(agg.spd / n)}</b></span>
-    <div class="bond-line"><b>队伍羁绊</b>${squadBondLabels(SAVE.squad).map(x => `<span>${esc(x)}</span>`).join("")}</div>`;
+    <div class="bond-line"><b>上阵羁绊</b>${squadBondLabels(SAVE.squad).map(x => `<span>${esc(x)}</span>`).join("")}</div>${collectionAlbumMarkup()}`;
 
   // 列表：图鉴全量展示（未获得置灰），在队优先，其次已拥有、稀有度、等级
   const order = { SSR: 0, SR: 1, R: 2 };
@@ -439,11 +466,12 @@ function renderSquad() {
     </div>`;
     const slot = SAVE.squad.indexOf(id);          // -1 = 未上阵
     const inSquad = slot >= 0;
-    return `<div class="card r-${g.rarity} ${inSquad ? "in-team" : ""}" data-id="${id}">
+    return `<div class="card r-${g.rarity} ${inSquad ? "in-team" : ""}" data-id="${id}" ${typeof trainingFrame === "function" ? trainingFrame(own) : ""} data-prestige-card="${own.star >= 12 ? "crown" : own.star >= 9 ? "crimson" : own.star >= 6 ? "gold" : ""}">
       <img src="${g.img}" loading="lazy">
       ${inSquad ? `<span class="team-flag">出战 ${slot + 1}</span>` : ""}
       <span class="shard-n">${own.shards > 0 ? "碎片 " + own.shards : ""}</span>
-      <div class="name">${g.name}<i>Lv${own.level} · ${own.star}星${own.talent ? ` · ${TALENTS[own.talent]?.name || "天赋"}` : ""}</i></div>
+      ${typeof atelierCrest === "function" ? atelierCrest(own.star) : ""}
+      <div class="name">${g.name} ${typeof trainingGradeTag === "function" ? trainingGradeTag(own) : ""}<i>Lv${own.level} · ${own.star}星${own.talent ? ` · ${TALENTS[own.talent]?.name || "天赋"}` : ""}</i></div>
       <span class="quick-toggle" title="${inSquad ? "移出队伍" : "加入队伍"}">${inSquad ? "−" : "+"}</span>
     </div>`;
   }).join("");
@@ -477,14 +505,32 @@ async function unslot(i) {
 
 function shardReserve(g, own) {
   if (!own || own.star < 1) return RARITY[g.rarity].shardToUnlock;
-  if (own.star >= GROWTH.starMax) return 0;
-  return typeof growthStarCost === "function" ? growthStarCost(g, own.star + 1) : GROWTH.starCost[own.star + 1] || 0;
+  return growthStarCost(g, own.star + 1);
 }
+function recyclableShards(girl, own) {
+  const surplus = Math.max(0, (own?.shards || 0) - shardReserve(girl, own));
+  const rate = cultivationRules()?.shards?.per_ore[girl.rarity] || 1;
+  return surplus - surplus % rate;
+}
+
+async function exchangeLegacyDust(itemId) {
+  if (!requireGame() || !["shard_dust", "shard_dust_r", "shard_dust_sr", "shard_dust_ssr"].includes(itemId)) return;
+  const cost = cultivationRules()?.shards?.legacy_dust_per_ore;
+  if (!cost || (SAVE.mats[itemId] || 0) < cost) return;
+  const epoch = Store.sessionEpoch, result = await Store.mutate("salvage_dust", { item_id: itemId });
+  if (!result || epoch !== Store.sessionEpoch || !Store.ready()) return;
+  if (document.body.dataset.page === "page-bag") renderBag();
+  toast((result.drops || []).join(" · ") || "旧尘回收已确认");
+}
+
 function confirmShardDecompose(id, count) {
   const g = GIRLS.find(x => x.id === id);
   if (!g || !Number.isSafeInteger(count) || count < 1) return;
+  const rate = cultivationRules()?.shards?.per_ore[g.rarity];
+  if (rate) count -= count % rate;
+  if (count < 1 || count > recyclableShards(g, SAVE.girls[id])) return;
   showModal(`<h3>分解少女碎片</h3>
-    <p>分解 ${esc(g.name)} 的 ${count} 个多余碎片，可获得 ${count} 个${g.rarity}共鸣尘，只能按 1:1 补同稀有度少女升星碎片。旧通用共鸣尘仍保留原用途。</p>
+    <p>分解 ${esc(g.name)} 的 ${count} 枚多余专属碎片，${rate ? `获得 ${count / rate} 枚星锻矿（每 ${rate} 碎片换 1 矿）。星锻矿不能替代任何角色的升星碎片。` : `获得 ${count} 个${g.rarity}共鸣尘。`}</p>
     <p class="modal-note">系统会保留解锁或下一次升星所需的碎片。</p>
     <div class="modal-btns">
       <button class="gbtn gbtn-sm" onclick="openGirl('${id}')"><span>取消</span></button>
@@ -493,12 +539,16 @@ function confirmShardDecompose(id, count) {
 }
 async function decomposeShards(id, count) {
   if (!requireGame()) return;
+  const girl = GIRLS.find(entry => entry.id === id), rate = cultivationRules()?.shards?.per_ore[girl?.rarity] || 1;
+  if (!girl || !Number.isSafeInteger(count) || count < 1 || count % rate || count > recyclableShards(girl, SAVE.girls[id])) return;
+  const epoch = Store.sessionEpoch;
   const result = await Store.mutate("shard_decompose", { girl_id: id, count });
-  if (!result?.decomposition) return;
+  if (!result?.decomposition || epoch !== Store.sessionEpoch || !Store.ready()) return;
   const page = document.body.dataset.page || "page-bag";
   closeModal();
   nav(page);
-  toast(`分解 ${result.decomposition.shards} 个碎片，获得 ${result.decomposition.dust} ${result.decomposition.rarity || ""}共鸣尘`);
+  const receipt = result.decomposition;
+  toast(`分解 ${receipt.shards} 个碎片，获得 ${receipt.item_id === "forge_ore" ? receipt.quantity + " 星锻矿" : receipt.dust + " " + (receipt.rarity || "") + "共鸣尘"}`);
 }
 
 function gemSocketMarkup(id, own, matKey) {
@@ -573,7 +623,7 @@ function talentMarkup(id, own, matKey) {
   if (own.star < 3) return `<section class="talent-panel"><div class="mode-card-head"><b>角色天赋</b><span>升至 3 星解锁</span></div><p>选择一条专精路线，升星会自动强化天赋阶级。</p></section>`;
   const cost = own.talent ? { gold: 1000, mat: 10 } : { gold: 500, mat: 5 };
   const enough = SAVE.gold >= cost.gold && (SAVE.mats[matKey] || 0) >= cost.mat;
-  return `<section class="talent-panel"><div class="mode-card-head"><b>角色天赋 · ${own.talent ? `${TALENTS[own.talent].name} ${rank}/3 阶` : "尚未选择"}</b><span>星级越高，专精越强</span></div>
+  return `<section class="talent-panel"><div class="mode-card-head"><b>角色天赋 · ${own.talent ? `${TALENTS[own.talent].name} ${rank}/3 阶` : "尚未选择"}</b><span>3～5星强化专精，最高三阶</span></div>
     <div class="talent-branches">${Object.entries(TALENTS).map(([key, talent]) => `<button type="button" class="talent-branch ${own.talent === key ? "selected" : ""}" style="--talent:${talent.color}" ${own.talent === key || !enough ? "disabled" : ""} onclick="chooseGirlTalent('${id}','${key}')"><b>${talent.name} · ${talent.style}</b><small>${talent.effect}</small><small class="build-tradeoff">${talent.tradeoff}</small><em>${own.talent === key ? `已激活 ${rank}/3` : `选择 ${cost.gold} 金币 + ${MATS[matKey].name} ${cost.mat}`}</em></button>`).join("")}</div></section>`;
 }
 
@@ -593,7 +643,8 @@ function sigilCard(sigil, action) {
   const family = SIGIL_FAMILIES[sigil.family];
   const holder = sigilHolder(sigil.id);
   const holderName = holder && GIRLS.find(g => g.id === holder)?.name;
-  return `<article class="sigil-card quality-${sigil.quality}" style="--sigil:${family.color}"><div class="sigil-heading"><span class="sigil-mark">◇</span><div><small>${SIGIL_QUALITY[sigil.quality]} · 随机双词条</small><h4>${family.name}</h4></div></div><div class="sigil-affixes">${sigilAffixMarkup(sigil)}</div><p>${family.effect}</p>${holder ? `<span class="sigil-holder">${esc(holderName || "少女")} 已装备</span>` : action}${SAVE.progression ? `<button type="button" class="gbtn gbtn-sm sigil-refine" onclick="openSigilRefine('${sigil.id}')"><span>定向一条属性</span></button>` : ""}</article>`;
+  const emblem = typeof atelierIcon === "function" && Store.profile?.items ? atelierIcon(`sigil_${sigil.family}`,({1:"white",2:"blue",3:"purple"})[sigil.quality],"seal") : '<span class="sigil-mark">◇</span>';
+  return `<article class="sigil-card quality-${sigil.quality}" style="--sigil:${family.color}"><div class="sigil-heading">${emblem}<div><small>${SIGIL_QUALITY[sigil.quality]} · 随机双词条</small><h4>${family.name}</h4></div></div><div class="sigil-affixes">${sigilAffixMarkup(sigil)}</div><p>${family.effect}</p>${holder ? `<span class="sigil-holder">${esc(holderName || "少女")} 已装备</span>` : action}${SAVE.progression ? `<button type="button" class="gbtn gbtn-sm sigil-refine" onclick="openSigilRefine('${sigil.id}')"><span>定向一条属性</span></button>` : ""}</article>`;
 }
 function sigilEquipmentMarkup(id, own) {
   const sigil = own.sigil && SAVE.sigils?.[own.sigil];
@@ -679,17 +730,118 @@ async function confirmGirlTalent(id, talent) {
   toast(`已选择${TALENTS[talent].name}专精`);
 }
 
+function starTrainingMarkup(id) {
+  const girl = GIRLS.find(entry => entry.id === id), own = SAVE.girls[id];
+  const step = growthStarStep(girl, own), mat = MAT_BY_RARITY[girl.rarity];
+  const dedicated = !!cultivationRules()?.shards, shards = (own.shards || 0) + (dedicated ? 0 : growthDust(girl));
+  const limit = growthStarMax();
+  const groups = [1,7].filter(first => first <= limit).map(first => `<span class="star-grade-group" data-star-tier="${first === 1 ? 1 : 2}">${Array.from({length:Math.min(6,limit - first + 1)}, (_, index) => `<i data-star-index="${first+index}" class="${first+index <= own.star ? "is-lit" : ""}">${first+index <= own.star ? "★" : "☆"}</i>`).join("")}</span>`).join("");
+  return `<section class="cultivation-star at-star-training" data-current-star="${own.star}"><div><h4>星级突破 · ${own.star}/${limit} 星 ${typeof atelierCrest === "function" ? atelierCrest(own.star) : ""}</h4><div class="star-grades" aria-hidden="true">${groups}</div>${step ? `<p>${dedicated ? "本卡专属碎片" : "碎片与可用尘"} ${shards}/${step.shards} · ${MATS[mat].name} ${SAVE.mats[mat] || 0}/${step.material}${step.awakening ? ` · 角色觉醒 ${own.awakening || 0}/${step.awakening} 阶` : ""}</p>` : "<p>已达到最高星级</p>"}</div><button type="button" class="gbtn gbtn-sm gbtn-gold" data-cultivation-action="star" onclick="starUp('${id}')" ${step?.ready ? "" : "disabled"}><span>${step ? `升至 ${step.next} 星` : "已满星"}</span></button>${typeof atelierMilestones === "function" ? atelierMilestones(id) : ""}</section>`;
+}
+
+function cultivationOptions(id) {
+  const rules = cultivationRules(), own = SAVE.girls[id], girl = GIRLS.find(entry => entry.id === id);
+  if (!girl || !rules || !own?.star) return [];
+  const level = own.weapon_level || 0, awake = own.weapon_awake || 0, potential = own.potential || 0;
+  const ore = SAVE.mats.forge_ore || 0, cores = SAVE.mats.weapon_core || 0, manuals = SAVE.mats.training_manual || 0;
+  const levelCosts = Store.profile?.equipment?.level_costs || rules.weapon_ore;
+  const mat = MAT_BY_RARITY[girl.rarity], matCount = SAVE.mats[mat] || 0;
+  const options = [
+    { action: "weapon_upgrade", label: level < levelCosts.length ? `强化至 +${level + 1}` : "专武已满级", detail: level < levelCosts.length ? `星锻矿 ${ore}/${levelCosts[level]}` : `强化 +${level}`, ready: level < levelCosts.length && ore >= levelCosts[level] },
+    { action: "weapon_awaken", label: awake < rules.weapon_cores.length ? `专武觉醒 ${awake + 1} 阶` : "专武觉醒已满", detail: awake < rules.weapon_cores.length ? `觉醒棱芯 ${cores}/${rules.weapon_cores[awake]} · 专武 +${rules.weapon_level_gates[awake]} · 角色觉醒 ${rules.weapon_awakening_gates[awake]} 阶` : `${awake} 阶`, ready: awake < rules.weapon_cores.length && cores >= rules.weapon_cores[awake] && level >= rules.weapon_level_gates[awake] && (own.awakening || 0) >= rules.weapon_awakening_gates[awake] },
+    { action: "potential_unlock", label: potential < rules.potential_stars.length ? `解锁潜能 ${potential + 1}` : "潜能已全开", detail: potential < rules.potential_stars.length ? `${rules.potential_stars[potential]} 星 · ${MATS[mat].name} ${matCount}/${rules.potential_mats[potential]}` : `${potential} 个节点`, ready: potential < rules.potential_stars.length && own.star >= rules.potential_stars[potential] && matCount >= rules.potential_mats[potential] },
+    { action: "use_manual", label: own.level < GROWTH.maxLevel ? "研读手记" : "等级已满", detail: `持有 ${manuals} 份 · 每份 ${rules.manual_xp} 经验`, ready: own.level < GROWTH.maxLevel && manuals > 0 },
+  ];
+  for (const choice of ["edge", "ward", "tempo"]) {
+    const rune = rules.engravings[choice];
+    if (!rune) continue;
+    options.push({ action: "weapon_engrave", choice, label: rune.name, detail: `${own.weapon_rune === choice ? "已铭刻 · " : ""}${CULTIVATION_STATS[rune.stat]} +${rune.value}${rune.stat === "spd" ? "" : "%"}`, ready: level >= rules.weapon_rune_level && ore >= rules.weapon_rune_ore && own.weapon_rune !== choice });
+  }
+  return options;
+}
+
+function cultivationButton(id, option) {
+  const { action, choice } = option;
+  return `<button type="button" class="gbtn gbtn-sm" data-cultivation-action="${action}" ${choice ? `data-choice="${choice}"` : ""} onclick="cultivateGirl('${action}','${id}'${choice ? `,'${choice}'` : ""})" ${option.ready ? "" : "disabled"}><span>${esc(option.label)}</span><span class="sub">${esc(option.detail)}</span></button>`;
+}
+
+function cultivationPanel(id) {
+  const rules = cultivationRules(), own = SAVE.girls[id], weapon = rules?.weapons[id];
+  if (!weapon || !own?.star) return "";
+  const level = own.weapon_level || 0, awake = own.weapon_awake || 0, potential = own.potential || 0;
+  const rune = rules.engravings[own.weapon_rune], options = cultivationOptions(id);
+  const buttons = actions => options.filter(option => actions.includes(option.action)).map(option => cultivationButton(id, option)).join("");
+  return `<section class="cultivation-tools"><div class="cultivation-heading"><div><small>自带专武 · 绑定本人</small><h4>${esc(weapon.name)} <span>+${level}</span></h4></div><strong>觉醒 ${awake}/${rules.weapon_cores.length}</strong></div>
+    <p>${CULTIVATION_STATS[weapon.stat]} +${level * rules.weapon_per_level}%（每级 +${rules.weapon_per_level}%） · 觉醒每阶生命 +${rules.weapon_vitality_per_awake}%、初始怒气 +${rules.weapon_rage_per_awake}</p>
+    <div class="cultivation-buttons">${buttons(["weapon_upgrade", "weapon_awaken"])}</div>
+    <details class="cultivation-runes"><summary>专武铭刻 · ${rune ? esc(rune.name) : "未铭刻"}</summary><p>专武 +${rules.weapon_rune_level} 开启；每次消耗 ${rules.weapon_rune_ore} 星锻矿（持有 ${SAVE.mats.forge_ore || 0}）。重刻替换当前铭纹。</p><div class="cultivation-buttons">${buttons(["weapon_engrave"])}</div></details>
+    <div class="cultivation-heading"><div><small>角色潜能 · ${potential}/${rules.potential_stars.length} 节点</small><h4>生命、攻击、防御 +${potential * rules.potential_per_node}%</h4></div><span class="potential-nodes" aria-hidden="true">${rules.potential_stars.map((_, index) => index < potential ? "◆" : "◇").join("")}</span></div>
+    <div class="cultivation-buttons">${buttons(["potential_unlock", "use_manual"])}</div></section>`;
+}
+
+function collectionMarkup(id) {
+  const rules = cultivationRules(), weapon = rules?.weapons[id];
+  if (!weapon) return "";
+  const bonds = collectionBonds(id), active = SAVE.girls[id]?.star > 0;
+  return `<section class="cultivation-bond at-bonds"><div><small>伙伴图鉴</small><h4>本卡收藏羁绊 <span>${bonds.filter(bond => bond.percent).length}/${bonds.length} 已激活</span></h4><p>集齐整组即为组员提供加成，无需上阵。${rules.bond_cap ? `相同属性累计不超过 ${rules.bond_cap}%。` : ""}</p></div><div class="at-bond-list">${bonds.map(bond => collectionCrewMarkup(bond,id)).join("")}</div><p class="codex-line"><b>图鉴常驻</b> ${active ? "已贡献" : "获得后"}：全员${CULTIVATION_STATS[weapon.stat]} +${rules.codex_flat[weapon.stat]}，下阵仍保留。图鉴合计 ${codexSummary()}。</p></section>`;
+}
+
+function refreshCultivationViews(id) {
+  const page = document.body.dataset.page;
+  if (page === "page-growth") {
+    const runesOpen = document.querySelector("#growth-cultivation .cultivation-runes")?.open;
+    renderGrowth();
+    const runes = document.querySelector("#growth-cultivation .cultivation-runes");
+    if (runes) runes.open = Boolean(runesOpen);
+  }
+  if (page === "page-bag") {
+    const selected = document.getElementById("manual-target")?.value;
+    renderBag();
+    const select = document.getElementById("manual-target");
+    if (select && selected && SAVE.girls[selected]?.level < GROWTH.maxLevel) {
+      select.value = selected;
+      updateManualTarget();
+    }
+  }
+  if (page === "page-squad") renderSquad();
+  if (page === "page-home") renderGrowthSummary();
+  renderTopbar();
+  if (document.querySelector("#modal-mask:not(.hidden) [data-cultivation-card]")?.dataset.cultivationCard === id) {
+    if (document.querySelector("#modal-box .hero-workshop") && typeof paintWorkshop === "function") { paintWorkshop(); return; }
+    const scrollTop = document.querySelector("#modal-box .mb-scroll").scrollTop;
+    const runesOpen = document.querySelector("#modal-box .cultivation-runes")?.open;
+    openGirl(id);
+    const runes = document.querySelector("#modal-box .cultivation-runes");
+    if (runes) runes.open = Boolean(runesOpen);
+    document.querySelector("#modal-box .mb-scroll").scrollTop = scrollTop;
+  }
+}
+
+async function cultivateGirl(action, id, choice) {
+  if (!requireGame()) return;
+  const option = cultivationOptions(id).find(entry => entry.action === action && entry.choice === choice);
+  if (!option?.ready) return;
+  const epoch = Store.sessionEpoch;
+  const fields = choice ? { girl_id: id, choice } : { girl_id: id };
+  const result = await Store.mutate(action, fields);
+  if (!result || epoch !== Store.sessionEpoch || !Store.ready()) return;
+  refreshCultivationViews(id);
+  toast((result.drops || []).join(" · ") || "培养已确认");
+}
+
 /* ---------- 少女详情 / 养成 ---------- */
 function openGirl(id) {
   if (!requireGame()) return;
   const g = GIRLS.find(x => x.id === id);
+  if (!g) return;
   const own = SAVE.girls[id];
+  if (own?.star && typeof openWorkshop === "function" && workshopRules()) return openWorkshop(id);
   const s = finalStats(id);
   const el = ELEM[g.elem], rar = RARITY[g.rarity];
   const shards = own?.shards || 0;
-  const reservedShards = shardReserve(g, own);
   const rageSkill = typeof growthSkill === "function" ? growthSkill(id) : { name: g.skills.skill.name, desc: g.skills.skill.desc };
-  const decomposableShards = Math.max(0, shards - reservedShards);
+  const decomposableShards = recyclableShards(g, own);
+  const salvageNote = cultivationRules()?.shards ? `回收 ${decomposableShards / cultivationRules().shards.per_ore[g.rarity]} 枚星锻矿` : "获得同等数量共鸣尘";
 
   /* 图鉴中尚未获得：只展示基础信息与获取途径 */
   if (!own || own.star <= 0) {
@@ -714,6 +866,8 @@ function openGirl(id) {
           <div>怒气 · ${g.skills.skill.name}：${g.skills.skill.desc}</div>
         </div>
       </div>
+      ${collectionMarkup(id)}
+      ${typeof atelierMilestones === "function" ? atelierMilestones(id) : ""}
       <div class="modal-btns">
         <button class="gbtn gbtn-sm" onclick="closeModal()"><span>关闭</span></button>
         <button class="gbtn gbtn-sm gbtn-primary" onclick="closeModal();nav('page-gacha')"><span>去召唤</span></button>
@@ -723,7 +877,7 @@ function openGirl(id) {
       document.querySelector("#modal-box .mb-scroll")?.insertAdjacentHTML("beforeend", `
         <div class="modal-btns">
           <button class="gbtn gbtn-sm gbtn-gold" onclick="confirmShardDecompose('${id}',${decomposableShards})">
-            <span>分解多余碎片 ×${decomposableShards}</span><span class="sub">获得同等数量共鸣尘</span>
+            <span>分解多余碎片 ×${decomposableShards}</span><span class="sub">${salvageNote}</span>
           </button>
         </div>`);
     }
@@ -731,14 +885,9 @@ function openGirl(id) {
   }
 
   const inSquad = SAVE.squad.includes(id);
-  const nextStar = Math.min(own.star + 1, GROWTH.starMax);
-  const starShard = typeof growthStarCost === "function" ? growthStarCost(g, nextStar) : GROWTH.starCost[nextStar] || 0;
-  const shardTotal = own.shards + (typeof growthDust === "function" ? growthDust(g) : SAVE.mats.shard_dust || 0);
   const matKey = MAT_BY_RARITY[g.rarity];
-  const starMat = MAT_STAR_COST[g.rarity];
-  const matOwn = SAVE.mats[matKey] || 0;
   showModal(`
-    <div class="gc-head">
+    <div class="gc-head" data-cultivation-card="${id}">
       <img src="${g.img}" alt="">
       <div class="gc-info">
         <div class="gc-name">${g.name}
@@ -747,8 +896,6 @@ function openGirl(id) {
         <div class="gc-desc">${g.desc}</div>
         <div class="gc-lv">Lv${own.level} · ${own.star}星 · 碎片 ${own.shards}</div>
         <div class="mat-line"><span>${g.rarity}共鸣尘 ${SAVE.mats["shard_dust_" + g.rarity.toLowerCase()] || 0} · 旧通用共鸣尘 ${SAVE.mats.shard_dust || 0}</span></div>
-        <div class="mat-line">${MATS[matKey].name} ${matOwn}
-          <span>（升一星需 ${starMat}）</span></div>
       </div>
     </div>
     <div class="gc-body">
@@ -763,20 +910,20 @@ function openGirl(id) {
         <div>怒气 · ${esc(rageSkill.name)}：${esc(rageSkill.desc)}</div>
       </div>
     </div>
+    ${starTrainingMarkup(id)}
+    ${cultivationPanel(id)}
+    ${collectionMarkup(id)}
     ${gemSocketMarkup(id, own, matKey)}
     ${sigilEquipmentMarkup(id, own)}
     ${talentMarkup(id, own, matKey)}
     ${typeof awakeningDetailMarkup === "function" ? awakeningDetailMarkup(id, own) : ""}
     <div class="modal-btns">
       <button class="gbtn gbtn-sm" onclick="levelUp('${id}')" ${own.level >= GROWTH.maxLevel ? "disabled" : ""}>
-        <span>经验培养</span><span class="sub">副本或固定经验训练</span></button>
-      <button class="gbtn gbtn-sm" onclick="starUp('${id}')"
-        ${own.star >= GROWTH.starMax || shardTotal < starShard || matOwn < starMat ? "disabled" : ""}>
-        <span>升星</span><span class="sub">${starShard} 碎片（同稀有度尘或旧尘可补）+ ${starMat} 材料</span></button>
+        <span>经验培养</span><span class="sub">${Store.profile?.training?.experience ? "选择材料 · 一键升级" : "副本或固定经验训练"}</span></button>
     </div>
     ${decomposableShards > 0 ? `<div class="modal-btns">
       <button class="gbtn gbtn-sm gbtn-gold" onclick="confirmShardDecompose('${id}',${decomposableShards})">
-        <span>分解多余碎片 ×${decomposableShards}</span><span class="sub">获得同等数量共鸣尘</span>
+        <span>分解多余碎片 ×${decomposableShards}</span><span class="sub">${salvageNote}</span>
       </button>
     </div>` : ""}
     <div class="modal-btns">
@@ -786,13 +933,18 @@ function openGirl(id) {
 }
 async function levelUp(id) {
   if (!requireGame()) return;
-  if (typeof openGrowthGirl === "function") openGrowthGirl(id);
+  if (Store.profile?.training?.experience && typeof upgradeWorkshopSheet === "function" && SAVE.girls[id]?.star) openWorkshop(id,"upgrade");
+  else if (typeof openGrowthGirl === "function") openGrowthGirl(id);
   else { closeModal(); nav("page-growth"); }
 }
 async function starUp(id) {
   if (!requireGame()) return;
-  if (!await Store.mutate("star", { girl_id: id })) return;
-  openGirl(id); renderTopbar();
+  const epoch = Store.sessionEpoch, own = SAVE.girls[id];
+  if (!own?.star || own.star >= growthStarMax()) return;
+  if (cultivationRules()?.shards && !growthStarStep(GIRLS.find(girl => girl.id === id), own)?.ready) return;
+  if (!await Store.mutate("star", { girl_id: id }) || epoch !== Store.sessionEpoch || !Store.ready()) return;
+  refreshCultivationViews(id);
+  toast(`已升至 ${SAVE.girls[id].star} 星`);
 }
 
 /* ---------- 通用小组件 ---------- */
@@ -830,6 +982,12 @@ function updateStageRunLimits() {
   const note = document.getElementById("stage-rest-note");
   if (note) note.textContent = seconds ? `连续挑战休整中 · ${seconds} 秒后可出战，期间可养成和编队` : "出战可用 · 连续高速挑战会触发短暂休整，不影响养成与整理背包";
   if (seconds) stageRestTimer = setTimeout(updateStageRunLimits, 1000);
+}
+
+function stageItemReward(id, quantity, source, fallback) {
+  const guide = Store.profile?.items, item = guide?.items?.[id], grade = guide?.qualities?.[item?.quality];
+  const paint = /^#[0-9a-f]{6}$/i.test(grade?.color || "") ? grade.color : "#818c98";
+  return `<span class="mat" ${source ? `data-${source}-drop="${esc(id)}"` : ""} ${grade ? `data-reward-quality="${esc(item.quality)}" title="${esc(grade.name)}"` : ""}><i aria-hidden="true" style="--c:${paint}"></i>${esc(item?.name || fallback || id)} ${esc(quantity)}</span>`;
 }
 
 function renderStage() {
@@ -900,6 +1058,7 @@ function renderStage() {
   const quotaReward = reward && reward.quota_max > 0;
   const family = SIGIL_FAMILIES[s.lootFamily];
   const rules = Store.profile?.run_rules || { burst_limit: 12, rest_seconds: 120, relic_daily_limit: 30 };
+  const gear = Store.profile?.equipment, lootKind = s.relicTier >= 2 ? "nightmare" : s.relicTier === 1 ? "rift" : s.hasBoss ? "campaign_boss" : "campaign";
   document.getElementById("stage-detail").innerHTML = `
     <div class="sd-info">
       <div class="sd-title">${s.name}<span class="type-chip">${s.type}</span>
@@ -912,6 +1071,11 @@ function renderStage() {
         <span>金币 ${s.gold[0]}-${s.gold[1]}</span>
         ${quotaReward ? `<span>通关余额 ${(reward.quota_min / SITE.quotaPerE).toFixed(2)}～${(reward.quota_max / SITE.quotaPerE).toFixed(2)} E</span>` : s.relicTier ? '<span>灵印材料本 · 不发放站点额度</span>' : ""}
         <span class="mat"><i style="--c:${MATS[s.matKey].color}"></i>${MATS[s.matKey].name} ${s.mat[0]}-${s.mat[1]}</span>
+        ${cultivationRules() ? stageItemReward("forge_ore",`×${1 + Math.floor(s.cost / 6)}`,"","星锻矿") + (s.hasBoss ? stageItemReward("weapon_core","×1","","觉醒棱芯") + stageItemReward("training_manual","×1","","历练手记") : "") : ""}
+        ${Object.entries(gear?.drops?.[lootKind] || {}).map(([key, count]) => stageItemReward(key,`×${count}`,"gear",gear.materials[key].name)).join("")}
+        ${Object.entries(Store.profile?.training?.experience?.drops?.[lootKind] || {}).map(([key,count]) => stageItemReward(key,`×${count}`,"experience")).join("")}
+        ${Object.entries({ ...(Store.profile?.training?.drops?.[lootKind] || {}), ...(Store.profile?.carry?.drops?.[lootKind] ? { route_badge:Store.profile.carry.drops[lootKind] } : {}) }).map(([key,count]) => stageItemReward(key,`×${count}`,"mastery")).join("")}
+        ${cultivationRules()?.artifacts && (s.relicTier || s.hasBoss) ? stageItemReward(s.relicTier ? "chip_ticket" : "gem_ticket","×1","",ARTIFACT_TICKETS[s.relicTier ? "chip_ticket" : "gem_ticket"].name) : ""}
         <span>三星 ≤ ${s.starRound} 回合</span>
       </div>
       ${family ? `<p class="sd-loot-focus">${ELEM[family.element].name}系碎片优先 · 宝石偏向本系${s.relicTier ? ` · ${family.mat} ${s.essence[0]}-${s.essence[1]} · ${s.relicTier === 2 ? "稀有/史诗" : "普通/稀有"}灵印` : ""}</p>` : ""}
@@ -1031,8 +1195,22 @@ async function copyGuildCode(code) {
 }
 
 /* ---------- 背包页：材料 / 碎片 / 消耗品 ---------- */
+function bagCultivationMarkup(includeStock = true) {
+  const rules = cultivationRules();
+  if (!rules) return "";
+  const targets = GIRLS.filter(girl => SAVE.girls[girl.id]?.star > 0 && SAVE.girls[girl.id].level < GROWTH.maxLevel);
+  return `<section class="bag-cultivation"><h3>${includeStock ? "培养道具" : "研读手记"}</h3>${includeStock ? `<div class="cultivation-stock">${Object.entries(CULTIVATION_ITEMS).map(([key, item]) => `<div><small>${item.use}</small><b>${item.name} <strong>×${SAVE.mats[key] || 0}</strong></b><span>${item.from}</span></div>`).join("")}</div>` : ""}
+    <div class="manual-choice"><label class="growth-select">历练手记 · 研读角色<select id="manual-target" onchange="updateManualTarget()"><option value="">${targets.length ? "选择角色" : "没有未满级角色"}</option>${targets.map(girl => `<option value="${girl.id}">${esc(girl.name)} · Lv${SAVE.girls[girl.id].level}</option>`).join("")}</select></label><button type="button" class="gbtn gbtn-sm" data-cultivation-action="use_manual" id="bag-use-manual" onclick="cultivateGirl('use_manual',document.getElementById('manual-target').value)" disabled><span>消耗 1 份</span><span class="sub">经验 +${rules.manual_xp}</span></button></div></section>`;
+}
+
+function updateManualTarget() {
+  const select = document.getElementById("manual-target"), button = document.getElementById("bag-use-manual");
+  if (select && button) button.disabled = !cultivationOptions(select.value).find(option => option.action === "use_manual")?.ready;
+}
+
 function renderBag() {
   if (!requireGame()) return;
+  if (typeof renderWorkshopBag === "function" && renderWorkshopBag()) return;
   const body = document.getElementById("bag-body");
   const mats = Object.keys(MATS).map(k => `
     <div class="mat-cell">
@@ -1040,7 +1218,7 @@ function renderBag() {
       <div class="mn">${MATS[k].name}</div>
       <div class="mv">${SAVE.mats[k] || 0}</div>
       <div class="mf">${MATS[k].from}</div>
-      <div class="mu">${MATS[k].use}</div>
+      <div class="mu">${MATS[k].use}${cultivationRules() && Object.values(MAT_BY_RARITY).includes(k) ? "、角色潜能" : ""}</div>
     </div>`).join("");
   const gemInventory = SAVE.gem_inventory || {};
   const gems = Object.entries(GEMS).map(([id, gem]) => `
@@ -1057,6 +1235,7 @@ function renderBag() {
     .sort((a, b) => b.n - a.n);
 
   body.innerHTML = `
+    ${bagCultivationMarkup()}
     <div class="bag-top">
       <div class="bag-mats">${mats}</div>
       <div class="bag-side">
@@ -1075,7 +1254,7 @@ function renderBag() {
     <div class="shard-grid">
       ${list.length ? list.map(({ g, own, n }) => {
         const need = RARITY[g.rarity].shardToUnlock;
-        const unlocking = own.level === 0;
+        const unlocking = !own.star;
         return `<div class="shard-cell r-${g.rarity}" onclick="openGirl('${g.id}')">
           <img src="${g.img}" alt="" loading="lazy">
           <span class="sn">${n}</span>

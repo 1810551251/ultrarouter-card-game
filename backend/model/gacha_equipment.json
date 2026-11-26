@@ -1,0 +1,49 @@
+{
+  "slots": [
+    {"id":"weapon","name":"专属武器","stat":"signature","per_level":0,"per_star":2,"level_mat":"forge_ore"},
+    {"id":"head","name":"星纹头饰","stat":"hp","per_level":1,"per_star":2,"level_mat":"gear_thread"},
+    {"id":"hands","name":"破阵护手","stat":"atk","per_level":1,"per_star":2,"level_mat":"gear_plate"},
+    {"id":"body","name":"守誓胸甲","stat":"def","per_level":2,"per_star":2,"level_mat":"gear_plate"},
+    {"id":"feet","name":"轻行战靴","stat":"spd","per_level":1,"per_star":1,"level_mat":"gear_thread"}
+  ],
+  "level_costs": [3,4,5,6,7,8,9,10,11,12,15,18,22,26,30,35,40,46,53,61,70,80,92,106,122,140,161,185,213,245],
+  "quality_steps": [{"level":0,"quality":"white"},{"level":3,"quality":"green"},{"level":6,"quality":"blue"},{"level":10,"quality":"purple"},{"level":15,"quality":"gold"},{"level":22,"quality":"orange"},{"level":30,"quality":"red"}],
+  "star_mat": "gear_rivet",
+  "star_costs": [2,4,6,9,12,18,26,38,55,80,115,165,230,320,450],
+  "star_levels": [2,4,6,8,10,12,15,18,21,24,27,30,30,30,30],
+  "star_card_stars": [2,3,4,5,6,6,7,8,9,10,11,12,12,12,12],
+  "star_mark_mat":"route_badge","star_mark_costs":[0,0,0,0,0,0,0,0,0,0,0,0,60,100,160],
+  "set_tiers": [
+    {"name":"星纹共护","pieces":2,"star":1,"stats":{"hp":3}},
+    {"name":"破阵协奏","pieces":4,"star":3,"stats":{"atk":4,"def":4}},
+    {"name":"星辉齐鸣","pieces":5,"star":5,"stats":{"spd":5,"cr":4,"cd":10}},
+    {"name":"曜轨联结","pieces":3,"star":8,"stats":{"hp":5,"cd":8}},
+    {"name":"十二星冠","pieces":5,"star":12,"stats":{"atk":5,"def":5,"spd":3}}
+  ],
+  "materials": {
+    "gear_plate":{"name":"星钢板","from":"主线与裂隙胜利，主线首领掉落较多","use":"强化破阵护手和守誓胸甲"},
+    "gear_thread":{"name":"灵纹丝","from":"主线与裂隙胜利，裂隙掉落较多","use":"强化星纹头饰和轻行战靴"},
+    "gear_rivet":{"name":"辉星铆钉","from":"击败主线首领或通关裂隙","use":"为五个部位的绑定装备升星"}
+  },
+  "refinement": {
+    "costs":[3,5,8,12,18,27,40,58,82,114,154,200],"ore_costs":[1,1,2,2,3,4,5,6,8,10,14,18],"gem_mat":"gear_thread","chip_mat":"gear_plate",
+    "gems":{
+      "ruby":{"stat":"atk","base":8,"step":3,"every":1,"effects":[{"level":6,"name":"熔火刃","effect":"skill","value":4},{"level":12,"name":"初燃","effect":"rage","value":6}]},
+      "jade":{"stat":"hp","base":45,"step":12,"every":1,"effects":[{"level":6,"name":"青藤结界","effect":"shield","value":2},{"level":12,"name":"回春","effect":"heal","value":6}]},
+      "sapphire":{"stat":"def","base":6,"step":2,"every":1,"effects":[{"level":6,"name":"回响岩层","effect":"counter","value":4},{"level":12,"name":"石垒","effect":"shield","value":3}]},
+      "wind":{"stat":"spd","base":1,"step":1,"every":1,"effects":[{"level":6,"name":"顺流","effect":"rage_gain","value":2},{"level":12,"name":"抢风","effect":"rage","value":5}]},
+      "amethyst":{"stat":"cd","base":2,"step":1,"every":1,"effects":[{"level":6,"name":"汲光","effect":"leech","value":1},{"level":12,"name":"星蚀","effect":"skill","value":4}]}
+    },
+    "chips":{
+      "edge":{"stat":"atk","base":5,"step":2,"every":1,"effects":[{"level":6,"name":"破阵脉冲","effect":"skill","value":4},{"level":12,"name":"回流电路","effect":"leech","value":1}]},
+      "aegis":{"stat":"def","base":5,"step":2,"every":1,"effects":[{"level":6,"name":"护壁电容","effect":"shield","value":3},{"level":12,"name":"折返","effect":"counter","value":6}]},
+      "tempo":{"stat":"hp","base":22,"step":7,"every":1,"effects":[{"level":6,"name":"超前时钟","effect":"rage","value":5},{"level":12,"name":"同步节拍","effect":"rage_gain","value":3}]}
+    }
+  },
+  "drops": {
+    "campaign":{"gear_plate":2,"gear_thread":1},
+    "campaign_boss":{"gear_plate":3,"gear_thread":2,"gear_rivet":1},
+    "rift":{"gear_plate":1,"gear_thread":4,"gear_rivet":2},
+    "nightmare":{"gear_plate":2,"gear_thread":6,"gear_rivet":3}
+  }
+}

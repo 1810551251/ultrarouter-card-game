@@ -1,0 +1,29 @@
+{
+  "daily_limit":2,"daily_budget":10,"pressure_limit":7,"file_limit":3,"pursuit_limit":7,"partial_limit":2,
+  "evidence":{"ember":"余烬拓片","echo":"回声蜡片","key":"门纹钥印"},
+  "endings":{"withdrawn":"清场撤离","filed":"保守归档","revealed":"真相重现","partial":"残页留疑","overrun":"失控封锁"},
+  "oaths":{"lantern":"灯使：首次取证额外获得 1 份同种线索","tide":"聆潮：首次冒险少承受 1 点压力","ward":"守阈：首次失控时将压力降至 5"},
+  "order":["silent_bell","paper_rain","glass_clock","salt_lantern"],
+  "files":{
+    "silent_bell":{"name":"无声的末班钟","intro":"零时的站牌多出一班车。钟摆停在半空，候车室的座椅却一张张回暖。","focus":"echo","acts":[
+      {"title":"候车室","text":"守站员听不见钟声。封死的售票窗里，复写纸正在自行翻页。","options":[{"id":"survey","name":"拓下票根","text":"把翻开的票根压入蜡片。","clue":"echo","amount":2,"pressure":1},{"id":"veil","name":"绕过冷座","text":"沿没有温度的座位找到旧检票孔。","clue":"key","amount":1,"pressure":-1},{"id":"dare","name":"拉下报站铃","text":"逼最后一班车回应，铃索会发热。","clue":"ember","amount":3,"pressure":3}]},
+      {"title":"封板站台","text":"广播读出一个从未售票的站名。栏杆外，脚印向时钟的反方向走。","options":[{"id":"survey","name":"抄录缺失站名","text":"被涂掉的字和第一张票根可以互证。","clue":"key","amount":2,"pressure":2,"relief":"echo"},{"id":"veil","name":"贴墙听轨","text":"站在钟声的余隙里辨清来车方向。","clue":"echo","amount":1,"pressure":-1},{"id":"dare","name":"跨进影子车厢","text":"车门只为持检票孔拓印的人延迟关闭。","clue":"echo","amount":3,"pressure":4,"relief":"key"}]},
+      {"title":"钟心","text":"停摆的秒针背面刻着一道门。有人用乘客的离站时间给它上弦。","options":[{"id":"survey","name":"比对两份时刻表","text":"钟声的声纹暴露被错开的那一分钟。","clue":"echo","amount":2,"pressure":1},{"id":"veil","name":"拆下空锁片","text":"让停摆继续，只带走锁匠留下的暗记。","clue":"key","amount":1,"pressure":-2},{"id":"dare","name":"反转钟轴","text":"让出站的人影重新入场；余烬可隔热。","clue":"ember","amount":3,"pressure":4,"relief":"ember"}]}
+    ]},
+    "paper_rain":{"name":"第七码头的纸雨","intro":"定期归档的失物单从晴空飘下，每一张都预告一件尚未遗失的东西。","focus":"ember","acts":[
+      {"title":"摊棚","text":"摊主正把纸雨扫进秤盘；纸角的烧痕比炉灰早冷了一天。","options":[{"id":"survey","name":"抄录焦边","text":"按温度排列纸页。","clue":"ember","amount":2,"pressure":1},{"id":"veil","name":"听秤锤落点","text":"不惊动摊主，在棚后录下有节奏的轻响。","clue":"echo","amount":1,"pressure":-1},{"id":"dare","name":"打开失物柜","text":"柜底的登记簿会记下开柜人的名字。","clue":"key","amount":3,"pressure":3}]},
+      {"title":"湿档库","text":"抽屉里全是明天的失物。最上层的纸竟然带着海盐的热度。","options":[{"id":"survey","name":"辨出火烙柜号","text":"烧焦的边缘指向登记柜的反面。","clue":"key","amount":2,"pressure":2,"relief":"ember"},{"id":"veil","name":"收拢干燥纸芯","text":"趁巡库声离开教具架。","clue":"ember","amount":1,"pressure":-1},{"id":"dare","name":"覆写明日表单","text":"让纸雨倒流；录下的秤声能稳住节奏。","clue":"ember","amount":3,"pressure":4,"relief":"echo"}]},
+      {"title":"逆潮印台","text":"印台咬着最后一张单据。未盖印的姓名在雨声中被读了一遍。","options":[{"id":"survey","name":"拓下印床余温","text":"复原抹掉的失主编号。","clue":"ember","amount":2,"pressure":1},{"id":"veil","name":"录下姓名","text":"不触碰印台，在门外收声。","clue":"echo","amount":1,"pressure":-2},{"id":"dare","name":"撬起逆印","text":"印章底部刻有操控者的门纹。","clue":"key","amount":3,"pressure":4,"relief":"key"}]}
+    ]},
+    "glass_clock":{"name":"玻璃井的第十三刻","intro":"井底映出一圈没有数字的刻度。每天夜巡归来，便有一格裂纹转到井口。","focus":"key","acts":[
+      {"title":"碎光井栏","text":"铁链投下十三道影子，只有一道没有被风吹动。","options":[{"id":"survey","name":"拓取定影刻纹","text":"刻纹刚好能嵌进随身的取样夹。","clue":"key","amount":2,"pressure":1},{"id":"veil","name":"循温壁下井","text":"暖石上残留一层黑灰。","clue":"ember","amount":1,"pressure":-1},{"id":"dare","name":"敲响十三节锁链","text":"井内有人多敲了一下。","clue":"echo","amount":3,"pressure":3}]},
+      {"title":"折射螺梯","text":"玻璃阶梯分出两条；一条通向井口，另一条倒映着尚未出发的人。","options":[{"id":"survey","name":"测量断阶的温差","text":"将井栏的刻纹对准折射面。","clue":"ember","amount":2,"pressure":2,"relief":"key"},{"id":"veil","name":"沿暗面取样","text":"不让镜中的脚步见到你。","clue":"key","amount":1,"pressure":-1},{"id":"dare","name":"踩上倒影","text":"标记尚未走过的格子；回声可以引路。","clue":"key","amount":3,"pressure":4,"relief":"echo"}]},
+      {"title":"空刻盘","text":"井底的刻盘缺少最后一齿。墙内的钟匠一直在等一个答复。","options":[{"id":"survey","name":"配准缺齿","text":"在钥印上还原齿形。","clue":"key","amount":2,"pressure":1},{"id":"veil","name":"带走热陶片","text":"让刻盘留在原位。","clue":"ember","amount":1,"pressure":-2},{"id":"dare","name":"拨响空刻","text":"让井里所有没有发生的钟声同时响起。","clue":"echo","amount":3,"pressure":4,"relief":"echo"}]}
+    ]},
+    "salt_lantern":{"name":"盐灯借火人","intro":"旧街每晚亮起一盏没有灯芯的盐灯。第二天，点灯人的门牌就会褪去一个字。","focus":"ember","acts":[
+      {"title":"褪字巷口","text":"门牌的漆还湿着，白盐堆成一条窄窄的脚印。","options":[{"id":"survey","name":"采集灯下盐灰","text":"热盐会留下点灯人的拓迹。","clue":"ember","amount":2,"pressure":1},{"id":"veil","name":"观测门牌暗格","text":"从阴影里记住锁孔的形状。","clue":"key","amount":1,"pressure":-1},{"id":"dare","name":"应声借火","text":"借火人会在耳畔复述你的地址。","clue":"echo","amount":3,"pressure":3}]},
+      {"title":"替名账房","text":"桌上并排的两本账簿各缺一半字，一本写给灯，一本写给归家的人。","options":[{"id":"survey","name":"听账页的纸音","text":"盐灰显出翻页方向。","clue":"echo","amount":2,"pressure":2,"relief":"ember"},{"id":"veil","name":"封起残烛","text":"用空盒接住还没出声的灯火。","clue":"ember","amount":1,"pressure":-1},{"id":"dare","name":"翻开借名契","text":"用旧门牌的锁纹掩去自己的名字。","clue":"ember","amount":3,"pressure":4,"relief":"key"}]},
+      {"title":"还名灯室","text":"火焰映在两本账之间。有人静静等着把最后一个字还给门外。","options":[{"id":"survey","name":"封存换名火种","text":"两本账在灯下投出同一道拓痕。","clue":"ember","amount":2,"pressure":1},{"id":"veil","name":"将字塞回门缝","text":"保住门牌上的记号，不惊动借火人。","clue":"key","amount":1,"pressure":-2},{"id":"dare","name":"呼唤原名","text":"让古街的回声作证，账页可压住颤音。","clue":"echo","amount":3,"pressure":4,"relief":"echo"}]}
+    ]}
+  }
+}

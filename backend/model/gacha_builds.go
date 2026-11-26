@@ -12,20 +12,23 @@ import (
 )
 
 const (
-	gachaSigilCapacity     = 160
-	gachaRelicDailyLimit   = 30
-	gachaBurstRunLimit     = 12
-	gachaBurstRunWindow    = 10 * time.Minute
-	gachaBurstRestDuration = 2 * time.Minute
+	gachaSigilCapacity          = 160
+	gachaRelicDailyLimit        = 30
+	gachaBurstRunLimit          = 12
+	gachaBurstRunWindow         = 10 * time.Minute
+	gachaBurstRestDuration      = 2 * time.Minute
+	gachaFirstAdvancedStar      = 6
+	gachaCultivationLootVersion = 3
 )
 
 var (
-	ErrGachaSigil         = errors.New("sigil is unavailable or equipped")
-	ErrGachaRest          = errors.New("rapid dungeon runs require a rest")
-	gachaTalentIDs        = []string{"power", "guardian", "swift", "siphon", "blight", "oracle"}
-	gachaSigilAffixIDs    = []string{"atk", "hp", "def", "spd", "cr", "cd", "ehr", "res"}
-	gachaSigilDustReward  = [3]int{2, 4, 8}
-	gachaSigilAffixBounds = map[string][3][2]int{
+	ErrGachaSigil             = errors.New("sigil is unavailable or equipped")
+	ErrGachaRest              = errors.New("rapid dungeon runs require a rest")
+	ErrGachaCultivationLocked = errors.New("card cultivation prerequisite or limit reached")
+	gachaTalentIDs            = []string{"power", "guardian", "swift", "siphon", "blight", "oracle"}
+	gachaSigilAffixIDs        = []string{"atk", "hp", "def", "spd", "cr", "cd", "ehr", "res"}
+	gachaSigilDustReward      = [3]int{2, 4, 8}
+	gachaSigilAffixBounds     = map[string][3][2]int{
 		"atk": {{2, 5}, {5, 8}, {8, 12}}, "hp": {{3, 8}, {8, 12}, {12, 18}},
 		"def": {{3, 8}, {8, 14}, {14, 20}}, "spd": {{2, 4}, {4, 8}, {8, 12}},
 		"cr": {{1, 3}, {3, 5}, {5, 8}}, "cd": {{4, 9}, {9, 16}, {16, 25}},
@@ -92,6 +95,25 @@ func validGachaSigil(sigil *GachaSigil) bool {
 }
 
 func validateGachaBuildState(state *GachaGameState) error {
+	for id, marks := range state.Daily.VigilMarks {
+		if !gachaCardOwned(state.Girls[id]) || state.Girls[id].Vigil == nil || marks < 0 || marks > gachaVigil.DailyLimit {
+			return ErrGachaRunState
+		}
+	}
+	for id, spent := range state.Daily.EffortSpent {
+		if !gachaCardOwned(state.Girls[id]) || spent < 0 || spent > gachaTraining.EffortDaily {
+			return ErrGachaRunState
+		}
+	}
+	if state.Daily.SkillSpent < 0 || state.Daily.SkillSpent > gachaTraining.SkillDaily {
+		return ErrGachaRunState
+	}
+	if !validGachaCarryState(state) {
+		return ErrGachaRunState
+	}
+	if state.CarryInventory == nil {
+		state.CarryInventory = map[string]int{}
+	}
 	if state.Sigils == nil {
 		state.Sigils = map[string]*GachaSigil{}
 	}
@@ -106,7 +128,7 @@ func validateGachaBuildState(state *GachaGameState) error {
 	}
 	equipped := make(map[string]bool)
 	for _, own := range state.Girls {
-		if own == nil {
+		if !validGachaCultivationState(own) {
 			return ErrGachaRunState
 		}
 		if own.Sigil != "" {
@@ -120,6 +142,118 @@ func validateGachaBuildState(state *GachaGameState) error {
 		if count < 0 || count > gachaMaxResource {
 			return ErrGachaRunState
 		}
+	}
+	return nil
+}
+
+func validGachaCultivationState(own *GachaOwnedGirl) bool {
+	return validGachaCultivationStateFor(own, true)
+}
+
+func validGachaCultivationStateFor(own *GachaOwnedGirl, advanced bool) bool {
+	if own == nil || advanced && !validGachaVigil(own) || !validGachaCardTrainingFor(own, advanced) || own.PeakLevel < 0 || own.PeakLevel > gachaCatalog.Growth.MaxLevel || own.PeakLevel > 0 && (own.Training == nil || own.Training.Grade == 0) {
+		return false
+	}
+	if own.Star < 0 || own.Star > gachaCatalog.Growth.StarMax || own.Shards < 0 || own.Shards > gachaMaxResource ||
+		own.WeaponLevel < 0 || own.WeaponLevel > len(gachaEquipment.LevelCosts) || own.WeaponAwake < 0 || own.WeaponAwake > len(gachaCultivation.WeaponCores) ||
+		own.Potential < 0 || own.Potential > len(gachaCultivation.PotentialStars) || !validGachaIndividualState(own) || !validGachaEquipmentState(own) {
+		return false
+	}
+	if own.Star == 0 {
+		return own.WeaponLevel == 0 && own.WeaponAwake == 0 && own.WeaponRune == "" && own.Potential == 0
+	}
+	if !gachaCardOwned(own) || !advanced && (own.Level < 1 || own.Level > 60) || own.Star >= gachaFirstAdvancedStar && own.Awakening < gachaCultivation.AdvancedAwakening[own.Star-gachaFirstAdvancedStar] {
+		return false
+	}
+	if own.WeaponAwake > 0 {
+		tier := own.WeaponAwake - 1
+		if own.WeaponLevel < gachaCultivation.WeaponLevelGates[tier] || own.Awakening < gachaCultivation.WeaponAwakeningGates[tier] {
+			return false
+		}
+	}
+	if own.WeaponRune != "" {
+		if _, ok := gachaCultivation.Engravings[own.WeaponRune]; !ok || own.WeaponLevel < gachaCultivation.WeaponRuneLevel {
+			return false
+		}
+	}
+	return own.Potential == 0 || own.Star >= gachaCultivation.PotentialStars[own.Potential-1]
+}
+
+func applyGachaCultivationAction(state *GachaGameState, intent GachaActionIntent, result *GachaActionResult) error {
+	girl := gachaGirl(*intent.GirlID)
+	own := state.Girls[girl.ID]
+	if !gachaCardOwned(own) {
+		return ErrGachaIntent
+	}
+	if intent.Action == "iv_roll" || intent.Action == "iv_lock" {
+		return applyGachaIndividualAction(state, own, intent, result)
+	}
+	var material string
+	var cost int
+	switch intent.Action {
+	case "weapon_upgrade":
+		return applyGachaEquipmentAction(state, girl.ID, "weapon", intent.Action, result)
+	case "weapon_awaken":
+		tier := own.WeaponAwake
+		if tier >= len(gachaCultivation.WeaponCores) || own.WeaponLevel < gachaCultivation.WeaponLevelGates[tier] || own.Awakening < gachaCultivation.WeaponAwakeningGates[tier] {
+			return ErrGachaCultivationLocked
+		}
+		material, cost = "weapon_core", gachaCultivation.WeaponCores[tier]
+	case "weapon_engrave":
+		if own.WeaponLevel < gachaCultivation.WeaponRuneLevel || own.WeaponRune == *intent.Choice {
+			return ErrGachaCultivationLocked
+		}
+		material, cost = "forge_ore", gachaCultivation.WeaponRuneOre
+	case "potential_unlock":
+		node := own.Potential
+		if node >= len(gachaCultivation.PotentialStars) || own.Star < gachaCultivation.PotentialStars[node] {
+			return ErrGachaCultivationLocked
+		}
+		material, cost = gachaCatalog.MatByRarity[girl.Rarity], gachaCultivation.PotentialMats[node]
+	case "use_manual":
+		if own.Level >= gachaCatalog.Growth.MaxLevel {
+			return ErrGachaCultivationLocked
+		}
+		material, cost = "training_manual", 1
+	default:
+		return ErrGachaIntent
+	}
+	if state.Mats[material] < cost {
+		return ErrGachaFunds
+	}
+	var description string
+	switch intent.Action {
+	case "weapon_awaken":
+		own.WeaponAwake++
+		description = fmt.Sprintf("专武觉醒 %d 阶", own.WeaponAwake)
+	case "weapon_engrave":
+		own.WeaponRune = *intent.Choice
+		description = "专武铭刻已更新"
+	case "potential_unlock":
+		own.Potential++
+		description = fmt.Sprintf("潜能 %d 阶", own.Potential)
+	case "use_manual":
+		if err := awardGachaExperience(state, []string{girl.ID}, gachaCultivation.ManualXP); err != nil {
+			return err
+		}
+		description = fmt.Sprintf("历练手记 · 经验 +%d", gachaCultivation.ManualXP)
+	}
+	state.Mats[material] -= cost
+	result.Drops = append(result.Drops, girl.Name+" · "+description)
+	return nil
+}
+
+func awardGachaCultivationLoot(state *GachaGameState, stage *GachaStage, result *GachaFinishResult) error {
+	ore := 1 + stage.Cost/6
+	if state.Mats["forge_ore"] > gachaMaxResource-ore || stage.HasBoss && (state.Mats["weapon_core"] >= gachaMaxResource || state.Mats["training_manual"] >= gachaMaxResource) {
+		return ErrGachaCapacity
+	}
+	state.Mats["forge_ore"] += ore
+	result.Drops = append(result.Drops, fmt.Sprintf("星锻矿 x%d", ore))
+	if stage.HasBoss {
+		state.Mats["weapon_core"]++
+		state.Mats["training_manual"]++
+		result.Drops = append(result.Drops, "觉醒棱芯 x1", "历练手记 x1")
 	}
 	return nil
 }

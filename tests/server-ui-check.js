@@ -110,7 +110,7 @@ function report(live) {
     ] };
 }
 
-w.eval(["config", "store", "data", "ui", "progression", "battle", "main"].map(name =>
+w.eval(["config", "store", "data", "ui", "progression", "atelier", "training", "experience", "vigil", "cases", "cipher", "dispatch", "carry", "workshop", "battle", "main"].map(name =>
   fs.readFileSync(path.join(root, "js", name + ".js"), "utf8")).join("\n;\n") + `
 ;window.G = {Store, nav, startBattle, resumeBattle, recoverBattle, exitBattle, battleEnd,
   openGirl, levelUp, toggleSquad, closeModal, renderSquad, playServerBattle,

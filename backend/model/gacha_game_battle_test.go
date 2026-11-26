@@ -127,13 +127,13 @@ func TestGachaBattleInitialUnits(t *testing.T) {
 			require.Failf(t, "battle invariant failed", "incorrect ally identity: %+v", unit)
 		}
 		if unit.MaxHP != stat(girl.Base.HP, growth.LevelStatGrow.HP, growth.StarStatGrow.HP) ||
-			unit.Atk != stat(girl.Base.Atk, growth.LevelStatGrow.Atk, growth.StarStatGrow.Atk) ||
+			unit.Atk != stat(girl.Base.Atk, growth.LevelStatGrow.Atk, growth.StarStatGrow.Atk)+6 ||
 			unit.Def != stat(girl.Base.Def, growth.LevelStatGrow.Def, growth.StarStatGrow.Def) ||
 			unit.Spd != stat(girl.Base.Spd, growth.LevelStatGrow.Spd, growth.StarStatGrow.Spd) ||
 			unit.CR != girl.Base.CR || unit.CD != girl.Base.CD || unit.EHR != girl.Base.EHR || unit.Res != girl.Base.Res {
 			require.Failf(t, "battle invariant failed", "incorrect grown ally stats: %+v", unit)
 		}
-		if unit.HP != unit.MaxHP || !unit.Alive || unit.Rage != 0 || unit.Shield != 0 {
+		if unit.HP != unit.MaxHP || !unit.Alive || unit.Rage != []int{6, 5}[i] || unit.Shield != 0 {
 			require.Failf(t, "battle invariant failed", "initial ally snapshot is not pristine: %+v", unit)
 		}
 	}
@@ -544,13 +544,251 @@ func TestGachaTalentsAndBondsAffectCombatOnBothSides(t *testing.T) {
 	pair := battleTestState([]string{"c06", "c08"}, 1, 1)
 	bonded, err := gachaSquadUnits(pair, "ally", "a")
 	require.NoError(t, err)
-	assert.Equal(t, 196, bonded[0].Atk, "two plant characters activate the six-percent attack bond")
-	assert.Equal(t, 185, unbonded[0].Atk)
+	assert.Equal(t, 199, bonded[0].Atk, "formation grants six percent attack before the flat collection bonus")
+	assert.Equal(t, 188, unbonded[0].Atk)
 	pair.BattleBuff = "assault"
 	boosted, err := gachaSquadUnits(pair, "ally", "a")
 	require.NoError(t, err)
 	assert.Greater(t, boosted[0].Atk, bonded[0].Atk)
 	assert.Equal(t, bonded[0].MaxHP, boosted[0].MaxHP)
+}
+
+func TestGachaCultivationUsesWholeCollectionOnBothSides(t *testing.T) {
+	state := battleTestState([]string{"c01"}, 60, 6)
+	hero := state.Girls["c01"]
+	hero.Awakening, hero.Branch = 1, "focus"
+	state.Girls["c11"] = &GachaOwnedGirl{Shards: 250}
+	attack := float64(gachaGirl("c01").Base.Atk) * (1 + 59*gachaCatalog.Growth.LevelStatGrow.Atk) * (1 + 5*gachaCatalog.Growth.StarStatGrow.Atk)
+	unit := func(side string) *gachaCombatUnit {
+		units, err := gachaSquadUnits(state, side, "test")
+		require.NoError(t, err)
+		return units[0]
+	}
+	assert.Equal(t, int(math.Round(attack))+3, unit("ally").Atk, "shards alone grant neither codex nor bond")
+	state.Girls["c11"] = &GachaOwnedGirl{Level: 1, Star: 2}
+	assert.Equal(t, int(math.Round(attack))+6, unit("ally").Atk, "two cards do not complete the crew")
+	state.Girls["c04"] = &GachaOwnedGirl{Level: 40, Star: 5}
+	assert.Equal(t, int(math.Round(attack*1.04))+9, unit("ally").Atk, "neither remaining member is deployed")
+	state.Girls["c11"] = &GachaOwnedGirl{Level: 40, Star: 6, Awakening: 1, Branch: "focus"}
+	assert.Equal(t, int(math.Round(attack*1.04))+9, unit("enemy").Atk)
+	state.Girls["c04"].Star, state.Girls["c04"].Awakening = 6, 1
+	state.Girls["c08"] = &GachaOwnedGirl{Level: 1, Star: 1}
+	hero.Awakening, hero.WeaponLevel, hero.WeaponAwake, hero.Potential, hero.WeaponRune = 3, 10, 2, 3, "edge"
+	expected := int(math.Round(attack*1.20*1.07*1.03*1.05)) + 9
+	for _, side := range []string{"ally", "enemy"} {
+		built := unit(side)
+		assert.Equal(t, expected, built.Atk)
+		assert.Equal(t, 26, built.Rage)
+	}
+	speed := unit("ally").Spd
+	hero.WeaponRune = "tempo"
+	assert.Equal(t, speed+4, unit("ally").Spd)
+	assert.Less(t, unit("ally").Atk, expected, "re-engraving replaces the attack rune")
+	hero.WeaponLevel = 31
+	_, err := gachaSquadUnits(state, "enemy", "e")
+	assert.ErrorIs(t, err, ErrGachaRunState)
+}
+
+func TestGachaCultivationFrozenRostersKeepTheirQuotedPower(t *testing.T) {
+	state := battleTestState([]string{"c01"}, 30, 3)
+	legacy, err := common.Marshal(state)
+	require.NoError(t, err)
+	oldDefense, err := thawGachaRoster(GachaDocument(legacy))
+	require.NoError(t, err)
+	legacyPower, err := GachaSquadPower(oldDefense)
+	require.NoError(t, err)
+	quotedPower, err := GachaSquadPower(state)
+	require.NoError(t, err)
+	assert.Less(t, legacyPower, quotedPower)
+	saved, err := freezeGachaRoster(state)
+	require.NoError(t, err)
+	state.Girls["c11"] = &GachaOwnedGirl{Level: 1, Star: 2}
+	state.Girls["c01"].WeaponLevel = 5
+	newPower, err := GachaSquadPower(state)
+	require.NoError(t, err)
+	assert.Greater(t, newPower, quotedPower)
+	frozen, err := thawGachaRoster(GachaDocument(saved))
+	require.NoError(t, err)
+	frozenPower, err := GachaSquadPower(frozen)
+	require.NoError(t, err)
+	assert.Equal(t, quotedPower, frozenPower)
+}
+
+func TestGachaV6SnapshotKeepsPairsAndExcludesMastery(t *testing.T) {
+	state := battleTestState([]string{"c01"}, 40, 4)
+	state.Girls["c11"] = &GachaOwnedGirl{Level: 1, Star: 2}
+	state.Girls["c01"].Equipment = map[string]GachaEquipmentPiece{"head": {Level: 6, Star: 2}}
+	encoded, err := common.Marshal(gachaFrozenRoster{state, 6})
+	require.NoError(t, err)
+	old, err := thawGachaRoster(GachaDocument(encoded))
+	require.NoError(t, err)
+	assert.True(t, old.currentAtelierRules())
+	assert.False(t, old.masteryEnabled())
+	assert.Equal(t, 4, old.collection().bonds["c01"].Atk)
+	assert.Zero(t, state.collection().bonds["c01"].Atk)
+	for _, side := range []string{"ally", "enemy"} {
+		original, err := gachaSquadUnits(old, side, "v6")
+		require.NoError(t, err)
+		old.Girls["c01"].Carry = "keepsake_lens"
+		unchanged, err := gachaSquadUnits(old, side, "v6")
+		require.NoError(t, err)
+		assert.Equal(t, original[0].GachaBattleUnit, unchanged[0].GachaBattleUnit)
+		old.Girls["c01"].Carry = ""
+	}
+}
+
+func TestGachaFrozenV6KeepsUnrefinedItemsAndOriginalGearCaps(t *testing.T) {
+	state := battleTestState([]string{"c01"}, 60, 12)
+	own := state.Girls["c01"]
+	own.Awakening, own.Branch = 3, GachaAwakeningBranches("c01")[0].ID
+	own.Sockets, own.Gems, own.Chips = 1, []string{"jade"}, []string{"tempo_1"}
+	own.WeaponLevel = 10
+	own.Equipment = map[string]GachaEquipmentPiece{"weapon": {Star: 5}, "head": {Level: 10, Star: 5}}
+	state.previousMastery = true
+	baseline, err := gachaSquadUnits(state, "enemy", "v6")
+	require.NoError(t, err)
+	own.Gems[0], own.Chips[0] = "jade@12", "tempo_1@12"
+	own.WeaponLevel = 30
+	own.Equipment["weapon"], own.Equipment["head"] = GachaEquipmentPiece{Star: 15}, GachaEquipmentPiece{Level: 30, Star: 15}
+	unchanged, err := gachaSquadUnits(state, "enemy", "v6")
+	require.NoError(t, err)
+	assert.Equal(t, baseline[0].GachaBattleUnit, unchanged[0].GachaBattleUnit)
+	state.previousMastery = false
+	advanced, err := gachaSquadUnits(state, "enemy", "v6")
+	require.NoError(t, err)
+	assert.Greater(t, advanced[0].MaxHP, baseline[0].MaxHP)
+	assert.Greater(t, advanced[0].Shield, baseline[0].Shield)
+	assert.Greater(t, advanced[0].rageBonus, baseline[0].rageBonus)
+}
+
+func TestGachaCarryPassivesCountOnlyDistinctDeployedItems(t *testing.T) {
+	state := battleTestState([]string{"c01", "c06", "c08"}, 1, 1)
+	state.Girls["c01"].Carry, state.Girls["c06"].Carry = "keepsake_lens", "keepsake_lens"
+	state.Girls["c08"].Carry = "keepsake_log"
+	state.Girls["c12"] = &GachaOwnedGirl{Star: 1, Level: 1, Carry: "keepsake_reed"}
+	for _, side := range []string{"ally", "enemy"} {
+		members, err := gachaSquadUnits(state, side, "team")
+		require.NoError(t, err)
+		assert.Equal(t, 14, members[0].Rage)
+		assert.Equal(t, 14, members[1].Rage)
+		assert.Equal(t, 6, members[2].Rage)
+		assert.Equal(t, 3, members[2].rageBonus)
+		assert.Zero(t, members[0].skillBoost)
+	}
+	state.Girls["c06"].Carry = "keepsake_banner"
+	state.Squad = append(state.Squad, "c12")
+	members, err := gachaSquadUnits(state, "ally", "team")
+	require.NoError(t, err)
+	assert.InDelta(t, 0.08, members[0].skillBoost, 0.0001)
+	assert.InDelta(t, 1.08, members[3].healBoost, 0.0001)
+	assert.Zero(t, members[1].skillBoost)
+	assert.Equal(t, members[1].MaxHP*4/100, members[1].Shield)
+}
+
+func TestGachaAtelierStarsUnlockCombatPassivesAndPreserveV5Defense(t *testing.T) {
+	state := battleTestState([]string{"c04"}, 60, 12)
+	state.Girls["c04"].Awakening, state.Girls["c04"].Branch = 3, "focus"
+	state.Girls["c04"].Equipment = map[string]GachaEquipmentPiece{"body": {Level: 10}, "feet": {Level: 10}}
+	for _, id := range []string{"c27", "c01", "c11", "c03", "c10", "c09", "c15"} {
+		state.Girls[id] = &GachaOwnedGirl{Star: 6, Level: 40, Awakening: 1, Branch: GachaAwakeningBranches(id)[0].ID}
+	}
+	assert.Equal(t, 30, state.collection().bonds["c04"].Atk)
+	oldData, err := common.Marshal(gachaFrozenRoster{state, 5})
+	require.NoError(t, err)
+	old, err := thawGachaRoster(GachaDocument(oldData))
+	require.NoError(t, err)
+	for _, side := range []string{"ally", "enemy"} {
+		before, err := gachaSquadUnits(old, side, "old")
+		require.NoError(t, err)
+		after, err := gachaSquadUnits(state, side, "new")
+		require.NoError(t, err)
+		assert.Greater(t, after[0].Atk, before[0].Atk)
+		assert.Greater(t, after[0].Def, before[0].Def)
+		assert.Equal(t, before[0].Spd+10, after[0].Spd)
+		assert.Equal(t, 5, after[0].Rage)
+		assert.Equal(t, 10, after[0].rageBonus)
+		assert.InDelta(t, 0.05, after[0].lifeSteal, 0.0001)
+		assert.InDelta(t, 0.08, after[0].skillBoost, 0.0001)
+		assert.Zero(t, before[0].Rage)
+		assert.Zero(t, before[0].lifeSteal)
+	}
+	state = battleTestState([]string{"c07"}, 60, 11)
+	state.Girls["c07"].Awakening, state.Girls["c07"].Branch = 3, "guard"
+	before, err := gachaSquadUnits(state, "ally", "a")
+	require.NoError(t, err)
+	assert.Equal(t, before[0].MaxHP*4/100, before[0].Shield)
+	state.Girls["c07"].Star++
+	after, err := gachaSquadUnits(state, "ally", "a")
+	require.NoError(t, err)
+	assert.Equal(t, after[0].MaxHP*4/100+after[0].MaxHP*12/100, after[0].Shield)
+}
+
+func TestGachaStarMilestoneThresholdsAreCumulativeForAllFiveRoles(t *testing.T) {
+	roles := []struct {
+		role                        string
+		rage, rageGain, shield      int
+		skill, heal, counter, leech float64
+	}{
+		{"adps", 6, 6, 0, 0.20, 1, 0, 0},
+		{"sdps", 5, 10, 0, 0.08, 1, 0, 0.05},
+		{"tank", 15, 0, 160, 0, 1, 0.20, 0},
+		{"heal", 5, 12, 80, 0, 1.10, 0, 0},
+		{"support", 26, 5, 80, 0, 1, 0, 0},
+	}
+	for _, expected := range roles {
+		t.Run(expected.role, func(t *testing.T) {
+			at := func(star int) *gachaCombatUnit {
+				unit := &gachaCombatUnit{healBoost: 1}
+				unit.MaxHP = 1000
+				applyGachaMilestones(unit, expected.role, star)
+				return unit
+			}
+			for _, threshold := range []int{3, 6, 9, 12} {
+				assert.NotEqual(t, at(threshold-1), at(threshold))
+				if threshold < 12 {
+					assert.Equal(t, at(threshold), at(threshold+2))
+				}
+			}
+			full := at(12)
+			assert.Equal(t, expected.rage, full.Rage)
+			assert.Equal(t, expected.rageGain, full.rageBonus)
+			assert.Equal(t, expected.shield, full.Shield)
+			assert.InDelta(t, expected.skill, full.skillBoost, 0.0001)
+			assert.InDelta(t, expected.heal, full.healBoost, 0.0001)
+			assert.InDelta(t, expected.counter, full.counter, 0.0001)
+			assert.InDelta(t, expected.leech, full.lifeSteal, 0.0001)
+		})
+	}
+}
+
+func TestGachaArtifactSetsApplyPerWearerOnBothSides(t *testing.T) {
+	state := battleTestState([]string{"c01"}, 60, 12)
+	hero := state.Girls["c01"]
+	hero.Awakening, hero.Branch, hero.Sockets = 3, "focus", 9
+	hero.Gems = []string{"ruby", "ruby", "ruby", "ruby", "ruby", "ruby", "ruby", "ruby", "ruby"}
+	hero.Chips = []string{"edge_1", "edge_2", "edge_3", "edge_4", "edge_5", "edge_6"}
+	state.GemInventory = map[string]int{"ruby": 90}
+	state.ChipInventory = map[string]int{"edge_6": 60}
+	base := gachaGirl("c01").Base
+	for _, side := range []string{"ally", "enemy"} {
+		units, err := gachaSquadUnits(state, side, "test")
+		require.NoError(t, err)
+		assert.Equal(t, base.CD+24, units[0].CD)
+		assert.Equal(t, base.CR+6, units[0].CR)
+	}
+	full, err := GachaSquadPower(state)
+	require.NoError(t, err)
+	hero.ChipLocks = 63
+	locked, err := GachaSquadPower(state)
+	require.NoError(t, err)
+	assert.Equal(t, full, locked)
+	hero.ChipLocks, hero.Gems[8], hero.Chips[5] = 0, "", ""
+	units, err := gachaSquadUnits(state, "ally", "a")
+	require.NoError(t, err)
+	assert.Equal(t, base.CD, units[0].CD, "both top-tier bonuses must disappear when the pieces return to the bag")
+	partial, err := GachaSquadPower(state)
+	require.NoError(t, err)
+	assert.Less(t, partial, full)
 }
 
 func TestGachaSigilCritAffixesChangeMaxLevelPowerAndBothCombatSides(t *testing.T) {

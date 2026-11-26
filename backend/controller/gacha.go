@@ -68,6 +68,8 @@ func writeGachaError(c *gin.Context, err error) {
 		status, code, message = http.StatusConflict, "GACHA_PROGRESSION_LIMIT", "该机会已使用、已过期或尚未满足条件，请查看成长页面"
 	case errors.Is(err, model.ErrGachaAwakening):
 		status, code, message = http.StatusConflict, "GACHA_AWAKENING_REQUIRED", "觉醒需要对应等级、星级和专属试炼；一至三阶分别需要40/50/60级与3/4/5星"
+	case errors.Is(err, model.ErrGachaCultivationLocked):
+		status, code, message = http.StatusConflict, "GACHA_CULTIVATION_LOCKED", "尚未满足培养条件、已达上限或铭刻未改变，本次不消耗材料"
 	case errors.Is(err, model.ErrGachaDualTeam):
 		status, code, message = http.StatusConflict, "GACHA_DUAL_TEAM_REQUIRED", "请保存八名不同角色的两支队伍；双队试炼要求每名角色至少40级3星"
 	case errors.Is(err, model.ErrGachaProgressionAdmin):
@@ -150,7 +152,7 @@ func ApplyGachaAction(c *gin.Context) {
 		return
 	}
 	var body model.GachaActionIntent
-	if !decodeGachaIntent(c, &body, []string{"request_id", "action", "count", "girl_id", "squad", "enabled", "item_id", "stake_e", "queue_id", "room_id", "choice", "config"}) {
+	if !decodeGachaIntent(c, &body, []string{"request_id", "action", "count", "girl_id", "squad", "enabled", "item_id", "stake_e", "queue_id", "room_id", "choice", "config", "materials"}) {
 		return
 	}
 	if err := model.ValidateGachaAction(body); err != nil {

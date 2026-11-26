@@ -440,6 +440,16 @@ function showBattleRecovery(battle, message) {
       <button class="gbtn gbtn-sm" onclick="closeModal(true);exitBattle()"><span>放弃本局</span></button>
     </div>`);
 }
+function battleDropLedger(drops) {
+  const items = Object.entries(Store.profile?.items?.items || {});
+  return drops.map(line => {
+    const match = typeof line === "string" && /^(.+?)\s+[x×]\s*(\d+)$/.exec(line);
+    const entry = match && items.find(([, item]) => item.name === match[1]);
+    if (!entry || typeof atelierIcon !== "function") return `<li>${esc(line)}</li>`;
+    return `<li class="battle-item-drop">${atelierIcon(entry[0])}<b>${esc(entry[1].name)}</b><strong>×${match[2]}</strong></li>`;
+  }).join("") || "<li>无掉落</li>";
+}
+
 async function battleEnd(battle) {
   if (!battleCurrent(battle) || battle.settling || battle.settled) return;
   if (battle.arena) { finishArenaReplay(battle); return; }
@@ -483,7 +493,7 @@ async function battleEnd(battle) {
       ${result.is_best ? `<span class="new">刷新最佳</span>` : ""}
     </div>` : ""}
     <p style="color:var(--sub);font-size:12px;text-align:center">${st.name} · ${st.type}</p>
-    <ul class="drop-list">${drops.map(d => "<li>" + esc(d) + "</li>").join("") || "<li>无掉落</li>"}</ul>
+    <ul class="drop-list">${battleDropLedger(drops)}</ul>
     <div class="modal-btns">
       <button class="gbtn gbtn-sm" onclick="closeModal();nav('${battleDestination(st)}')"><span>${st.progression ? "返回成长" : GACHA_RUN_MODES[st.id] ? "返回玩法" : "返回副本"}</span></button>
       ${GACHA_RUN_MODES[st.id] && !st.progression ? "" : `<button class="gbtn gbtn-sm gbtn-primary" onclick="closeModal();retryBattle('${st.id}')"><span>再来一次</span></button>`}

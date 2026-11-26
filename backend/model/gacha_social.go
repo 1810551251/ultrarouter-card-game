@@ -15,7 +15,7 @@ import (
 
 const GachaArenaDailyLimit = 5
 const GachaShopDailyLimit = 20
-const gachaPowerVersion = 4
+const gachaPowerVersion = 8
 
 var (
 	ErrGachaShopLimit           = errors.New("daily shop limit reached")
@@ -231,7 +231,7 @@ func InitializeGachaPower() error {
 		for _, player := range players {
 			var state GachaGameState
 			power := 0
-			if common.Unmarshal([]byte(player.State), &state) == nil {
+			if common.Unmarshal([]byte(player.State), &state) == nil && migrateGachaEffort(&state) == nil {
 				power, _ = GachaSquadPower(&state)
 			}
 			if err := DB.Model(&GachaPlayer{}).Where("user_id = ? AND revision = ? AND power_version < ?", player.UserID, player.Revision, gachaPowerVersion).

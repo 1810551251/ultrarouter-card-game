@@ -13,9 +13,9 @@ for (const girl of GIRLS) {
   }
 }
 for (const rarity of ["R", "SR", "SSR"]) {
-  MATS["shard_dust_" + rarity.toLowerCase()] = { name: `${rarity}共鸣尘`, color: RARITY[rarity].color, from: `分解${rarity}少女的多余碎片`, use: `只补${rarity}角色升星，不跨稀有度，也不能解锁角色` };
+  MATS["shard_dust_" + rarity.toLowerCase()] = { name: `${rarity}共鸣尘`, color: RARITY[rarity].color, from: "旧版分解库存", use: "旧尘用途以当前服务器物品目录为准" };
 }
-MATS.shard_dust.use = "旧版通用共鸣尘保留原用途，可以补基础升星；新分解不再产出";
+MATS.shard_dust.use = "旧版保留材料，详见回收说明";
 
 const GROWTH_ACTIVITY_NAMES = { training: "经验训练", wish: "定向许愿", campaign: "主线副本", rift: "裂隙挑战", trial: "专属试炼", weekly: "远征或首领", dual: "双队挑战" };
 
@@ -31,15 +31,30 @@ function growthBudget() {
   };
 }
 
+function growthStarMax() {
+  return Math.min(GROWTH.starMax, 5 + (cultivationRules()?.advanced_awakening.length || 0));
+}
+
 function growthStarCost(girl, nextStar) {
-  if (nextStar < 2 || nextStar > 5) return 0;
+  if (nextStar < 2 || nextStar > growthStarMax()) return 0;
+  if (nextStar > 5) return cultivationRules().advanced_shards[girl.rarity][nextStar - 6];
   if (girl.rarity === "R") return [20, 40, 60, 80][nextStar - 2];
   if (girl.rarity === "SR") return ({ 3: 40, 4: 80, 5: 120 })[nextStar] || 0;
   return GROWTH.starCost[nextStar] || 0;
 }
 
 function growthDust(girl) {
+  if (cultivationRules()?.shards) return 0;
   return (SAVE.mats.shard_dust || 0) + (SAVE.mats["shard_dust_" + girl.rarity.toLowerCase()] || 0);
+}
+
+function growthStarStep(girl, own) {
+  if (!own?.star || own.star >= growthStarMax()) return null;
+  const next = own.star + 1, rules = cultivationRules(), shards = growthStarCost(girl, next);
+  const material = MAT_STAR_COST[girl.rarity] * (next > 5 ? rules.advanced_mat_multiplier[next - 6] : 1);
+  const awakening = next > 5 ? rules.advanced_awakening[next - 6] : 0;
+  const ready = shards > 0 && (own.shards || 0) + growthDust(girl) >= shards && (SAVE.mats[MAT_BY_RARITY[girl.rarity]] || 0) >= material && (own.awakening || 0) >= awakening;
+  return { next, shards, material, awakening, ready };
 }
 
 function growthBranches(id) { return Store.profile?.progression?.branches?.[id] || []; }
@@ -58,6 +73,10 @@ function growthGoal(id) {
   const p = SAVE?.progression;
   if (!girl || !own || own.star < 1 || !p) return { title: "先领取入门奖励", note: "通关主线、领取招募券并选择第一名核心角色。", action: "stage" };
   const rank = (own.awakening || 0) + 1;
+  if (rank > 3 && cultivationRules() && own.star < growthStarMax()) {
+    const step = growthStarStep(girl, own), mat = MAT_BY_RARITY[girl.rarity];
+    return { title: `${girl.name} · 冲刺${step.next}星`, note: `${cultivationRules()?.shards ? "本卡专属碎片" : "碎片与可用尘"} ${(own.shards || 0) + growthDust(girl)}/${step.shards}，${MATS[mat].name} ${SAVE.mats[mat] || 0}/${step.material}。`, action: "cultivation" };
+  }
   if (rank > 3) return { title: `${girl.name}构筑已成型`, note: "培养互补的备用角色，挑战双队试炼；极品词条是可选目标。", action: "dual" };
   const level = 30 + rank * 10, star = rank + 2;
   if (own.level < level) return { title: `${girl.name}觉醒${rank}：先到${level}级`, note: `当前${own.level}级。经验训练与副本都提供真实经验，金币不能直升。`, action: "training" };
@@ -94,7 +113,7 @@ function renderGrowthSummary() {
   const box = document.getElementById("home-growth");
   if (!box || !SAVE?.progression) return;
   const budget = growthBudget();
-  const id = SAVE.squad.find(id => (SAVE.girls[id]?.awakening || 0) < 3) || SAVE.squad[0];
+  const id = SAVE.squad.find(id => (SAVE.girls[id]?.awakening || 0) < 3) || SAVE.squad[0] || GIRLS.find(girl => SAVE.girls[girl.id]?.star)?.id;
   const goal = growthGoal(id);
   box.innerHTML = `<article class="growth-next"><div><p class="social-kicker">下一步成长</p><h3>${esc(goal.title)}</h3><p>${esc(goal.note)}</p><div class="growth-chips"><span>训练 ${budget.training} 次</span><span>许愿 ${budget.wishes} 次</span><span>待领招募券 ${budget.permits}</span><span>契约印 ${SAVE.progression.marks}</span></div></div><button type="button" class="gbtn gbtn-primary" onclick="openGrowthGirl('${id}')"><span>前往成长中心</span></button></article>`;
 }
@@ -115,10 +134,13 @@ function renderGrowth() {
   }
   if (!growthSelectedGirl || !SAVE.girls[growthSelectedGirl]?.star) growthSelectedGirl = SAVE.squad[0] || GIRLS.find(g => SAVE.girls[g.id]?.star)?.id;
   const budget = growthBudget(), goal = growthGoal(growthSelectedGirl);
-  body.innerHTML = `
-    <div class="growth-resources" aria-label="成长资源"><div><small>招募券</small><b>${p.permits}</b></div><div><small>契约印</small><b>${p.marks}</b></div><div><small>积攒训练</small><b>${budget.training}<em>次</em></b></div><div><small>定向机会</small><b>${budget.refinement}<em>次</em></b></div></div>
+  const dossier = typeof atelierGrowthDossier === "function" && typeof workshopRules === "function" && workshopRules() && Store.profile.equipment && SAVE.girls[growthSelectedGirl]?.star ? atelierGrowthDossier(growthSelectedGirl,goal) : "";
+  const fallback = dossier ? "" : `
     <article class="growth-next"><div><p class="social-kicker">培养目标 · 可随时换人</p><h3>${esc(goal.title)}</h3><p>${esc(goal.note)}</p><button type="button" class="gbtn gbtn-sm" onclick="followGrowthGoal()"><span>前往对应玩法</span></button></div><label class="growth-select">关注角色<select id="growth-hero" onchange="selectGrowthGirl(this.value)">${growthHeroOptions(growthSelectedGirl, true)}</select></label></article>
-    <div class="growth-roadmap" aria-label="成长路线"><span><b>入门</b>核心自选与主线</span><span><b>首周</b>基础阵容与许愿</span><span><b>进阶</b>专属觉醒与路线</span><span><b>长线</b>八人双队与周挑战</span></div>
+    <div class="growth-roadmap" aria-label="成长路线"><span><b>入门</b>核心自选与主线</span><span><b>首周</b>基础阵容与许愿</span><span><b>进阶</b>${cultivationRules() ? "角色觉醒与专武铭刻" : "专属觉醒与路线"}</span><span><b>长线</b>${cultivationRules() ? `${growthStarMax()}星突破与收藏羁绊` : "八人双队与周挑战"}</span></div>
+    ${cultivationRules() && SAVE.girls[growthSelectedGirl]?.star ? typeof workshopEntry === "function" && workshopRules() ? workshopEntry(growthSelectedGirl) : `<section id="growth-cultivation" class="cultivation-workbench"><h3>${esc(GIRLS.find(girl => girl.id === growthSelectedGirl).name)} · 卡牌培养</h3>${starTrainingMarkup(growthSelectedGirl)}${cultivationPanel(growthSelectedGirl)}${collectionMarkup(growthSelectedGirl)}</section>` : ""}`;
+  body.innerHTML = `${dossier}
+    <div class="growth-resources" aria-label="成长资源"><div><small>招募券</small><b>${p.permits}</b></div><div><small>契约印</small><b>${p.marks}</b></div><div><small>积攒训练</small><b>${budget.training}<em>次</em></b></div><div><small>定向机会</small><b>${budget.refinement}<em>次</em></b></div></div>${fallback}
     <p id="growth-rest-note" class="sd-rest-note" role="status"></p><div class="growth-grid">
       <article class="mode-card growth-daily" id="growth-contracts"><div class="mode-card-head"><div><p class="social-kicker">任选两种活动 · 可积攒7天</p><h3>日常成长委托</h3></div><span class="growth-badge">可领 ${budget.readyMarks} 契约印</span></div>
         <p class="mode-note">训练、许愿、主线、裂隙、专属试炼、周常、双队任选两种。每次实际完成会推进一个积攒委托，不是一份进度同时领七天。</p>
@@ -144,7 +166,7 @@ function followGrowthGoal() {
   if (goal.action === "training") return growthBudget().training > 0 ? startGrowthRun("training") : nav("page-stage");
   if (goal.action === "trial") return startGrowthRun(`trial_${growthSelectedGirl}_${goal.rank}`);
   if (goal.action === "stage") return nav("page-stage");
-  const targetId = { wish:"growth-wish", contracts:"growth-contracts", awakening:"growth-awakening", dual:"growth-dual" }[goal.action];
+  const targetId = { wish:"growth-wish", contracts:"growth-contracts", awakening:"growth-awakening", dual:"growth-dual", cultivation:"growth-cultivation" }[goal.action];
   const target = document.getElementById(targetId);
   target?.scrollIntoView?.({ block:"start", behavior:"auto" });
   if (goal.action === "wish") target?.focus();
@@ -176,7 +198,7 @@ function growthAwakeningMarkup(id) {
   const eligible = !full && ready && passed && p.marks >= cost;
   const branches = growthBranches(id);
   return `<article class="mode-card growth-awakening" id="growth-awakening"><div class="growth-hero-head"><img src="${girl.img}" alt="${esc(girl.name)}" loading="lazy"><div><p class="social-kicker">角色专属 · 技能有取舍</p><h3>${esc(girl.name)} · 觉醒${own.awakening || 0}/3</h3><p>Lv${own.level} · ${own.star}星 · ${full ? "三阶已完成" : `下一阶需${level}级${star}星`}</p></div></div>
-    <div class="growth-exp"><span>等级经验 ${own.level >= 60 ? "已完成" : `${own.exp || 0}/${own.level * GROWTH.expPerLevel}`}</span><div class="mode-progress"><div style="width:${own.level >= 60 ? 100 : Math.min(100, (own.exp || 0) / (own.level * GROWTH.expPerLevel) * 100)}%"></div></div></div>
+    <div class="growth-exp"><span>等级经验 ${own.level >= GROWTH.maxLevel ? "已完成" : `${own.exp || 0}/${cardLevelCost(own.level)}`}</span><div class="mode-progress"><div style="width:${own.level >= GROWTH.maxLevel ? 100 : Math.min(100,(own.exp || 0)/cardLevelCost(own.level)*100)}%"></div></div></div>
     <p class="mode-note">${full ? "路线可以低成本改选；接着培养第二支队伍。" : `觉醒${rank}消耗${cost}契约印，当前${p.marks}。${passed ? "专属试炼已通过。" : "需要先通过对应试炼。"}`}</p>
     <div class="growth-branches">${branches.map(b => `<div class="growth-branch ${b.id === own.branch ? "selected" : ""}"><b>${esc(b.name)}</b><p>${esc(b.description)}</p><button type="button" class="gbtn gbtn-sm" onclick="confirmGrowthBranch('${id}','${b.id}')" ${own.awakening ? b.id === own.branch || SAVE.gold < 250 ? "disabled" : "" : !eligible ? "disabled" : ""}><span>${own.awakening ? b.id === own.branch ? "当前路线" : "改选 · 250金币" : "选择路线并觉醒"}</span></button></div>`).join("")}</div>
     <div class="growth-actions"><button type="button" data-growth-run class="gbtn gbtn-sm" onclick="startGrowthRun('trial_${id}_${rank}')" ${!ready || battleRunning ? "disabled" : ""}><span>${passed ? "练习专属试炼" : `挑战${rank}阶专属试炼`}</span><span class="sub">免费重试 · 练习不重复产出</span></button>${own.awakening && !full ? `<button type="button" class="gbtn gbtn-sm gbtn-primary" onclick="confirmGrowthAwakening('${id}')" ${eligible ? "" : "disabled"}><span>觉醒${rank}阶 · ${cost}契约印</span></button>` : ""}<button type="button" class="gbtn gbtn-sm" onclick="openGirl('${id}')"><span>查看装备与升星</span></button></div></article>`;
@@ -258,6 +280,7 @@ async function claimGrowthMainline(stage) { await growthMutate("mainline_claim",
 async function unlockShardGirl(id) {
   const result = await growthMutate("shard_unlock", { girl_id: id });
   if (!result) return;
+  if (document.body.dataset.page === "page-squad") renderSquad();
   if (document.body.dataset.page === "page-bag") renderBag();
   openGirl(id);
 }

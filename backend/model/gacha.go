@@ -140,19 +140,28 @@ type GachaDailyView struct {
 }
 
 type GachaProfile struct {
-	UserID       int                             `json:"user_id"`
-	Name         string                          `json:"name"`
-	Quota        int                             `json:"quota"`
-	Today        GachaDailyView                  `json:"today"`
-	Active       *GachaCardView                  `json:"active"`
-	Stored       int                             `json:"stored"`
-	Save         *GachaGameState                 `json:"save"`
-	Revision     int64                           `json:"revision"`
-	ActiveRun    *GachaRunResult                 `json:"active_run"`
-	StageRewards map[string]GachaStageRewardView `json:"stage_rewards"`
-	Guild        *GachaGuildView                 `json:"guild,omitempty"`
-	RunRules     GachaRunRules                   `json:"run_rules"`
-	Progression  GachaProgressionView            `json:"progression"`
+	Dispatch       *GachaDispatchRules             `json:"dispatch"`
+	Vigil          *GachaVigilRules                `json:"vigil"`
+	Cases          *GachaCaseRules                 `json:"cases"`
+	UserID         int                             `json:"user_id"`
+	Name           string                          `json:"name"`
+	Quota          int                             `json:"quota"`
+	Today          GachaDailyView                  `json:"today"`
+	Active         *GachaCardView                  `json:"active"`
+	Stored         int                             `json:"stored"`
+	Save           *GachaGameState                 `json:"save"`
+	Revision       int64                           `json:"revision"`
+	ActiveRun      *GachaRunResult                 `json:"active_run"`
+	StageRewards   map[string]GachaStageRewardView `json:"stage_rewards"`
+	Guild          *GachaGuildView                 `json:"guild,omitempty"`
+	RunRules       GachaRunRules                   `json:"run_rules"`
+	Progression    GachaProgressionView            `json:"progression"`
+	Cultivation    *GachaCultivationRules          `json:"cultivation"`
+	Training       *GachaTrainingRules             `json:"training"`
+	Equipment      *GachaEquipmentRules            `json:"equipment"`
+	ArtifactGrades *GachaArtifactGradeRules        `json:"artifact_grades"`
+	Items          *GachaItemAtlas                 `json:"items"`
+	Carry          *GachaCarryRules                `json:"carry"`
 }
 
 type GachaRunRules struct {
@@ -273,6 +282,15 @@ func GetGachaProfile(userID int, now time.Time) (*GachaProfile, error) {
 		}
 		profile.UserID = user.Id
 		profile.Name = user.Username
+		profile.Cultivation = &gachaCultivation
+		profile.Training = &gachaTraining
+		profile.Vigil = &gachaVigil
+		profile.Dispatch = &gachaDispatch
+		profile.Cases = &gachaCases
+		profile.Equipment = &gachaEquipment
+		profile.ArtifactGrades = &gachaArtifactGrades
+		profile.Carry = &gachaCarry
+		profile.Items = &gachaItems
 		profile.Progression = GachaProgressionView{Rules: state.ProgressionRules, Branches: map[string][]GachaAwakeningBranch{},
 			CanConfigure: user.Role >= common.RoleAdminUser, DailyBankDays: 7, WeeklyBankWeeks: 2, PowerWeights: maps.Clone(gachaAwakeningPowerWeights)}
 		for _, girl := range gachaCatalog.Girls {

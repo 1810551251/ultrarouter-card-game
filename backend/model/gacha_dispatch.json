@@ -1,0 +1,20 @@
+{
+  "relics":[
+    {"id":"bell","name":"倒鸣铃","quality":"purple","case":"silent_bell","ending":"revealed","cost":{"echo":3,"ember":1},"gain":"第一位开场怒气 +28","loss":"开场失去最大生命的 10%，不会致死","value":28,"price":10},
+    {"id":"shroud","name":"不湿的雨衣","quality":"gold","case":"paper_rain","ending":"filed","cost":{"key":2,"echo":2},"gain":"第一位开场获得最大生命 18% 的护盾","loss":"每次普攻少回 10 怒","value":18,"price":10},
+    {"id":"lens","name":"第十三面镜","quality":"red","case":"glass_clock","ending":"partial","cost":{"ember":3,"key":2},"gain":"第一位怒气技伤害倍率 +18%","loss":"第一位普攻倍率降低 12%","value":18,"price":12}
+  ],
+  "symbols":{"ash":"灰烬","moon":"弦月","tide":"潮汐"},"clock_tries":2,"clock_reward":{"gear_thread":3,"training_ink":2},
+  "contracts":[
+    {"id":"courier","name":"静默护送","rule":"签约角色领队，最多两人，主线无减员取胜两场。","target":2,"reward":{"field_notes":2,"gear_plate":4}},
+    {"id":"breach","name":"晨前破隙","rule":"签约角色领队，在关卡的速通回合内赢下一场裂隙。","target":1,"reward":{"chip_ticket":1,"gear_thread":3}},
+    {"id":"choir","name":"三色巡灯","rule":"签约角色领队，带至少三种元素，在三个不同主线关卡各取一胜。","target":3,"reward":{"gem_ticket":1,"training_ink":6}}
+  ],
+  "tiles":{"spring":{"name":"灯井","fuel":1,"light":3,"cargo":0},"fog":{"name":"雾海","fuel":3,"light":0,"cargo":4},"cache":{"name":"驿站","fuel":2,"light":0,"cargo":3},"beacon":{"name":"路标","fuel":1,"light":0,"cargo":1},"vault":{"name":"沉库","fuel":2,"light":0,"cargo":5}},
+  "mosaic_reward":{"gear_rivet":2,"route_badge":3},
+  "mirrors":[
+    {"name":"苔门双哨","rule":"两位借卡都要存活，击破带结界的守门人。","goal":"survive","enemy":"plant","mechanic":"barrier","level":38,"enemies":2,"pool":["c01","c11","c08","c12","c14","c05"]},
+    {"name":"七刻回廊","rule":"两波敌兵，必须在七回合内离场。","goal":"rush","enemy":"fire","mechanic":"fury","level":34,"enemies":2,"pool":["c05","c13","c01","c08","c10","c06"]},
+    {"name":"潮下诊所","rule":"面对毒雾，至少施放两次我方怒气技，再取得胜利。","goal":"cast","enemy":"water","mechanic":"venom","level":50,"enemies":3,"pool":["c06","c12","c08","c14","c11","c02"]}
+  ],"mirror_reward":{"expedition_atlas":1,"route_badge":3}
+}

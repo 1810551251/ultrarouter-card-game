@@ -252,16 +252,8 @@ func settleGachaMode(state *GachaGameState, stage *GachaStage, snapshot *GachaRu
 	result.Drops = append(result.Drops, fmt.Sprintf("金币 +%d", gold))
 	matName := map[string]string{"mat_r": "微光结晶", "mat_sr": "元素结晶", "mat_ssr": "星屑"}[stage.MatKey]
 	result.Drops = append(result.Drops, fmt.Sprintf("%s x%d", matName, material))
-	for _, id := range snapshot.Squad {
-		own := state.Girls[id]
-		if own == nil || own.Star <= 0 || own.Level >= gachaCatalog.Growth.MaxLevel {
-			continue
-		}
-		own.Exp += stage.Exp
-		for own.Exp >= own.Level*gachaCatalog.Growth.ExpPerLevel && own.Level < gachaCatalog.Growth.MaxLevel {
-			own.Exp -= own.Level * gachaCatalog.Growth.ExpPerLevel
-			own.Level++
-		}
+	if err := awardGachaExperience(state, snapshot.Squad, stage.Exp); err != nil {
+		return err
 	}
 	result.Drops = append(result.Drops, fmt.Sprintf("出战少女经验 +%d", stage.Exp))
 	if state.Expedition.Week == snapshot.Week {
@@ -416,7 +408,10 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 			if err != nil {
 				return err
 			}
-			if err := common.Unmarshal([]byte(ownerPlayer.State), &ownerState); err != nil {
+			if err := decodeGachaCipherDocument([]byte(ownerPlayer.State), &ownerState); err != nil {
+				return err
+			}
+			if err := migrateGachaEffort(&ownerState); err != nil {
 				return err
 			}
 			resetGachaWeeklyModes(&ownerState, now)

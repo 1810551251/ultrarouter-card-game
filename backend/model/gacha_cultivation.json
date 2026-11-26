@@ -1,0 +1,202 @@
+{
+  "advanced_shards": {
+    "R": [100, 140, 180, 220, 260, 300, 360],
+    "SR": [150, 190, 230, 280, 330, 390, 460],
+    "SSR": [240, 300, 360, 430, 510, 600, 700]
+  },
+  "advanced_awakening": [1, 2, 3, 3, 3, 3, 3],
+  "advanced_mat_multiplier": [2, 3, 4, 5, 6, 7, 8],
+  "potential_stars": [2, 4, 6, 8, 10, 12],
+  "potential_mats": [4, 8, 14, 18, 24, 32],
+  "potential_per_node": 1,
+  "weapon_ore": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+  "weapon_cores": [3, 6],
+  "weapon_level_gates": [5, 10],
+  "weapon_awakening_gates": [1, 3],
+  "weapon_per_level": 2,
+  "weapon_rage_per_awake": 10,
+  "weapon_vitality_per_awake": 3,
+  "weapon_rune_level": 3,
+  "weapon_rune_ore": 8,
+  "engravings": {
+    "edge": {"name": "刃纹", "stat": "atk", "value": 5},
+    "ward": {"name": "壁纹", "stat": "def", "value": 8},
+    "tempo": {"name": "律纹", "stat": "spd", "value": 4}
+  },
+  "manual_xp": 600,
+  "codex_flat": {"hp": 18, "atk": 3, "def": 3},
+  "bond_base": 4,
+  "bond_advanced": 7,
+  "bond_star": 6,
+  "bond_cap": 30,
+  "shards": {"per_ore":{"R":10,"SR":5,"SSR":2},"legacy_dust_per_ore":10},
+  "milestones": {
+    "sdps": [
+      {"star":3,"name":"抢先一步","effect":"rage","value":5}, {"star":6,"name":"破阵锋芒","effect":"skill","value":8},
+      {"star":9,"name":"饮露归刃","effect":"leech","value":5}, {"star":12,"name":"连星绝刃","effect":"rage_gain","value":10}
+    ],
+    "adps": [
+      {"star":3,"name":"聚光","effect":"rage","value":6}, {"star":6,"name":"星火连篇","effect":"skill","value":8},
+      {"star":9,"name":"余烬回响","effect":"rage_gain","value":6}, {"star":12,"name":"极昼辉爆","effect":"skill","value":12}
+    ],
+    "tank": [
+      {"star":3,"name":"披甲","effect":"shield","value":4}, {"star":6,"name":"铁壁反震","effect":"counter","value":20},
+      {"star":9,"name":"临阵不退","effect":"rage","value":15}, {"star":12,"name":"坚城誓约","effect":"shield","value":12}
+    ],
+    "heal": [
+      {"star":3,"name":"晨祷","effect":"rage","value":5}, {"star":6,"name":"回春之约","effect":"heal","value":10},
+      {"star":9,"name":"庇佑之环","effect":"shield","value":8}, {"star":12,"name":"生生回响","effect":"rage_gain","value":12}
+    ],
+    "support": [
+      {"star":3,"name":"启奏","effect":"rage","value":6}, {"star":6,"name":"回旋节拍","effect":"rage_gain","value":5},
+      {"star":9,"name":"守望星幕","effect":"shield","value":8}, {"star":12,"name":"终章先声","effect":"rage","value":20}
+    ]
+  },
+  "crews": [
+    {"name":"炉边誓约","members":["c01","c11","c04"],"stat":"atk","base":4,"advanced":7},
+    {"name":"第一场春雨","members":["c02","c21","c25"],"stat":"hp"},
+    {"name":"林门守夜人","members":["c08","c22","c07"],"stat":"def"},
+    {"name":"野外诊疗班","members":["c12","c13","c28"],"stat":"hp"},
+    {"name":"雨幕结界","members":["c05","c17","c24"],"stat":"def"},
+    {"name":"穿林飞羽","members":["c06","c19","c27"],"stat":"atk"},
+    {"name":"月下追缉","members":["c10","c14","c15"],"stat":"atk"},
+    {"name":"午夜来信","members":["c18","c23","c09"],"stat":"hp"},
+    {"name":"弦上织声","members":["c20","c26","c16"],"stat":"hp"},
+    {"name":"失落的藏宝图","members":["c03","c01","c18"],"stat":"def"},
+    {"name":"溪岸药圃","members":["c02","c12","c17"],"stat":"hp"},
+    {"name":"林间三重奏","members":["c06","c20","c19"],"stat":"atk"},
+    {"name":"树洞避风港","members":["c08","c21","c22"],"stat":"def"},
+    {"name":"赤锋破阵","members":["c11","c04","c10"],"stat":"atk"},
+    {"name":"霜降前哨","members":["c05","c24","c27"],"stat":"def"},
+    {"name":"不熄的救援灯","members":["c13","c07","c28"],"stat":"hp"},
+    {"name":"星夜罗网","members":["c14","c23","c16"],"stat":"def"},
+    {"name":"报时花钟","members":["c25","c26","c09"],"stat":"hp"},
+    {"name":"破晓追击令","members":["c04","c09","c27"],"stat":"atk"},
+    {"name":"封函小队","members":["c11","c14","c18"],"stat":"def"},
+    {"name":"静水回音","members":["c05","c13","c26"],"stat":"hp"},
+    {"name":"暗巷引路人","members":["c10","c15","c23"],"stat":"atk"},
+    {"name":"潮线救生索","members":["c17","c24","c28"],"stat":"def"},
+    {"name":"风口瞭望台","members":["c19","c25","c07"],"stat":"def"},
+    {"name":"遗迹攻坚队","members":["c04","c03","c11"],"stat":"atk"},
+    {"name":"季风观测站","members":["c05","c19","c09"],"stat":"atk"},
+    {"name":"黎明换防","members":["c10","c13","c07"],"stat":"def"},
+    {"name":"雨中密约","members":["c14","c18","c24"],"stat":"def"},
+    {"name":"潮声合奏","members":["c17","c26","c28"],"stat":"hp"},
+    {"name":"月见草之约","members":["c23","c25","c15"],"stat":"hp"},
+    {"name":"焰照地下城","members":["c03","c04","c15"],"stat":"atk"},
+    {"name":"雪线测绘队","members":["c03","c16","c27"],"stat":"def"},
+    {"name":"沉城打捞队","members":["c03","c07","c28"],"stat":"hp"},
+    {"name":"失时星图","members":["c03","c09","c16"],"stat":"hp"},
+    {"name":"月蚀倒计时","members":["c15","c27","c09"],"stat":"atk"},
+    {"name":"星海灯塔","members":["c16","c07","c28"],"stat":"def"},
+    {"name":"冰火决斗书","members":["c04","c27"],"stat":"atk"},
+    {"name":"星月共织","members":["c15","c16"],"stat":"hp"}
+  ],
+  "fellowships": [
+    {"name":"薪火相传","members":["c01","c11"],"stat":"atk"}, {"name":"晴田物候","members":["c02","c21"],"stat":"hp"},
+    {"name":"潮图归航","members":["c03","c17"],"stat":"def"}, {"name":"破晓双锋","members":["c04","c27"],"stat":"atk"},
+    {"name":"霜弦合奏","members":["c05","c20"],"stat":"hp"}, {"name":"穿林双羽","members":["c06","c19"],"stat":"atk"},
+    {"name":"星幕守望","members":["c07","c16"],"stat":"def"}, {"name":"樱下花约","members":["c08","c12"],"stat":"hp"},
+    {"name":"循时回铃","members":["c09","c26"],"stat":"def"}, {"name":"断刃缚影","members":["c10","c14"],"stat":"atk"},
+    {"name":"泉林守护","members":["c13","c22"],"stat":"def"}, {"name":"暗夜引灯","members":["c15","c23"],"stat":"atk"},
+    {"name":"朱砂兰契","members":["c18","c25"],"stat":"def"}, {"name":"听潮结界","members":["c24","c28"],"stat":"hp"},
+    {"name":"龙灯初明","members":["c01","c04"],"stat":"hp","base":3,"advanced":5}, {"name":"秧田星历","members":["c02","c16"],"stat":"def","base":4,"advanced":6},
+    {"name":"同弦追风","members":["c06","c27"],"stat":"atk","base":3,"advanced":5}, {"name":"两重城垣","members":["c08","c07"],"stat":"def","base":5,"advanced":8},
+    {"name":"潮畔花信","members":["c12","c28"],"stat":"hp","base":4,"advanced":6}, {"name":"时雨和鸣","members":["c20","c09"],"stat":"def","base":3,"advanced":5},
+    {"name":"月下寻药","members":["c21","c15"],"stat":"hp","base":5,"advanced":7}, {"name":"探险护卫","members":["c22","c03"],"stat":"def","base":4,"advanced":6},
+    {"name":"龙鳞剑谱","members":["c11","c04"],"stat":"atk","base":5,"advanced":8}, {"name":"海雾风琴","members":["c05","c28"],"stat":"hp","base":4,"advanced":6},
+    {"name":"巡航祷歌","members":["c13","c03"],"stat":"hp","base":4,"advanced":7}, {"name":"破晓残影","members":["c10","c27"],"stat":"atk","base":4,"advanced":6},
+    {"name":"锁月结界","members":["c14","c15"],"stat":"def","base":5,"advanced":7}, {"name":"归潮候时","members":["c17","c09"],"stat":"hp","base":4,"advanced":7},
+    {"name":"星盘朱印","members":["c18","c16"],"stat":"def","base":3,"advanced":6}, {"name":"飞羽破障","members":["c19","c07"],"stat":"atk","base":5,"advanced":7},
+    {"name":"月隙追光","members":["c23","c09"],"stat":"atk","base":4,"advanced":6}, {"name":"雨幕星城","members":["c24","c07"],"stat":"def","base":5,"advanced":8},
+    {"name":"沧海兰香","members":["c25","c28"],"stat":"hp","base":4,"advanced":6}, {"name":"绫上星河","members":["c26","c16"],"stat":"hp","base":4,"advanced":7},
+    {"name":"寒锋试剑","members":["c11","c05"],"stat":"atk","base":3,"advanced":5}, {"name":"雪水春泉","members":["c05","c13"],"stat":"hp","base":5,"advanced":7},
+    {"name":"避浪同舟","members":["c13","c17"],"stat":"def","base":3,"advanced":5}, {"name":"青伞听笛","members":["c17","c24"],"stat":"hp","base":4,"advanced":6},
+    {"name":"雨打铃绸","members":["c24","c26"],"stat":"def","base":4,"advanced":7}, {"name":"紫绫药囊","members":["c26","c25"],"stat":"hp","base":3,"advanced":5},
+    {"name":"山林寻芳","members":["c25","c19"],"stat":"hp","base":4,"advanced":6}, {"name":"夜渡林梢","members":["c19","c23"],"stat":"atk","base":4,"advanced":7},
+    {"name":"烛影留痕","members":["c23","c10"],"stat":"atk","base":3,"advanced":6}, {"name":"绯字刀铭","members":["c10","c18"],"stat":"def","base":4,"advanced":6},
+    {"name":"封印笔录","members":["c18","c14"],"stat":"def","base":5,"advanced":8}, {"name":"双剑断锁","members":["c14","c11"],"stat":"atk","base":4,"advanced":7},
+    {"name":"焰照航图","members":["c04","c03"],"stat":"atk","base":5,"advanced":8}, {"name":"星火缔约","members":["c04","c07"],"stat":"def","base":4,"advanced":7},
+    {"name":"天幕流火","members":["c04","c16"],"stat":"atk","base":5,"advanced":8},
+    {"name":"海图寻星","members":["c03","c27"],"stat":"hp","base":4,"advanced":7}, {"name":"月潮密藏","members":["c03","c15"],"stat":"atk","base":5,"advanced":8},
+    {"name":"月盾协约","members":["c07","c15"],"stat":"def","base":5,"advanced":8}, {"name":"翼下沧澜","members":["c27","c28"],"stat":"atk","base":4,"advanced":7},
+    {"name":"流星逆时","members":["c27","c09"],"stat":"atk","base":5,"advanced":8}, {"name":"弦月织梦","members":["c15","c16"],"stat":"hp","base":4,"advanced":7},
+    {"name":"潮汐时计","members":["c09","c28"],"stat":"hp","base":4,"advanced":7}
+  ],
+  "individual": {
+    "max_value": 31,
+    "ore_base": 2,
+    "ore_per_lock": 1,
+    "stats": [
+      {"stat":"hp","step":5}, {"stat":"atk","step":5}, {"stat":"def","step":5},
+      {"stat":"spd","step":8}, {"stat":"cr","step":8}, {"stat":"cd","step":4}
+    ]
+  },
+  "artifacts": {
+    "gem_sockets": [
+      {"star":1,"gold":200,"mat":5}, {"star":1,"gold":600,"mat":12}, {"star":1,"gold":1500,"mat":25},
+      {"star":3,"gold":1800,"mat":30}, {"star":4,"gold":2100,"mat":35}, {"star":5,"gold":2400,"mat":40},
+      {"star":6,"gold":2700,"mat":45}, {"star":8,"gold":3000,"mat":50}, {"star":10,"gold":3300,"mat":55}
+    ],
+    "chip_stars": [1, 2, 3, 4, 5, 6],
+    "ticket_ore": 8,
+    "gem_sets": {
+      "ruby": {"name":"燎原星阵","tiers":[{"count":3,"stat":"cr","value":3},{"count":6,"stat":"atk","value":5},{"count":9,"stat":"cd","value":12}]},
+      "jade": {"name":"长青星阵","tiers":[{"count":3,"stat":"hp","value":4},{"count":6,"stat":"def","value":6},{"count":9,"stat":"hp","value":8}]},
+      "sapphire": {"name":"磐石星阵","tiers":[{"count":3,"stat":"def","value":5},{"count":6,"stat":"hp","value":6},{"count":9,"stat":"def","value":9}]},
+      "wind": {"name":"越风星阵","tiers":[{"count":3,"stat":"spd","value":2},{"count":6,"stat":"cr","value":4},{"count":9,"stat":"atk","value":7}]},
+      "amethyst": {"name":"紫昼星阵","tiers":[{"count":3,"stat":"cd","value":5},{"count":6,"stat":"atk","value":5},{"count":9,"stat":"cd","value":14}]}
+    },
+    "chip_sets": {
+      "edge": {"name":"破阵芯片","base":{"stat":"atk","value":1},"tiers":[{"count":2,"stat":"cr","value":3},{"count":4,"stat":"atk","value":5},{"count":6,"stat":"cd","value":12}]},
+      "aegis": {"name":"壁垒芯片","base":{"stat":"def","value":2},"tiers":[{"count":2,"stat":"hp","value":4},{"count":4,"stat":"def","value":6},{"count":6,"stat":"hp","value":8}]},
+      "tempo": {"name":"流光芯片","base":{"stat":"spd","value":1},"tiers":[{"count":2,"stat":"cr","value":2},{"count":4,"stat":"spd","value":3},{"count":6,"stat":"atk","value":6}]}
+    }
+  },
+  "weapons": {
+    "c01": {"name": "流火灯轮", "stat": "atk"},
+    "c02": {"name": "穗光铃", "stat": "hp"},
+    "c03": {"name": "探潮罗盘", "stat": "def"},
+    "c04": {"name": "赤鳞龙枪", "stat": "atk"},
+    "c05": {"name": "霜语音匣", "stat": "atk"},
+    "c06": {"name": "青羽长弓", "stat": "atk"},
+    "c07": {"name": "星轨壁盾", "stat": "def"},
+    "c08": {"name": "樱木圆盾", "stat": "hp"},
+    "c09": {"name": "逆时怀表", "stat": "def"},
+    "c10": {"name": "绯影太刀", "stat": "atk"},
+    "c11": {"name": "丹华双剑", "stat": "atk"},
+    "c12": {"name": "苺花药篮", "stat": "hp"},
+    "c13": {"name": "泉祷圣杖", "stat": "atk"},
+    "c14": {"name": "缚夜锁链", "stat": "def"},
+    "c15": {"name": "胧月提灯", "stat": "atk"},
+    "c16": {"name": "天幕星梭", "stat": "hp"},
+    "c17": {"name": "归港风笛", "stat": "atk"},
+    "c18": {"name": "朱砂镇印", "stat": "def"},
+    "c19": {"name": "穿林燕刃", "stat": "atk"},
+    "c20": {"name": "暖风弦琴", "stat": "hp"},
+    "c21": {"name": "晴叶药杵", "stat": "hp"},
+    "c22": {"name": "榛壳重盾", "stat": "def"},
+    "c23": {"name": "双萤刺", "stat": "atk"},
+    "c24": {"name": "听雨青伞", "stat": "def"},
+    "c25": {"name": "幽兰香炉", "stat": "hp"},
+    "c26": {"name": "流铃绸带", "stat": "hp"},
+    "c27": {"name": "破晓翎弓", "stat": "atk"},
+    "c28": {"name": "沧海螺笛", "stat": "atk"}
+  },
+  "bonds": [
+    {"name": "薪火相传", "members": ["c01", "c11"], "stat": "atk"},
+    {"name": "晴田物候", "members": ["c02", "c21"], "stat": "hp"},
+    {"name": "潮图归航", "members": ["c03", "c17"], "stat": "def"},
+    {"name": "破晓双锋", "members": ["c04", "c27"], "stat": "atk"},
+    {"name": "霜弦合奏", "members": ["c05", "c20"], "stat": "hp"},
+    {"name": "穿林双羽", "members": ["c06", "c19"], "stat": "atk"},
+    {"name": "星幕守望", "members": ["c07", "c16"], "stat": "def"},
+    {"name": "樱下花约", "members": ["c08", "c12"], "stat": "hp"},
+    {"name": "循时回铃", "members": ["c09", "c26"], "stat": "def"},
+    {"name": "断刃缚影", "members": ["c10", "c14"], "stat": "atk"},
+    {"name": "泉林守护", "members": ["c13", "c22"], "stat": "def"},
+    {"name": "暗夜引灯", "members": ["c15", "c23"], "stat": "atk"},
+    {"name": "朱砂兰契", "members": ["c18", "c25"], "stat": "def"},
+    {"name": "听潮结界", "members": ["c24", "c28"], "stat": "hp"}
+  ]
+}
