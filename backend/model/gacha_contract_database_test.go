@@ -2,6 +2,7 @@ package model_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,7 +75,15 @@ func runGachaContractClaims(t *testing.T) {
 		require.Equal(t, marks, state.Progression.Marks)
 		require.Equal(t, notes+2, state.Mats["field_notes"])
 		require.Equal(t, plates+4, state.Mats["gear_plate"])
-		require.Len(t, state.Mailbox.Messages, 2)
+		dailyLetters := 0
+		for _, message := range state.Mailbox.Messages {
+			if strings.HasPrefix(message.ID, "action:") {
+				require.Equal(t, 40, message.Resources["marks"])
+				require.True(t, message.Claimed)
+				dailyLetters++
+			}
+		}
+		require.Equal(t, 2, dailyLetters)
 		for _, day := range state.Progression.Days {
 			require.True(t, day.MarksClaimed)
 		}

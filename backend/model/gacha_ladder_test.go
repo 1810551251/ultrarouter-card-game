@@ -252,10 +252,11 @@ func runGachaLadderEligibility(t *testing.T) {
 					if err := tx.First(&entry, user.Id).Error; err != nil {
 						return err
 					}
+					originalRank := entry.Rank
 					if err := tx.Model(&entry).Update("position", 0).Error; err != nil {
 						return err
 					}
-					if err := tx.Model(&model.GachaLadderEntry{}).Where("position = ?", rank+1).Update("position", entry.Rank).Error; err != nil {
+					if err := tx.Model(&model.GachaLadderEntry{}).Where("position = ?", rank+1).Update("position", originalRank).Error; err != nil {
 						return err
 					}
 					return tx.Model(&entry).Update("position", rank+1).Error
