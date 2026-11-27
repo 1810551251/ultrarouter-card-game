@@ -1,0 +1,27 @@
+name: PR3 save and mail acceptance
+on:
+  push:
+    branches: [feat/harbor-campaign-calendar]
+    paths: ['docs/pr-3-evidence/**/*.example', 'docs/pr-3-evidence/harness/**', '.github/workflows/pr3-save-review.yml']
+permissions:
+  contents: read
+jobs:
+  same-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run both game revisions in a disposable capped container
+        run: |
+          mkdir "$RUNNER_TEMP/review-output"
+          sh scripts/build-half-cpu.sh --run --rm -e GOMAXPROCS=1 \
+            -v "$PWD:/src:ro" -v "$RUNNER_TEMP/review-output:/out" \
+            golang:1.25-bookworm sh /src/docs/pr-3-evidence/harness/run.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-review
+          path: ${{ runner.temp }}/review-output/
+          if-no-files-found: error

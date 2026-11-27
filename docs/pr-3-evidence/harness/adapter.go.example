@@ -1,0 +1,37 @@
+package model
+
+import (
+	"github.com/QuantumNous/new-api/common"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
+
+var DB, LOG_DB *gorm.DB
+const LogTypeSystem = 1
+
+type User struct {
+	Id int `gorm:"primaryKey"`
+	Username, DisplayName, Password, Group, AffCode string
+	Role, Status, Quota, AuthVersion int
+	DeletedAt gorm.DeletedAt
+}
+type Option struct {
+	Key string `gorm:"primaryKey"`
+	Value string
+}
+type ReviewLog struct { UserID, Kind int; Message string }
+
+func InitDB() error {
+	var err error
+	DB, err = gorm.Open(sqlite.Open(common.SQLitePath), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil { return err }
+	if err = DB.AutoMigrate(&User{}, &Option{}, &ReviewLog{}); err != nil { return err }
+	return MigrateGachaTables()
+}
+func lockForUpdate(tx *gorm.DB) *gorm.DB { return tx }
+func cacheIncrUserQuota(int, int64) error { panic("cache disabled during review") }
+func syncCreditUserQuotaCache(int, int, string) { if common.RedisEnabled { panic("cache enabled during review") } }
+func RecordLog(id, kind int, message string) {
+	if err := DB.Create(&ReviewLog{id, kind, message}).Error; err != nil { panic(err) }
+}

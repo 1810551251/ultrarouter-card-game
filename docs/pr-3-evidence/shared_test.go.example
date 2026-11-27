@@ -48,7 +48,7 @@ func reviewOpen(t *testing.T, legacy bool) {
 	}
 	t.Setenv("SQL_DSN", "local")
 	t.Setenv("LOG_SQL_DSN", "")
-	common.SQLitePath = reviewDB + "?_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_txlock=immediate"
+	common.SQLitePath = reviewDB + "?_busy_timeout=30000&_journal_mode=WAL&_txlock=immediate"
 	common.IsMasterNode, common.RedisEnabled = true, false
 	require.NoError(t, model.InitDB())
 	model.LOG_DB = model.DB

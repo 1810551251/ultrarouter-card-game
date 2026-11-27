@@ -23,6 +23,7 @@ func TestGachaPR3UpgradeAndClaim(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, old.UserID, profile.UserID)
 	require.Equal(t, old.Assets, reviewInventory(profile.Save))
+	upgraded := reviewInventory(profile.Save)
 	require.NotNil(t, profile.Save.Captain)
 	require.NotNil(t, profile.Save.Mailbox)
 	t.Logf("upgraded profile: cards=%d gold=%d mat_r=%d s1_stars=%d", len(profile.Save.Girls), profile.Save.Gold, profile.Save.Mats["mat_r"], profile.Save.Stars["s1"])
@@ -30,9 +31,12 @@ func TestGachaPR3UpgradeAndClaim(t *testing.T) {
 		return [2]int{state.Mats["field_notes"], state.Mats["training_manual"]}
 	}
 	before := counts(profile.Save)
+	stamina := profile.Save.Stamina
+	attempts := profile.Save.Daily.VoyageAttempts["res_manifest"]
 	run, err := model.StartGachaRun(old.UserID, "res_manifest", uuid.NewString(), clock)
 	require.NoError(t, err)
 	require.Equal(t, profile.Save.Stamina-6, run.Save.Stamina)
+	require.Equal(t, attempts+1, run.Save.Daily.VoyageAttempts["res_manifest"])
 	clock = time.UnixMilli(run.ReadyAt + 1)
 	out, err := model.FinishGachaRun(old.UserID, run.ID, false, clock)
 	require.NoError(t, err)
@@ -42,6 +46,7 @@ func TestGachaPR3UpgradeAndClaim(t *testing.T) {
 	require.NoError(t, err)
 	mail := requireGachaTestMail(t, profile.Save, id)
 	require.False(t, mail.Claimed)
+	settled := counts(profile.Save)
 	require.Equal(t, map[string]int{"field_notes": 2, "training_manual": 1}, mail.Resources)
 	require.Equal(t, before, counts(profile.Save))
 	t.Logf("before=%v settled=%v attachment=[%d %d]", before, counts(profile.Save), mail.Resources["field_notes"], mail.Resources["training_manual"])
@@ -63,5 +68,14 @@ func TestGachaPR3UpgradeAndClaim(t *testing.T) {
 	final := gachaState(t, old.UserID, clock)
 	require.Equal(t, want, counts(final))
 	require.True(t, requireGachaTestMail(t, final, id).Claimed)
+	var receipts int64
+	require.NoError(t, model.DB.Model(&model.GachaAction{}).Where("user_id = ?", old.UserID).Count(&receipts).Error)
+	require.EqualValues(t, 1, receipts)
+	var version string
+	require.NoError(t, model.DB.Raw("SELECT sqlite_version()").Scan(&version).Error)
+	report := map[string]any{"sqlite": version, "row_sha256": old.Digest, "legacy": old.Assets, "upgraded": upgraded, "stage": "res_manifest", "stamina": []int{stamina, run.Save.Stamina}, "attempts": []int{attempts, run.Save.Daily.VoyageAttempts["res_manifest"]}, "before": before, "settled": settled, "attachment": mail.Resources, "after_claim": counts(paid.Save), "after_replay": counts(afterReplay), "after_rejected_new_key": counts(final), "receipts": receipts}
+	data, err = common.Marshal(report)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile("/out/results.json", data, 0644))
 	t.Logf("first=%v replay_and_reread=%v new_key_rejected=true reread=%v", counts(paid.Save), counts(afterReplay), counts(final))
 }

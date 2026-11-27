@@ -17,6 +17,9 @@ func TestGachaPR3ProduceLegacy(t *testing.T) {
 	state := gachaState(t, user.Id, reviewStart)
 	strongGachaState(state)
 	state.Gold, state.Mats["mat_r"] = 937, 13
+	state.Token, state.Multi = 31, 4
+	state.Progression.Permits, state.Progression.Marks = 12, 9
+	state.Girls["c04"].Shards = 17
 	seedGachaState(t, user.Id, state)
 	run, err := model.StartGachaRun(user.Id, "s1", uuid.NewString(), reviewStart)
 	require.NoError(t, err)

@@ -1,0 +1,21 @@
+package common
+
+import (
+	"encoding/json"
+	"math"
+
+	"github.com/shopspring/decimal"
+)
+
+var Marshal = json.Marshal
+var Unmarshal = json.Unmarshal
+var SQLitePath string
+var IsMasterNode, RedisEnabled, BatchUpdateEnabled bool
+const RoleAdminUser, RoleCommonUser, UserStatusEnabled = 10, 1, 1
+const MaxWalletQuota = 1<<53 - 1
+
+func UnmarshalJsonStr(value string, target any) error { return json.Unmarshal([]byte(value), target) }
+func QuotaRound(value float64) int { return int(math.Round(value)) }
+func GetEnvOrDefaultBool(_ string, fallback bool) bool { return fallback }
+func SysError(message string) { panic(message) }
+func WalletQuotaFromDecimalStrict(decimal.Decimal) (int, error) { panic("wallet exchange outside review scope") }
