@@ -32,10 +32,12 @@ func TestGachaPR3UpgradeAndClaim(t *testing.T) {
 	}
 	before := counts(profile.Save)
 	stamina := profile.Save.Stamina
+	startXP := profile.Save.Captain.XP
 	attempts := profile.Save.Daily.VoyageAttempts["res_manifest"]
 	run, err := model.StartGachaRun(old.UserID, "res_manifest", uuid.NewString(), clock)
 	require.NoError(t, err)
 	require.Equal(t, profile.Save.Stamina-6, run.Save.Stamina)
+	require.Equal(t, startXP+6, run.Save.Captain.XP)
 	require.Equal(t, attempts+1, run.Save.Daily.VoyageAttempts["res_manifest"])
 	clock = time.UnixMilli(run.ReadyAt + 1)
 	out, err := model.FinishGachaRun(old.UserID, run.ID, false, clock)
@@ -49,7 +51,7 @@ func TestGachaPR3UpgradeAndClaim(t *testing.T) {
 	settled := counts(profile.Save)
 	readSQL := func(want [2]int, claimed bool) {
 		t.Helper()
-		var stored struct { Notes, Manuals, Claimed int }
+		var stored struct{ Notes, Manuals, Claimed int }
 		query := `SELECT coalesce(json_extract(p.state, '$.mats.field_notes'),0) AS notes,
 			coalesce(json_extract(p.state, '$.mats.training_manual'),0) AS manuals,
 			json_extract(m.value, '$.claimed') AS claimed FROM gacha_players p, json_each(p.state, '$.mailbox.messages') m
@@ -61,10 +63,18 @@ func TestGachaPR3UpgradeAndClaim(t *testing.T) {
 		require.Equal(t, claimed, stored.Claimed == 1)
 	}
 	readSQL(before, false)
+	receiptCount := func() int64 {
+		t.Helper()
+		var count int64
+		require.NoError(t, model.DB.Model(&model.GachaAction{}).Where("user_id = ?", old.UserID).Count(&count).Error)
+		return count
+	}
+	priorReceipts := receiptCount()
 	require.Equal(t, map[string]int{"field_notes": 2, "training_manual": 1}, mail.Resources)
 	require.Equal(t, before, counts(profile.Save))
 	t.Logf("before=%v settled=%v attachment=[%d %d]", before, counts(profile.Save), mail.Resources["field_notes"], mail.Resources["training_manual"])
 	claim, paid := reviewBrowser(t, old.UserID, id, clock)
+	firstKey := claim.RequestID
 	want := [2]int{before[0] + mail.Resources["field_notes"], before[1] + mail.Resources["training_manual"]}
 	require.Equal(t, want, counts(paid.Save))
 	readSQL(want, true)
@@ -83,12 +93,20 @@ func TestGachaPR3UpgradeAndClaim(t *testing.T) {
 	require.Equal(t, want, counts(final))
 	require.True(t, requireGachaTestMail(t, final, id).Claimed)
 	readSQL(want, true)
-	var receipts int64
-	require.NoError(t, model.DB.Model(&model.GachaAction{}).Where("user_id = ?", old.UserID).Count(&receipts).Error)
-	require.EqualValues(t, 1, receipts)
+	allReceipts := receiptCount()
+	require.EqualValues(t, 1, allReceipts-priorReceipts)
+	var stored model.GachaAction
+	require.NoError(t, model.DB.Where("user_id = ? AND request_id = ?", old.UserID, firstKey).First(&stored).Error)
+	var paidInDB model.GachaActionResult
+	require.NoError(t, common.Unmarshal([]byte(stored.Result), &paidInDB))
+	require.Equal(t, want, counts(paidInDB.Save))
+	require.True(t, requireGachaTestMail(t, paidInDB.Save, id).Claimed)
+	var rejectedRows int64
+	require.NoError(t, model.DB.Model(&model.GachaAction{}).Where("user_id = ? AND request_id = ?", old.UserID, claim.RequestID).Count(&rejectedRows).Error)
+	require.Zero(t, rejectedRows)
 	var version string
 	require.NoError(t, model.DB.Raw("SELECT sqlite_version()").Scan(&version).Error)
-	report := map[string]any{"sqlite": version, "row_sha256": old.Digest, "legacy": old.Assets, "upgraded": upgraded, "stage": "res_manifest", "stamina": []int{stamina, run.Save.Stamina}, "attempts": []int{attempts, run.Save.Daily.VoyageAttempts["res_manifest"]}, "before": before, "settled": settled, "attachment": mail.Resources, "after_claim": counts(paid.Save), "after_replay": counts(afterReplay), "after_rejected_new_key": counts(final), "receipts": receipts}
+	report := map[string]any{"sqlite": version, "row_sha256": old.Digest, "legacy": old.Assets, "upgraded": upgraded, "stage": "res_manifest", "stamina": []int{stamina, run.Save.Stamina}, "captain_xp": []int{startXP, run.Save.Captain.XP}, "attempts": []int{attempts, run.Save.Daily.VoyageAttempts["res_manifest"]}, "before": before, "settled": settled, "attachment": mail.Resources, "after_claim": counts(paid.Save), "after_replay": counts(afterReplay), "after_rejected_new_key": counts(final), "rows_before_claim": priorReceipts, "rows_after_retries": allReceipts, "claim_receipts": allReceipts - priorReceipts, "rejected_request_rows": rejectedRows}
 	data, err = common.Marshal(report)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile("/out/results.json", data, 0644))

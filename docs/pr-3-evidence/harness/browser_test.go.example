@@ -32,7 +32,10 @@ func reviewBrowser(t *testing.T, userID int, mailID string, clock time.Time) (mo
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
-		if r.Header.Get("Authorization") != "Bearer "+bearer { w.WriteHeader(401); return }
+		if r.Header.Get("Authorization") != "Bearer "+bearer {
+			w.WriteHeader(401)
+			return
+		}
 		var payload any
 		var err error
 		switch {
@@ -42,23 +45,33 @@ func reviewBrowser(t *testing.T, userID int, mailID string, clock time.Time) (mo
 			var intent model.GachaActionIntent
 			decoder := json.NewDecoder(r.Body)
 			decoder.DisallowUnknownFields()
-			if decoder.Decode(&intent) != nil || intent.ItemID == nil || *intent.ItemID != mailID || intent.Action != "mail_claim" { w.WriteHeader(400); return }
+			if decoder.Decode(&intent) != nil || intent.ItemID == nil || *intent.ItemID != mailID || intent.Action != "mail_claim" {
+				w.WriteHeader(400)
+				return
+			}
 			var result *model.GachaActionResult
 			result, err = model.ApplyGachaAction(userID, intent, clock)
 			payload = result
 			if err == nil {
-				select { case claims <- committedClaim{intent, result}: default: }
+				select {
+				case claims <- committedClaim{intent, result}:
+				default:
+				}
 			}
-		default: w.WriteHeader(405); return
+		default:
+			w.WriteHeader(405)
+			return
 		}
 		if err != nil {
 			if errors.Is(err, model.ErrGachaMailUnavailable) {
 				w.WriteHeader(409)
-				json.NewEncoder(w).Encode(map[string]any{"success":false,"code":"ALREADY_CLAIMED"})
-			} else { w.WriteHeader(500) }
+				json.NewEncoder(w).Encode(map[string]any{"success": false, "code": "ALREADY_CLAIMED"})
+			} else {
+				w.WriteHeader(500)
+			}
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]any{"success":true,"data":payload})
+		json.NewEncoder(w).Encode(map[string]any{"success": true, "data": payload})
 	}))
 	defer server.Close()
 	cmd := exec.Command("/tmp/pr3-browser/bin/python", "/src/docs/pr-3-evidence/harness/browser.py", server.URL, mailID)
@@ -66,8 +79,10 @@ func reviewBrowser(t *testing.T, userID int, mailID string, clock time.Time) (mo
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "%s", output)
 	select {
-	case claim := <-claims: return claim.intent, claim.result
-	default: t.Fatal("browser did not submit the claimed attachment")
+	case claim := <-claims:
+		return claim.intent, claim.result
+	default:
+		t.Fatal("browser did not submit the claimed attachment")
 	}
 	return model.GachaActionIntent{}, nil
 }
