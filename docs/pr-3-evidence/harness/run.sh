@@ -26,6 +26,5 @@ for phase in legacy current; do
     cp "$root/shared_test.go.example" model/review_shared_test.go
     cp "$root/${phase}_test.go.example" model/review_phase_test.go
     python3 "$root/harness/helpers.py" "$phase"
-    go mod tidy
-    go test -p 1 -parallel 1 -count=1 -v ./model -run "^TestGachaPR3${testname}$"
+    go test -mod=mod -p 1 -parallel 1 -count=1 -v ./model -run "^TestGachaPR3${testname}$"
 done
