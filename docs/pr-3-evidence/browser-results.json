@@ -1,0 +1,56 @@
+{
+  "engine": "156.0.4314.50",
+  "database": null,
+  "fixture": true,
+  "materialOrder": [
+    "field_notes",
+    "training_manual"
+  ],
+  "rows": [
+    {
+      "checkpoint": "before",
+      "materials": [
+        7,
+        11
+      ],
+      "claimed": false,
+      "disabled": false,
+      "claimRequests": 0,
+      "profileReads": 1
+    },
+    {
+      "checkpoint": "double-click, response held",
+      "materials": [
+        7,
+        11
+      ],
+      "claimed": false,
+      "disabled": true,
+      "claimRequests": 1,
+      "profileReads": 1
+    },
+    {
+      "checkpoint": "confirmed",
+      "materials": [
+        9,
+        12
+      ],
+      "claimed": true,
+      "disabled": true,
+      "claimRequests": 1,
+      "profileReads": 1
+    },
+    {
+      "checkpoint": "reload, attempt to claim again",
+      "materials": [
+        9,
+        12
+      ],
+      "claimed": true,
+      "disabled": true,
+      "claimRequests": 1,
+      "profileReads": 2
+    }
+  ],
+  "errors": []
+}

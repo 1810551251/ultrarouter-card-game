@@ -1,0 +1,67 @@
+package model_test
+
+import (
+	"os"
+	"testing"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+)
+
+func TestGachaPR3UpgradeAndClaim(t *testing.T) {
+	reviewOpen(t, false)
+	data, err := os.ReadFile(reviewRecord)
+	require.NoError(t, err)
+	var old reviewFixture
+	require.NoError(t, common.Unmarshal(data, &old))
+	require.Equal(t, old.Digest, reviewDocument(t, old.UserID), "compare the old row before the first upgraded profile load")
+	clock := time.UnixMilli(old.At)
+	profile, err := model.GetGachaProfile(old.UserID, clock)
+	require.NoError(t, err)
+	require.Equal(t, old.UserID, profile.UserID)
+	require.Equal(t, old.Assets, reviewInventory(profile.Save))
+	require.NotNil(t, profile.Save.Captain)
+	require.NotNil(t, profile.Save.Mailbox)
+	t.Logf("upgraded profile: cards=%d gold=%d mat_r=%d s1_stars=%d", len(profile.Save.Girls), profile.Save.Gold, profile.Save.Mats["mat_r"], profile.Save.Stars["s1"])
+	counts := func(state *model.GachaGameState) [2]int {
+		return [2]int{state.Mats["field_notes"], state.Mats["training_manual"]}
+	}
+	before := counts(profile.Save)
+	run, err := model.StartGachaRun(old.UserID, "res_manifest", uuid.NewString(), clock)
+	require.NoError(t, err)
+	require.Equal(t, profile.Save.Stamina-6, run.Save.Stamina)
+	clock = time.UnixMilli(run.ReadyAt + 1)
+	out, err := model.FinishGachaRun(old.UserID, run.ID, false, clock)
+	require.NoError(t, err)
+	require.True(t, out.Win)
+	id := "battle:" + run.ID
+	profile, err = model.GetGachaProfile(old.UserID, clock)
+	require.NoError(t, err)
+	mail := requireGachaTestMail(t, profile.Save, id)
+	require.False(t, mail.Claimed)
+	require.Equal(t, map[string]int{"field_notes": 2, "training_manual": 1}, mail.Resources)
+	require.Equal(t, before, counts(profile.Save))
+	t.Logf("before=%v settled=%v attachment=[%d %d]", before, counts(profile.Save), mail.Resources["field_notes"], mail.Resources["training_manual"])
+	claim := model.GachaActionIntent{Action: "mail_claim", ItemID: &id, RequestID: uuid.NewString()}
+	paid, err := model.ApplyGachaAction(old.UserID, claim, clock)
+	require.NoError(t, err)
+	want := [2]int{before[0] + mail.Resources["field_notes"], before[1] + mail.Resources["training_manual"]}
+	require.Equal(t, want, counts(paid.Save))
+	require.True(t, requireGachaTestMail(t, paid.Save, id).Claimed)
+	replay, err := model.ApplyGachaAction(old.UserID, claim, clock)
+	require.NoError(t, err)
+	require.Equal(t, paid, replay)
+	afterReplay := gachaState(t, old.UserID, clock)
+	require.Equal(t, want, counts(afterReplay))
+	require.True(t, requireGachaTestMail(t, afterReplay, id).Claimed)
+	claim.RequestID = uuid.NewString()
+	_, err = model.ApplyGachaAction(old.UserID, claim, clock)
+	require.ErrorIs(t, err, model.ErrGachaMailUnavailable)
+	final := gachaState(t, old.UserID, clock)
+	require.Equal(t, want, counts(final))
+	require.True(t, requireGachaTestMail(t, final, id).Claimed)
+	t.Logf("first=%v replay_and_reread=%v new_key_rejected=true reread=%v", counts(paid.Save), counts(afterReplay), counts(final))
+}
