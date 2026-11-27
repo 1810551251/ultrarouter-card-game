@@ -19,3 +19,6 @@ __pycache__/
 *.zip
 *.tar
 *.tgz
+
+# Private development notes
+/docs/PRIVATE-DEVELOPMENT-GUIDE.zh-CN.md

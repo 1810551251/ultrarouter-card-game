@@ -173,7 +173,7 @@ func dispatchClause(id string) *GachaDispatchClause {
 	return nil
 }
 
-var dispatchActions = []string{"relic_bind", "relic_wear", "relic_store", "clock_align", "contract_sign", "contract_claim", "route_step", "route_bank", "mosaic_place", "mirror_trial"}
+var dispatchActions = []string{"relic_bind", "relic_wear", "relic_store", "clock_align", "contract_sign", "dispatch_contract_claim", "route_step", "route_bank", "mosaic_place", "mirror_trial"}
 var clockOrders = []string{"ash-moon-tide", "ash-tide-moon", "moon-ash-tide", "moon-tide-ash", "tide-ash-moon", "tide-moon-ash"}
 
 func (hint GachaClockHint) fits(order string) bool {
@@ -326,7 +326,7 @@ func validateGachaDispatchIntent(intent GachaActionIntent) error {
 		if intent.Choice != nil && dispatchClause(*intent.Choice) != nil && intent.Count == nil && intent.GirlID != nil && gachaGirl(*intent.GirlID) != nil {
 			return nil
 		}
-	case "contract_claim":
+	case "dispatch_contract_claim":
 		if intent.Choice == nil && intent.Count == nil {
 			return nil
 		}
@@ -442,7 +442,7 @@ func applyGachaDispatch(state *GachaGameState, intent GachaActionIntent, result 
 		}
 		day.Contract = &GachaSignedClause{ID: *intent.Choice, Leader: *intent.GirlID}
 		result.Drops = append(result.Drops, "已立约 · "+dispatchClause(*intent.Choice).Name)
-	case "contract_claim":
+	case "dispatch_contract_claim":
 		signed := day.Contract
 		if signed == nil || signed.Claimed || signed.Progress != dispatchClause(signed.ID).Target {
 			return ErrGachaCultivationLocked

@@ -1,0 +1,30 @@
+package model
+
+import (
+	"os"
+
+	"github.com/QuantumNous/new-api/common"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+func reviewDialector() gorm.Dialector {
+	switch os.Getenv("REVIEW_ENGINE") {
+	case "mysql":
+		return mysql.Open("root@unix(/var/run/mysqld/mysqld.sock)/gacha_authority_test?parseTime=true")
+	case "postgres":
+		return postgres.New(postgres.Config{DSN: "host=/var/run/postgresql user=root dbname=gacha_authority_test sslmode=disable", PreferSimpleProtocol: true})
+	default:
+		return sqlite.Open(common.SQLitePath)
+	}
+}
+
+func lockForUpdate(tx *gorm.DB) *gorm.DB {
+	if tx.Dialector.Name() == "sqlite" {
+		return tx
+	}
+	return tx.Clauses(clause.Locking{Strength: "UPDATE"})
+}

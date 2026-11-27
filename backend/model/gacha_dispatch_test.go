@@ -157,7 +157,7 @@ func TestDispatchContractUsesSignedBattleNotCurrentLineupOrOldRuns(t *testing.T)
 		settleGachaDispatch(state, stage, &snap, report, finish)
 	}
 	require.Equal(t, 2, signed.Progress)
-	claim := dispatchTestIntent("contract_claim", state.Daily.Date, "", 0)
+	claim := dispatchTestIntent("dispatch_contract_claim", state.Daily.Date, "", 0)
 	require.NoError(t, applyGachaDispatch(state, claim, result))
 	require.Error(t, applyGachaDispatch(state, claim, result))
 	require.Equal(t, 4, state.Mats["gear_plate"])

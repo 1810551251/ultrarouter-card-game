@@ -4,7 +4,7 @@
   "credential_values_recorded": false,
   "files": {
     "backend/model/gacha_game_test.go": {
-      "sha256": "bf18e6c00ff1d3f8b3d21ff5979aa49b965916bf16b042b5e19a005bc2f5187e",
+      "sha256": "7f33cdbad3d216881ab34dca3f3ad1ed820629e9956915d46e81ade006b14ad0",
       "categories": [
         "quoted_secret"
       ],
@@ -18,7 +18,7 @@
       "reason": "Reviewed synthetic test account, mock response or test URL; no production values or production connections."
     },
     "tests/server-ui-check.js": {
-      "sha256": "4626ab01b81167a11666dd24b5d5d41ce0162048e3c4b57fc42fd6a667cfd275",
+      "sha256": "cf872184b41970ff0ff2f4e66c30391d18daa576fcfa71fe4234a5e45c3253cf",
       "categories": [
         "quoted_secret"
       ],

@@ -369,6 +369,7 @@ type GachaPullResult struct {
 	Shards int    `json:"shards"`
 }
 type GachaActionResult struct {
+	Ladder           *GachaLadderResult         `json:"ladder,omitempty"`
 	Feed             *GachaFeedReceipt          `json:"feed,omitempty"`
 	ArtifactLoot     []GachaArtifactLoot        `json:"artifact_loot,omitempty"`
 	Save             *GachaGameState            `json:"save"`
@@ -656,6 +657,9 @@ func ValidateGachaAction(intent GachaActionIntent) error {
 	if !validateGachaUUID(intent.RequestID) || intent.Action != "card_feed" && intent.Materials != nil {
 		return ErrGachaIntent
 	}
+	if strings.HasPrefix(intent.Action, "ladder_") {
+		return validateGachaLadderIntent(intent)
+	}
 	if strings.HasPrefix(intent.Action, "skill_") {
 		return validateGachaSkillIntent(intent)
 	}
@@ -900,6 +904,9 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 	if err := ValidateGachaAction(intent); err != nil {
 		return nil, err
 	}
+	if strings.HasPrefix(intent.Action, "ladder_") {
+		return applyGachaLadderAction(userID, intent, now)
+	}
 	if intent.Action == "arena_join" || intent.Action == "arena_cancel" {
 		return applyGachaQueueAction(userID, intent, now)
 	}
@@ -936,7 +943,7 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 			if err := applyGachaMail(state, intent, result, now); err != nil {
 				return err
 			}
-		case "daily_contract_claim":
+		case "contract_claim", "daily_contract_claim":
 			growthIntent := intent
 			growthIntent.Action = "contract_claim"
 			if err := applyGachaProgressionAction(tx, userID, state, growthIntent, result, now); err != nil {
@@ -962,7 +969,7 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 			if err := applyGachaFestival(state, intent, result, now); err != nil {
 				return err
 			}
-		case "relic_bind", "relic_wear", "relic_store", "clock_align", "contract_sign", "contract_claim", "route_step", "route_bank", "mosaic_place", "mirror_trial":
+		case "relic_bind", "relic_wear", "relic_store", "clock_align", "contract_sign", "dispatch_contract_claim", "route_step", "route_bank", "mosaic_place", "mirror_trial":
 			if err := applyGachaDispatch(state, intent, result); err != nil {
 				return err
 			}

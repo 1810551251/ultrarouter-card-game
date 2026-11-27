@@ -40,7 +40,7 @@ test("clock accepts editable ordered symbols, posts only a dated attempt, and lo
 });
 test("a signed commission disables alternatives, binds the selected leader, and exposes progress before claim", async context => {
   const {view,bureau,calls,find,room,day} = desk(context);room("contract");await view.dispatchAction("contract_sign","courier");assert.deepEqual(calls.at(-1),["contract_sign",{item_id:day,girl_id:"c01",choice:"courier"}]);
-  bureau.contract={id:"courier",leader:"c01",progress:1,claimed:false};view.paintWorkshop();assert.equal(find('[data-desk-key="choir"]').disabled,true);assert.equal(find('[data-desk-action="contract_claim"]').disabled,true);bureau.contract.progress=2;view.paintWorkshop();await view.dispatchAction("contract_claim");assert.deepEqual(calls.at(-1),["contract_claim",{item_id:day}]);assert.equal(bureau.contract.claimed,false);
+  bureau.contract={id:"courier",leader:"c01",progress:1,claimed:false};view.paintWorkshop();assert.equal(find('[data-desk-key="choir"]').disabled,true);assert.equal(find('[data-desk-action="dispatch_contract_claim"]').disabled,true);bureau.contract.progress=2;view.paintWorkshop();await view.dispatchAction("dispatch_contract_claim");assert.deepEqual(calls.at(-1),["dispatch_contract_claim",{item_id:day}]);assert.equal(bureau.contract.claimed,false);
 });
 test("fog trail shows but disables unreachable lanes, does not locally award cargo, and can bank instead", async context => {
   const {view,bureau,calls,find,room,day} = desk(context);room("route");assert.equal(find('[data-route-cell="0"]').disabled,false);await view.dispatchAction("route_step","left");assert.deepEqual(calls.at(-1),["route_step",{item_id:day,count:1,choice:"left"}]);assert.equal(bureau.route.track.length,0);

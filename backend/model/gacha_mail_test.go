@@ -123,7 +123,8 @@ func TestGachaMailboxCapacityPreservesPendingRewardsAndDoesNotBlockReading(t *te
 
 func TestGachaMailGrowthContractDoesNotRouteTheDispatchContract(t *testing.T) {
 	assert.Equal(t, "每日契约奖励", gachaMailActionTitle("daily_contract_claim"))
-	assert.Empty(t, gachaMailActionTitle("contract_claim"))
+	assert.Equal(t, "每日契约奖励", gachaMailActionTitle("contract_claim"))
+	assert.Empty(t, gachaMailActionTitle("dispatch_contract_claim"))
 }
 
 func TestGachaMailRewardsCanBeDeliveredAtCapacityAndKeepActualStaminaCosts(t *testing.T) {

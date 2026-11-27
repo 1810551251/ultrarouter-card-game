@@ -25,6 +25,7 @@ SCOPED_FILES = {
         'backend/model/gacha_matchmaking.go', 'backend/model/gacha_modes.go',
         'backend/model/gacha_progression.go', 'backend/model/gacha_rooms.go',
         'backend/model/gacha_social.go', 'backend/model/gacha_catalog.json',
+        'backend/model/gacha_ladder.go', 'backend/model/gacha_ladder_test.go', 'backend/model/gacha_contract_database_test.go',
         'backend/model/gacha_game_test.go', 'backend/model/gacha_game_battle_test.go',
         'backend/model/gacha_cultivation.go', 'backend/model/gacha_cultivation.json',
         'backend/model/gacha_cultivation_test.go', 'backend/model/gacha_artifacts.go', 'backend/model/gacha_artifacts_test.go',
@@ -47,6 +48,7 @@ SCOPED_FILES = {
         'backend/model/gacha_mail.go', 'backend/model/gacha_mail.json', 'backend/model/gacha_mail_test.go', 'backend/model/gacha_mail_database_test.go',
         'backend/controller/gacha.go', 'backend/controller/gacha_authority_test.go',
         'backend/integration/gacha-routes.go.example', 'backend/integration/gacha-database.go.example',
+        'backend/integration/gacha-ladder-worker.go.example',
     },
     'scripts': {
         'scripts/audit-release.py', 'scripts/package-release.py',
@@ -60,7 +62,7 @@ SCOPED_FILES = {
         'tests/test_release_privacy.py', 'tests/test_preview.py',
         'tests/festival-check.js', 'tests/captain-check.js', 'tests/voyage-check.js', 'tests/fleet-check.js', 'tests/mail-check.js',
     },
-    'js': {'js/'+name+'.js' for name in ('config', 'store', 'data', 'ui', 'progression', 'atelier', 'carry', 'training', 'experience', 'cases', 'vigil', 'dispatch', 'cipher', 'workshop', 'battle', 'captain', 'voyage', 'voyage-map', 'fleet', 'festival', 'mail', 'main')},
+    'js': {'js/'+name+'.js' for name in ('config', 'store', 'data', 'ui', 'ladder', 'progression', 'atelier', 'carry', 'training', 'experience', 'cases', 'vigil', 'dispatch', 'cipher', 'workshop', 'battle', 'captain', 'voyage', 'voyage-map', 'fleet', 'festival', 'mail', 'main')},
     '.github': {'.github/workflows/game-checks.yml'},
 }
 IGNORED_PARTS = {'node_modules', 'dist', '__pycache__', '.git', '.local', '.cache'}

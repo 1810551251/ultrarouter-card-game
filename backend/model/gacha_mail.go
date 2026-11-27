@@ -301,6 +301,9 @@ func mailGachaRewards(state *GachaGameState, before map[string]int, id, title st
 }
 
 func gachaMailActionTitle(action string) string {
+	if action == "contract_claim" {
+		action = "daily_contract_claim"
+	}
 	return map[string]string{"voyage_chest": "副本星级宝箱", "voyage_sweep": "副本扫荡物资", "festival_play": "港口活动奖励", "festival_album": "航务集章奖励", "guild_claim": "公会讨伐奖励", "guild_supply_claim": "公会共建奖励", "daily_permits": "每日招募补给", "daily_contract_claim": "每日契约奖励", "weekly_claim": "每周成长奖励", "mainline_claim": "主线里程碑奖励"}[action]
 }
 

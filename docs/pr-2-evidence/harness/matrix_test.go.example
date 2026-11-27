@@ -1,0 +1,40 @@
+package model_test
+
+import (
+	"os"
+	"testing"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
+)
+
+func TestConsolidatedReview(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, engine := range []string{"sqlite", "mysql", "postgres"} {
+		t.Run(engine, func(t *testing.T) {
+			t.Setenv("REVIEW_ENGINE", engine)
+			common.SQLitePath = t.TempDir() + "/review.sqlite?_busy_timeout=30000&_journal_mode=WAL&_txlock=immediate"
+			common.IsMasterNode = true
+			require.NoError(t, model.InitDB())
+			model.LOG_DB = model.DB
+			connection, err := model.DB.DB()
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, connection.Close()) })
+			require.Equal(t, engine, model.DB.Dialector.Name())
+			var version string
+			query := "SELECT version()"
+			if engine == "sqlite" {
+				query = "SELECT sqlite_version()"
+			}
+			require.NoError(t, model.DB.Raw(query).Scan(&version).Error)
+			t.Logf("engine=%s version=%s revision=%s", engine, version, os.Getenv("REVIEW_REVISION"))
+			clock := time.Now().UTC().Truncate(time.Second)
+			runGachaLadderMatrix(t, clock)
+			runGachaLadderEligibility(t)
+			runGachaContractClaims(t)
+		})
+	}
+}

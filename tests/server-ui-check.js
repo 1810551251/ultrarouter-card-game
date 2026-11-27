@@ -17,6 +17,8 @@ const server = {
   },
 };
 server.save.girls.c14 = { star: 0, level: 0, exp: 0, shards: 2 };
+const rival = { id: -80, rank: 80, name: '<img src=x onerror="bad()">', power: 4000, squad: [{ id: "c06", level: 10, star: 2 }] };
+server.ladder = { me: null, remaining: 5, limit: 5, total: 100, opponents: [rival], board: [rival], history: [], mail: [], rewards: [{ max_rank: 100, materials: { mat_r: 40, mat_sr: 20, mat_ssr: 5 } }] };
 const errors = [];
 const dom = new JSDOM(fs.readFileSync(path.join(root, "index.html"), "utf8"), {
   runScripts: "outside-only", url: "https://game.test/gacha/", pretendToBeVisual: true,
@@ -39,6 +41,13 @@ w.fetch = async (url, options) => {
     stage_rewards: { s1: { quota_min: 75000, quota_max: 110000 } },
   };
   else if (ep.endsWith("/action")) {
+    if (body.action === "ladder_join") server.ladder.me = { ...rival, id: 7, rank: 101, best_rank: 101, cooldown_until: 0 };
+    if (body.action === "ladder_leave") server.ladder.me = null;
+    if (body.action === "ladder_challenge") {
+      server.ladder.me.rank = server.ladder.me.best_rank = 80;
+      server.ladder.remaining--;
+      server.ladderResult = { id: "00000000-0000-4000-8000-000000000080", ladder: true, win: true, name: rival.name, own_before: 101, own_after: 80, attacker_name: "UI test", defender_name: rival.name, report: report(true) };
+    }
     if (body.action === "level") { server.save.gold -= 35; server.save.girls[body.girl_id].level++; }
     if (body.action === "multi") server.save.multiOn = body.enabled;
     if (body.action === "squad") server.save.squad = body.squad;
@@ -58,6 +67,7 @@ w.fetch = async (url, options) => {
     }
     server.revision++;
     data = snapshot();
+    if (body.action === "ladder_challenge") data.ladder = clone(server.ladderResult);
     if (body.action === "token_exchange") data.exchange = {count:body.count, cost_quota:body.count*500000, wallet_quota:server.quota};
     if (body.action.startsWith("arena_")) data.queue = clone(server.queue);
     if (body.action === "room_join") {
@@ -66,6 +76,8 @@ w.fetch = async (url, options) => {
     if (body.action === "room_ready") { server.room.guest_ready = true; server.roomQuota -= server.room.stake_e * 500000; }
     if (body.action === "room_leave") { server.room.status = "cancelled"; if (server.room.guest_ready) server.roomQuota += server.room.stake_e * 500000; }
     if (body.action.startsWith("room_")) data.room = clone(server.room);
+  } else if (ep.endsWith("/ladder")) {
+    data = { ...clone(server.ladder), server_now: Date.now(), next_settlement: Date.now() + 3600000, next_reset: Date.now() + 7200000 };
   } else if (ep.endsWith("/social")) {
     const opponent = { user_id: 9, name: '<img src=x onerror="bad()">', power: 4000, arena_points: 40, squad: [{ id: "c06", level: 10, star: 2 }] };
     data = { arena_enabled: server.arenaEnabled !== false, shop_daily_limit: 20, token_exchange:{enabled:true, quota_per_token:500000, max_count:1000000000}, shop: [{ id: "gold", name: "金币补给", resource: "gold", amount: 150, price: 30, limit: 20 }, { id: "stamina", name: "体力补给", resource: "stamina", amount: 30, price: 20, limit: 20 }], power_board: [opponent], arena_board: [opponent], opponents: [opponent], power_rank: 2, arena_rank: 0, arena_limit: 5 };
@@ -239,9 +251,31 @@ function check(condition, label) { assert.ok(condition, label); checks++; consol
   check(w.document.querySelector(".shop-gold button").disabled && w.document.getElementById("shop-daily-remaining").textContent.includes("0 / 20"), "twenty purchases across products disables further shopping");
   check(!w.document.getElementById("token-exchange-submit").disabled, "wallet exchange remains available after shop allowance is used");
   G.nav("page-arena"); await tick();
-  check(w.document.querySelector('[data-arena-tab="queue"]').getAttribute("aria-pressed") === "true", "arena navigation opens matchmaking directly");
-  check(w.document.querySelector('#page-home [data-nav="page-arena"]').textContent.includes("匹配对战"), "home has an explicit matchmaking entrance");
-  w.pickArenaTab("power");
+  check(w.document.querySelector('[data-arena-tab="ladder"]').getAttribute("aria-pressed") === "true", "arena navigation opens the ladder");
+  check(w.document.querySelector('#page-home [data-arena-mode="queue"]').textContent.includes("匹配对战"), "home has an explicit matchmaking entrance");
+  const refresh = G.Store.refresh;
+  G.Store.refresh = async () => null;
+  await w.renderArena();
+  check(w.document.querySelector('#arena-body button').textContent.includes("重新读取"), "a current transient profile failure offers retry");
+  G.Store.refresh = refresh;
+  await w.renderArena();
+  check(!!w.document.querySelector('.ladder-welcome'), "retry restores the ladder");
+  await w.ladderAction('ladder_join');
+  check(w.document.querySelectorAll('.ladder-opponent').length === 1 && !w.document.querySelector('.ladder-opponent h4 img'), "server opponent is visible and its name is escaped");
+  w.previewLadderOpponent(-80, true);
+  await w.submitLadderChallenge();
+  const rankedIntent = server.calls.filter(call => call.body?.action === 'ladder_challenge').at(-1).body;
+  check(Object.keys(rankedIntent).sort().join() === 'action,count,opponent_id,request_id', "challenge does not send a result or a balance stake");
+  check(w.document.querySelector('.arena-award').textContent.includes('#101 → #80'), "normal challenge displays confirmed rank change");
+  G.closeModal();
+  const renderArena = w.renderArena;
+  w.renderArena = async () => { G.Store.sessionEpoch++; };
+  await w.ladderAction('ladder_challenge', { opponent_id: -80, count: 80 });
+  w.renderArena = renderArena;
+  check(w.document.getElementById('modal-mask').classList.contains('hidden'), "a session change during post-action refresh discards the earlier account's result");
+  await w.ladderAction('ladder_leave');
+  check(!!w.document.querySelector('.ladder-welcome'), "withdrawal reopens the opt-in screen");
+  w.pickArenaTab("power"); await tick(); await tick();
   check(w.document.getElementById("arena-summary").textContent.includes("4,567"), "arena displays server calculated squad power");
   check(!w.document.querySelector(".arena-player strong img"), "rankings escape player names");
   w.previewOpponent(9);

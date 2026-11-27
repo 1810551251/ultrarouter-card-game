@@ -2,7 +2,7 @@
 set -eu
 root=/src/docs/pr-3-evidence
 legacy=7fbc923711ebe7d30c8f737c13b2687124ac1e83
-current=d5271c30f34faee8ea88866b3e6548623e11e503
+current=${REVIEW_CURRENT:-d5271c30f34faee8ea88866b3e6548623e11e503}
 mkdir /pr3-state
 for phase in legacy current; do
     case "$phase" in

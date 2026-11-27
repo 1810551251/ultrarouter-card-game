@@ -61,7 +61,7 @@ function dispatchContractPage(view,rules,contract) {
   const heroName = id => GIRLS.find(girl => girl.id === id)?.name || id;
   return `${dispatchNote(`北京零点换约。只能选择其中一份，以${esc(heroName(view.id))}签约；只有签约后新开、且在当日结算的战斗才计入。`)}<div class="dp-clauses">${rules.contracts.map((clause,index) => {
     const mine = clause.id === contract?.id, ready = mine && contract.progress >= clause.target && !contract.claimed;
-    return `<article class="${mine ? "is-current" : ""}"><small>契约 0${index+1}</small><h4>${esc(clause.name)}</h4><p>${esc(clause.rule)}</p><strong>${dispatchPay(clause.reward)}</strong>${mine ? `<p>领队 ${esc(heroName(contract.leader))} · ${contract.progress}/${clause.target}</p>${dispatchButton("contract_claim",contract.claimed ? "已领取" : "交付战报领奖",ready)}` : dispatchButton("contract_sign",contract ? "与已签条款互斥" : `以${esc(heroName(view.id))}签下`,!contract,clause.id)}</article>`;
+    return `<article class="${mine ? "is-current" : ""}"><small>契约 0${index+1}</small><h4>${esc(clause.name)}</h4><p>${esc(clause.rule)}</p><strong>${dispatchPay(clause.reward)}</strong>${mine ? `<p>领队 ${esc(heroName(contract.leader))} · ${contract.progress}/${clause.target}</p>${dispatchButton("dispatch_contract_claim",contract.claimed ? "已领取" : "交付战报领奖",ready)}` : dispatchButton("contract_sign",contract ? "与已签条款互斥" : `以${esc(heroName(view.id))}签下`,!contract,clause.id)}</article>`;
   }).join("")}</div>`;
 }
 function dispatchRoutePage(rules,route) {
@@ -108,7 +108,7 @@ async function dispatchAction(action,key="") {
     case "relic_store": fields = {}; break;
     case "clock_align": fields = {item_id:date,count:day.clock.guesses.length+1,choice:view.clockDraft.join("-")}; break;
     case "contract_sign": fields = {item_id:date,girl_id:view.id,choice:key}; break;
-    case "contract_claim": fields = {item_id:date}; break;
+    case "dispatch_contract_claim": fields = {item_id:date}; break;
     case "route_step": fields = {item_id:date,count:day.route.track.length+1,choice:key}; break;
     case "route_bank": fields = {item_id:date,count:day.route.track.length}; break;
     case "mosaic_place": {const cells = view.deskMosaic.join(""); fields = {item_id:SAVE.dispatch.mosaic.week,count:SAVE.dispatch.mosaic.cleared+1,choice:cells.match(/.{3}/g).join("-")}; break;}

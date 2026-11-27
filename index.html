@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>星霜少女</title>
-<link rel="stylesheet" href="style.css?v=20261127-harbor">
+<link rel="stylesheet" href="style.css?v=20261127-consolidated">
 <link rel="stylesheet" href="mobile.css?v=20261117-mobile5" media="(max-width: 700px), (max-width: 1000px) and (max-height: 500px) and (orientation: landscape)">
 <link rel="stylesheet" href="harbor.css?v=20261127-captain">
 <link rel="stylesheet" href="voyage.css?v=20261127-dungeons">
@@ -96,7 +96,8 @@
           <section><h2>同伴广场</h2>
             <button class="harbor-route" type="button" data-nav="page-fleet"><b>公会与排行榜</b><small>寻访公会 · 共建 · 榜单</small></button>
             <button class="harbor-route" type="button" data-nav="page-modes"><b>远征与周常</b><small>远征路线 · 元素首领</small></button>
-            <button class="harbor-route" type="button" data-nav="page-arena"><b>匹配对战</b><small>双方自愿 · 每场 1～5 E</small></button>
+            <button class="harbor-route" type="button" data-nav="page-arena"><b>排名竞技场</b><small>免费挑战 · 21 点结算</small></button>
+            <button class="harbor-route" type="button" data-nav="page-arena" data-arena-mode="queue"><b>匹配对战</b><small>双方自愿 · 每场 1～5 E</small></button>
           </section>
         </div>
         <details class="harbor-ledger"><summary>港务账本 · 余额与今日产出</summary><div id="home-info"></div><div id="site-account"></div><button class="harbor-link" type="button" data-nav="page-shop">前往代币商店 ›</button></details>
@@ -115,14 +116,23 @@
 
     <section class="page social-page" id="page-arena">
       <div class="social-heading"><div><p class="social-kicker">星霜演武场</p><h2>排行与匹配</h2><p>养成少女、调整阵容，提升编队战力</p></div><button class="harbor-link" data-nav="page-fleet">公会与总榜 ›</button><button class="gbtn gbtn-sm" data-nav="page-squad"><span>调整编队</span></button></div>
-      <div id="arena-summary"></div>
-      <div class="social-tabs" role="group" aria-label="竞技场栏目">
-        <button type="button" onclick="pickArenaTab('queue')" data-arena-tab="queue">余额匹配</button>
-        <button type="button" onclick="pickArenaTab('rooms')" data-arena-tab="rooms">自定义大厅</button>
-        <button type="button" onclick="pickArenaTab('power')" data-arena-tab="power">战力排行</button>
-        <button type="button" onclick="pickArenaTab('history')" data-arena-tab="history">我的战报</button>
+      <div class="arena-shell">
+        <aside class="arena-sidebar" aria-label="我的竞技档案">
+          <div id="arena-summary"></div>
+          <div class="social-tabs arena-menu" role="group" aria-label="竞技场栏目">
+            <button type="button" onclick="pickArenaTab('ladder')" data-arena-tab="ladder">排名挑战<small>每日 5 次</small></button>
+            <button type="button" onclick="pickArenaTab('ladder-board')" data-arena-tab="ladder-board">竞技排名</button>
+            <button type="button" onclick="pickArenaTab('ladder-rewards')" data-arena-tab="ladder-rewards">材料奖励<small>每日 21:00</small></button>
+            <button type="button" onclick="pickArenaTab('ladder-records')" data-arena-tab="ladder-records">攻防战报</button>
+            <button type="button" onclick="pickArenaTab('queue')" data-arena-tab="queue">余额匹配</button>
+            <button type="button" onclick="pickArenaTab('rooms')" data-arena-tab="rooms">自定义大厅</button>
+            <button type="button" onclick="pickArenaTab('power')" data-arena-tab="power">战力排行</button>
+            <button type="button" onclick="pickArenaTab('history')" data-arena-tab="history">我的战报</button>
+          </div>
+          <button type="button" class="social-refresh arena-rules-link" onclick="showArenaRules()">竞技规则</button>
+        </aside>
+        <div class="arena-content"><div id="arena-body" aria-live="polite"></div></div>
       </div>
-      <div id="arena-body" aria-live="polite"></div>
     </section>
 
     <!-- 召唤页 -->
@@ -271,10 +281,11 @@
 
 </div>
 
-<script src="js/config.js?v=20261127-harbor"></script>
+<script src="js/config.js?v=20261127-consolidated"></script>
 <script src="js/store.js?v=20261123-progression1"></script>
 <script src="js/data.js?v=20261127-harbor"></script>
-<script src="js/ui.js?v=20261127-harbor"></script>
+<script src="js/ui.js?v=20261127-consolidated"></script>
+<script src="js/ladder.js?v=20261127-consolidated"></script>
 <script src="js/progression.js?v=20261127-harbor"></script>
 <script src="js/atelier.js?v=20261127-harbor"></script>
 <script src="js/training.js?v=20261126-v8"></script>
@@ -282,16 +293,16 @@
 <script src="js/vigil.js?v=20261126-v8"></script>
 <script src="js/cases.js?v=20261126-v8"></script>
 <script src="js/cipher.js?v=20261126-v8"></script>
-<script src="js/dispatch.js?v=20261126-v8"></script>
+<script src="js/dispatch.js?v=20261127-consolidated"></script>
 <script src="js/carry.js?v=20261126-mastery1"></script>
 <script src="js/workshop.js?v=20261127-harbor"></script>
-<script src="js/battle.js?v=20261127-harbor"></script>
+<script src="js/battle.js?v=20261127-consolidated"></script>
 <script src="js/festival.js?v=20261127"></script>
 <script src="js/captain.js?v=20261127-captain"></script>
 <script src="js/voyage-map.js?v=20261127-dungeons"></script>
 <script src="js/voyage.js?v=20261127-dungeons"></script>
 <script src="js/fleet.js?v=20261127"></script>
 <script src="js/mail.js?v=20261127"></script>
-<script src="js/main.js?v=20261127-harbor"></script>
+<script src="js/main.js?v=20261127-consolidated"></script>
 </body>
 </html>
