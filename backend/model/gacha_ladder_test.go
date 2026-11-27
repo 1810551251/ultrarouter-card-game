@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // Invoked inside the existing disposable SQLite/MySQL/PostgreSQL host matrix.
@@ -218,6 +219,7 @@ func runGachaLadderMatrix(t *testing.T, clock time.Time) {
 		var mail model.GachaLadderMail
 		require.NoError(t, model.DB.First(&mail, "user_id = ? AND day = ?", user.Id, previousDay).Error)
 		assert.False(t, mail.Claimed, "capacity failure rolls back entitlement consumption")
+		t.Log("100 NPCs; swap 101 -> 100 -> 99; replay uses 1 attempt; rank-100 award 40/20/5; 05:00 reset to 5; 1 of 2 concurrent claims; full inventory leaves entitlement unclaimed; E wallet unchanged")
 		require.NoError(t, model.InitializeGachaLadder(later))
 		var positions []int
 		require.NoError(t, model.DB.Model(&model.GachaLadderEntry{}).Where("position > 0").Order("position ASC").Pluck("position", &positions).Error)
