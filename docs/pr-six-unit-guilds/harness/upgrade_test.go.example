@@ -52,7 +52,10 @@ func reviewAccountAssets(state *model.GachaGameState) map[string]any {
 		panic(err)
 	}
 	out := map[string]any{}
-	for _, key := range []string{"squad", "girls", "gold", "stamina", "token", "multi", "mats", "gem_inventory", "chip_inventory", "gear_inventory", "sigil_inventory", "carry_inventory", "cleared", "stars", "mailbox"} {
+	for _, key := range []string{"squad", "girls", "gold", "stamina", "token", "multi", "mats", "gem_inventory", "chip_inventory", "sigils", "carry_inventory", "cleared", "stars", "mailbox"} {
+		if _, exists := fields[key]; !exists {
+			panic("asset comparison field absent from serialized save: " + key)
+		}
 		out[key] = fields[key]
 	}
 	return out
@@ -75,6 +78,11 @@ func TestReviewProduceLegacy(t *testing.T) {
 				state.Token = 200 + i
 				state.Stamina = 120
 				state.Mats["training_ink"] = 200 + i
+				state.GemInventory["ruby"] = 1 + i%7
+				state.CarryInventory["keepsake_lens"] = 1 + i%5
+				sigil := gachaTestSigil("astral", 1+i%3)
+				state.Sigils[sigil.ID] = sigil
+				state.Girls[state.Squad[0]].Sigil = sigil.ID
 				state.Girls["c01"] = &model.GachaOwnedGirl{Star: 3, Level: 40}
 				state.Girls["c06"] = &model.GachaOwnedGirl{Star: 3, Level: 40}
 				state.Cleared["s1"] = true
