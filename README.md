@@ -46,7 +46,7 @@ Included: the browser game, 28 character definitions, game artwork, server-owned
 - **港口活动**每周有 14 场，每天两场，每场最多三次提交。轮换玩法是装船配载、海雾定位、灯阵调配和潮汐择时；完成一场盖一枚章，3、7、11 枚可领取周奖励。活动使用游戏日与服务器题面，不接受客户端分数。
 - **公会与排行**提供可翻页的招募列表，以及战力、收藏率、公会周航绩、竞技胜场、副本星级五种榜单。副本星级取四章三档难度每关的历史最高星，共 156 星。可点开榜内队伍；未登录也可在 `#rank-demo-stars` 查看独立标注的演示榜。会长可自选是否公开，成员每日可选一项港务共建，每周三线共同达到里程后由参与者领取奖励。
 
-Git 仓库的[本次更新公告](docs/pr-harbor-voyages/README.md)附有桌面与手机版界面截图和对应说明，不随游戏源文件压缩包分发。
+Git 仓库的[本次更新公告](docs/pr-six-unit-guilds/README.md)与[合并验证记录](docs/pr-six-unit-guilds/VALIDATION.md)包含六人战斗、公会与领奖改动、三库升级数据和桌面／手机截图。截图与图表使用独立 GitHub 图床，不随游戏源文件压缩包分发；[上一版公告](docs/pr-harbor-voyages/README.md)继续保留。
 
 ## 卡牌培养
 
