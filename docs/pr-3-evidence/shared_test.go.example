@@ -1,0 +1,87 @@
+package model_test
+
+import (
+	"crypto/sha256"
+	"fmt"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/stretchr/testify/require"
+)
+
+const reviewDB = "/pr3-state/pr3-disposable.sqlite"
+const reviewRecord = "/pr3-state/pr3-fixture.json"
+
+var reviewStart = time.Date(2026, 11, 27, 4, 30, 0, 0, time.UTC)
+
+type reviewAssets struct {
+	Squad                                       []string
+	Cards                                       map[string][4]int
+	Gold, Stamina, Token, Multi, Permits, Marks int
+	Materials, Gems, Stars                      map[string]int
+	Cleared                                     map[string]bool
+}
+
+type reviewFixture struct {
+	UserID int
+	At     int64
+	Digest string
+	Assets reviewAssets
+}
+
+func reviewOpen(t *testing.T, legacy bool) {
+	t.Helper()
+	if legacy {
+		for _, file := range []string{reviewDB, reviewRecord, reviewDB + "-wal", reviewDB + "-shm"} {
+			_, err := os.Stat(file)
+			require.ErrorIs(t, err, os.ErrNotExist, "use an empty, private test volume")
+		}
+	} else {
+		for _, file := range []string{reviewDB, reviewRecord} {
+			info, err := os.Stat(file)
+			require.NoError(t, err)
+			require.True(t, info.Mode().IsRegular())
+		}
+	}
+	t.Setenv("SQL_DSN", "local")
+	t.Setenv("LOG_SQL_DSN", "")
+	common.SQLitePath = reviewDB + "?_busy_timeout=30000&_journal_mode=WAL&_txlock=immediate"
+	common.IsMasterNode, common.RedisEnabled = true, false
+	require.NoError(t, model.InitDB())
+	model.LOG_DB = model.DB
+	require.Equal(t, "sqlite", model.DB.Dialector.Name())
+	var version string
+	require.NoError(t, model.DB.Raw("SELECT sqlite_version()").Scan(&version).Error)
+	t.Logf("database=SQLite version=%s", version)
+	sqlDB, err := model.DB.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+}
+
+func reviewInventory(state *model.GachaGameState) reviewAssets {
+	record := reviewAssets{Squad: state.Squad, Cards: map[string][4]int{}, Gold: state.Gold, Stamina: state.Stamina, Token: state.Token, Multi: state.Multi, Permits: state.Progression.Permits, Marks: state.Progression.Marks, Materials: map[string]int{}, Gems: map[string]int{}, Stars: state.Stars, Cleared: state.Cleared}
+	for key, own := range state.Girls {
+		record.Cards[key] = [4]int{own.Star, own.Level, own.Exp, own.Shards}
+	}
+	for key, value := range state.Mats {
+		if value != 0 {
+			record.Materials[key] = value
+		}
+	}
+	for key, value := range state.GemInventory {
+		if value != 0 {
+			record.Gems[key] = value
+		}
+	}
+	return record
+}
+
+func reviewDocument(t *testing.T, id int) string {
+	t.Helper()
+	var player model.GachaPlayer
+	require.NoError(t, model.DB.Select("state").Where("user_id = ?", id).First(&player).Error)
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(player.State)))
+}

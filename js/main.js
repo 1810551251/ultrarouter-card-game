@@ -9,6 +9,7 @@ function boot() {
 }
 
 function lockGame(message) {
+  if (typeof closeFleetOfficial === "function") closeFleetOfficial();
   document.getElementById("app").classList.add("hidden");
   document.getElementById("title-screen").classList.remove("hidden");
   document.getElementById("auth-status").textContent = message;
@@ -33,7 +34,14 @@ function unlockGame() {
   document.getElementById("title-screen").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   // A same-account refresh must not rebuild tabs, dialogs, or an in-progress form.
-  if (alreadyOpen) { renderTopbar(); return; }
+  if (alreadyOpen) {
+    renderTopbar();
+    const page = document.body.dataset.page;
+    if (page === "page-captain" && typeof renderCaptain === "function") renderCaptain();
+    if (page === "page-festival" && typeof festivalView !== "undefined" && festivalView?.date !== SAVE.daily.date) renderFestival();
+    if (page === "page-home" && typeof renderFestivalToday === "function") renderFestivalToday();
+    return;
+  }
   if (battleRunning && BAT) { renderTopbar(); return; }
   const hash = (location.hash || "").replace(/^#/, "");
   let page = document.body.dataset.page || "page-home";
@@ -60,7 +68,10 @@ document.querySelectorAll(".nav-btn").forEach(b =>
 /* 页内跳转按钮（主页 -> 副本/召唤） */
 document.querySelectorAll("[data-nav]").forEach(el => {
   if (!el.classList.contains("nav-btn")) {
-    el.addEventListener("click", () => nav(el.dataset.nav));
+    el.addEventListener("click", () => {
+      nav(el.dataset.nav);
+      if (el.dataset.arenaMode) pickArenaTab(el.dataset.arenaMode);
+    });
   }
 });
 

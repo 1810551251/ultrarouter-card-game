@@ -1,0 +1,16 @@
+[
+  {"id":"relief","name":"灯港赈航","kind":"cargo","story":"西堤刚刚退潮，小驳船只有一趟机会送去救援物资。","labels":["药箱","防潮布","绳索","净水箱"],"values":[[4,8],[3,7],[2,3],[5,9]],"limit":7,"goal":15,"reward":{"field_notes":2}},
+  {"id":"whisper","name":"失声电台","kind":"sound","story":"雾里的电台只回了三声。测向站记录了回音走过的街区数。","values":[[0,3],[2,1],[8,1]],"reward":{"gear_thread":5}},
+  {"id":"wards","name":"夜班交接","kind":"relay","story":"临海观察所换班，三盏守夜灯须同时稳定下来。","labels":["病房","回廊","门厅"],"values":[[3,4,3]],"limit":5,"reward":{"training_ink":4}},
+  {"id":"convoy","name":"双闸护航","kind":"tide","story":"护送船要在同一趟航程依次穿过两座按钟点开放的闸门。","labels":["内港闸","北海峡"],"values":[[2,0,1],[3,2,0]],"reward":{"gear_plate":5}},
+  {"id":"letters","name":"无名邮船","kind":"cargo","story":"一袋失散的信回到了港口。选两份邮包，让最多的人收到回信。","labels":["雨夜来信","雪岭包裹","寻人启事","远洋邮袋"],"values":[[2,5],[5,6],[3,9],[4,8]],"limit":6,"goal":14,"reward":{"route_badge":3}},
+  {"id":"bell","name":"潮下钟楼","kind":"sound","story":"退潮时，沉没的钟楼再次报时。三只浮标听到钟声的距离不同。","values":[[0,2],[6,2],[8,2]],"reward":{"forge_ore":6}},
+  {"id":"archive","name":"封存室巡灯","kind":"relay","story":"档案室里三道封条相互牵引，灯光恰好持平才能重新封存。","labels":["蜡印","铜锁","银线"],"values":[[4,3,3]],"limit":5,"reward":{"mat_sr":3}},
+  {"id":"mist","name":"无月渡口","kind":"tide","story":"一条小艇从旧渡口出发，要赶上引航灯与接应船的两次信号。","labels":["引航灯","接应船"],"values":[[3,1,1],[2,1,2]],"reward":{"gem_ticket":1}},
+  {"id":"market","name":"星灯换市","kind":"cargo","story":"铺主以灯油换两箱展品。把摊位留给在预算内最有价值的一组。","labels":["玻璃星盘","黄铜望镜","手刻潮历","彩灯组"],"values":[[5,10],[4,6],[1,3],[2,3]],"limit":6,"goal":13,"reward":{"gear_rivet":3}},
+  {"id":"rescue","name":"白塔寻踪","kind":"sound","story":"守塔人在白雾中敲响求救铃。按岸台的三份记录，锁定出艇位置。","values":[[2,3],[6,1],[0,1]],"reward":{"expedition_atlas":1}},
+  {"id":"signal","name":"守望者接线","kind":"relay","story":"风暴扯断了岸上的明线。把备用电荷分给三路，接回港区通讯。","labels":["医务台","避风所","码头"],"values":[[3,3,2]],"limit":4,"reward":{"chip_ticket":1}},
+  {"id":"train","name":"零点摆渡","kind":"tide","story":"行夜的渡船不能靠岸等候。挑一个出发时刻，连过两处换班哨。","labels":["白沙哨","星桥哨"],"values":[[2,1,0],[3,0,2]],"reward":{"break_seal":2}},
+  {"id":"museum","name":"漂流陈列馆","kind":"cargo","story":"周日的浮桥展只剩两处展台，在承重范围内凑齐足够展览声望。","labels":["航钟","海图册","石刻","船首像"],"values":[[3,8],[2,7],[4,5],[5,10]],"limit":6,"goal":15,"reward":{"weapon_core":2}},
+  {"id":"lighthouse","name":"群岛点名","kind":"sound","story":"最后一艘返航船错过了信标。按三个岛的回声，点亮它所在的海格。","values":[[8,3],[6,3],[0,1]],"reward":{"mat_ssr":2}}
+]

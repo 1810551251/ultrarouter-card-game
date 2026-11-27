@@ -1,0 +1,10 @@
+package middleware
+
+import "github.com/gin-gonic/gin"
+
+type SessionAuthIdentity struct{ UserID int }
+
+func GetSessionAuthIdentity(context *gin.Context) (SessionAuthIdentity, bool) {
+	userID := context.GetInt("id")
+	return SessionAuthIdentity{UserID: userID}, userID > 0 && context.GetString("session_id") == "isolated-test-session"
+}

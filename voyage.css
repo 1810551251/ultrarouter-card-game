@@ -1,0 +1,64 @@
+body[data-page="page-stage"][data-voyage="open"] #topbar,
+body[data-page="page-stage"][data-voyage="open"] #navbar,
+body[data-page="page-stage"][data-voyage="open"] #page-stage > :not(#voyage-map) { display:none; }
+body[data-page="page-stage"][data-voyage="open"] #app { width:100%; max-width:none; height:100%; }
+body[data-page="page-stage"][data-voyage="open"] #pages { width:100%; padding:0; overflow:hidden; }
+body[data-page="page-stage"][data-voyage="open"] #page-stage.active { display:block; width:100%; height:100%; margin:0; padding:0; }
+#voyage-map:not([hidden]) { display:block; position:fixed; inset:0; width:100%; height:100%; height:100dvh; isolation:isolate; overflow:hidden; color:#f1f6f5; font-size:14px; }
+#voyage-map [hidden],#voyage-unavailable[hidden] { display:none; }
+#voyage-unavailable:not([hidden]) { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:10px 14px; border-left:3px solid #aa854f; background:#f2e8d4; color:#364453; }
+#voyage-unavailable > span { flex:1 1 250px; }
+.map-panel .map-status { position:absolute; display:flex; }
+.map-panel button,.map-panel summary { font-family:inherit; cursor:pointer; }
+.map-panel button:focus-visible,.map-panel summary:focus-visible { outline:2px solid #f5cf87; outline-offset:3px; }
+.map-panel .icon { display:inline-block; flex:none; width:1em; height:1em; vertical-align:middle; }
+.map-panel .difficulty-nav,.map-panel .chest-button,.map-panel .chest-art { display:flex; align-items:center; justify-content:center; }
+.map-panel .difficulty-tab,.map-panel .chest-button { background:none; color:inherit; border:0; }
+.map-panel .chest-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
+.map-panel .chest-button + .chest-button { border-left:1px solid; }
+.map-panel .chest-button > span:nth-child(2),.map-panel .chest-button small { display:block; }
+.map-panel .chest-button[data-tier="2"] .chest-art { color:#b8c9d5; }
+.map-panel .chest-button[data-tier="3"] .chest-art { color:#e8c581; }
+.map-panel .star-top h2 { margin:0; padding:0; line-height:1.3; }
+.map-panel .star-top h2::before { display:none; }
+.map-panel .star-track { display:block; width:100%; border:0; border-radius:2px; appearance:none; accent-color:#d3b578; }
+.map-panel .star-track::-webkit-progress-bar { background:#647d7a44; }
+.map-panel .star-track::-webkit-progress-value { background:#d3b578; }
+.map-panel .star-track::-moz-progress-bar { background:#d3b578; }
+.voy-port-menu { position:relative; }
+.voy-port-menu > summary { list-style:none; }
+.voy-port-menu > summary::-webkit-details-marker { display:none; }
+.voy-port-menu nav { position:absolute; z-index:5; left:0; top:calc(100% + 6px); width:max-content; padding:4px; background:#193541; border:1px solid #94aca2; border-radius:5px; box-shadow:0 6px 18px #0b1d29ad; }
+.voy-port-menu button { display:block; width:100%; padding:8px 12px; border:0; background:none; color:#d6e6dc; text-align:left; }
+.voy-port-menu button[aria-pressed="true"],.voy-port-menu button:hover { color:#ffe2a6; background:#2e4a51; }
+.voy-port-label,.voy-legend { padding:8px 12px; color:#dce8dd; }
+.voy-legend { display:grid; gap:3px; border:1px solid #b2b99970; border-radius:8px; background:#112835e8; font-size:12px; }
+.voy-legend strong { color:#e9ce95; }
+.voy-status:not(:empty) { position:absolute; z-index:30; left:50%; top:20%; transform:translateX(-50%); width:max-content; max-width:85%; background:#132937f5; border:1px solid #d7c896; border-radius:4px; padding:9px 13px; text-align:center; }
+#modal-box .voy-detail { color:#2b3641; font-size:14px; line-height:1.55; }
+.voy-detail header,.voy-meta,.voy-drop-grid { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.voy-detail header { justify-content:space-between; }
+.voy-detail h4 { font-size:15px; margin:12px 0 3px; color:#31485e; }
+.voy-detail-grid { display:grid; grid-template-columns:minmax(105px,2fr) minmax(0,3fr); gap:15px; margin:8px 0; }
+.voy-stage-art,.voy-enemy-row figure { margin:0; }
+.voy-stage-art img { display:block; width:100%; aspect-ratio:5/4; object-fit:cover; border-radius:4px; }
+.voy-stage-art figcaption { margin-top:5px; color:#465d65; }
+.voy-star-rules { list-style:none; padding:0; margin:0; }
+.voy-star-rules li::before { content:'☆'; margin-right:5px; color:#946728; }
+.voy-enemy-row { display:flex; flex-wrap:wrap; gap:4px 8px; }
+.voy-enemy-row figure { text-align:center; font-size:11px; }
+.voy-enemy-row img { width:35px; height:35px; display:block; margin:auto; object-fit:cover; border-radius:4px; background:#dce4dc; }
+.voy-waves > summary { cursor:pointer; color:#396268; }
+.voy-detail-grid h4:first-child { margin-top:0; }
+@media (max-width:400px) { .voy-detail-grid { grid-template-columns:minmax(85px,2fr) minmax(0,3fr); gap:8px; } .voy-stage-art figcaption { font-size:12px; } .voy-enemy-row img { width:30px; height:30px; } }
+.voy-detail p { margin-block:4px; }
+.voy-meta { color:#36555d; border-block:1px solid #c6bba9; padding:6px 0; }
+.voy-prize { display:inline-block; margin:2px 3px 2px 0; padding:2px 6px; background:#f1e0bd; color:#463820; border:1px solid #d2bd91; border-radius:2px; }
+.voy-milestones { margin-top:8px; border-top:1px solid #c7b99f; padding-top:4px; }
+.voy-sweep { margin-top:10px; padding:4px 0 6px; border-block:1px solid #c5baa5; }
+.voy-sweep-buttons { display:flex; gap:6px; flex-wrap:wrap; }
+.voy-sweep small { color:#694c32; }
+.voy-detail .voy-gate:not(:empty) { border-left:3px solid #9e7440; padding-left:8px; color:#694c32; }
+.voy-legacy-loot .sd-info { padding:0; }
+.voy-legacy-loot .sd-title,.voy-legacy-loot .sd-desc { display:none; }
+.voy-result { text-align:center; color:#39535f; font-weight:700; }

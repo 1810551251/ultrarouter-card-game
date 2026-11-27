@@ -1,0 +1,15 @@
+{
+  "paths":[
+    {"id":"lantern","name":"灯使","motto":"每熄一盏街灯，就有一扇假窗醒来。先把真正的归路照亮。","task":"随队赢得主线战斗，首领亦可。","effect":"skill","effect_label":"怒气技伤害增幅（%）","aspects":[
+      {"id":"beacon","name":"余烬标灯","story":"第一次施放怒气技后，为生命比例最低的存活友军恢复其最大生命的一定比例。","effect":"heal_low","effect_label":"引灯治疗（%）","evidence":{"ember":2,"echo":1}},
+      {"id":"flare","name":"白昼刻痕","story":"第一次完成普攻时，让藏在影子里的第二声钟响提前抵达，追加自身怒气。","effect":"spark","effect_label":"追钟回怒","evidence":{"ember":2,"key":1}}]},
+    {"id":"tide","name":"聆潮","motto":"水位没有涨，昨夜的脚步声却淹到了三楼。学会听见它的间隙。","task":"随队赢得普通或噩梦裂隙战斗。","effect":"rage_gain","effect_label":"每次普攻额外回怒","aspects":[
+      {"id":"anchor","name":"沉锚","story":"首次可行动时，给生命比例最低的存活友军套上一面按其最大生命计算的护盾。","effect":"guard_low","effect_label":"锚定护盾（%）","evidence":{"echo":2,"key":1}},
+      {"id":"undertow","name":"逆潮","story":"第一次施放怒气技后，冲走场上所有存活敌人的一部分怒气，不波及后续波次。","effect":"ebb","effect_label":"敌方各自失去怒气","evidence":{"echo":2,"ember":1}}]},
+    {"id":"ward","name":"守阈","motto":"不要堵上每扇门。替最后一个回来的人留一道缝。","task":"随队无减员赢得一场主线或裂隙战斗。","effect":"shield","effect_label":"开场最大生命护盾（%）","aspects":[
+      {"id":"mirror","name":"照壁","story":"首次可行动时展开照壁；本战此后受生命伤害且仍存活时，按自身防御的一定比例反震。","effect":"return","effect_label":"守壁反震（防御%）","evidence":{"key":2,"ember":1}},
+      {"id":"wick","name":"余灯","story":"首次可行动时，按自己最大生命的一定比例缝合伤口，不能复活。","effect":"mend","effect_label":"补灯自愈（%）","evidence":{"key":2,"echo":1}}]}
+  ],
+  "ranks":[{"name":"签灯","marks":3,"seals":2,"effect":4},{"name":"映面","marks":9,"seals":4,"effect":7},{"name":"掌夜","marks":21,"seals":9,"effect":12,"evidence":{"ember":2,"echo":2,"key":2}}],
+  "daily_limit":3,"omen_bonus":5,"omen_hp_cost":12,"strain_max":6,"strain_start_max":2,"strain_gain":2,"ground_drop":3,"ground_evidence":"echo","refocus_seals":6,"chorus_rage":8,"twins_shield":5
+}

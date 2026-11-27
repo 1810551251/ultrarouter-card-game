@@ -1,0 +1,15 @@
+{
+  "items": {
+    "keepsake_lens":   {"set":"trail","stat":"atk","value":2,"effect":{"stat":"rage","value":8},"recipe":{"route_badge":8,"forge_ore":4}},
+    "keepsake_log":    {"set":"trail","stat":"hp","value":3,"effect":{"stat":"rage_gain","value":3},"recipe":{"route_badge":28,"gear_thread":20}},
+    "keepsake_reed":   {"set":"trail","stat":"spd","value":2,"effect":{"stat":"heal","value":8},"recipe":{"route_badge":90,"gear_thread":45,"weapon_core":6}},
+    "keepsake_banner": {"set":"vow","stat":"def","value":3,"effect":{"stat":"shield","value":4},"recipe":{"route_badge":12,"gear_plate":8}},
+    "keepsake_seal":   {"set":"vow","stat":"hp","value":4,"effect":{"stat":"counter","value":12},"recipe":{"route_badge":45,"gear_plate":30,"gear_rivet":4}},
+    "keepsake_dial":   {"set":"vow","stat":"atk","value":4,"effect":{"stat":"leech","value":3},"recipe":{"route_badge":150,"forge_ore":75,"gear_rivet":15}}
+  },
+  "sets": {
+    "trail":{"name":"勘星手记","tiers":[{"count":2,"stat":"rage","value":6},{"count":3,"stat":"skill","value":8}]},
+    "vow":{"name":"守望誓约","tiers":[{"count":2,"stat":"shield","value":4},{"count":3,"stat":"counter","value":18}]}
+  },
+  "drops": {"campaign":1,"campaign_boss":2,"rift":3,"nightmare":4}
+}

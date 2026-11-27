@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // Call only after the host's own account/configuration stores are initialized.
 // Validate fresh and upgrade schemas on all three supported databases first.
 func MigrateGachaTables() error {
@@ -7,11 +9,15 @@ func MigrateGachaTables() error {
 		&GachaRun{}, &GachaCard{}, &GachaDaily{}, &GachaPlayer{}, &GachaAction{},
 		&GachaArenaGate{}, &GachaArenaSeat{}, &GachaArenaDuel{},
 		&GachaArenaEntry{}, &GachaArenaRoom{},
+		&GachaLadderGate{}, &GachaLadderEntry{}, &GachaLadderMail{}, &GachaLadderBattle{},
 	); err != nil {
 		return err
 	}
 	if err := InitializeGachaPower(); err != nil {
 		return err
 	}
-	return InitializeGachaArena()
+	if err := InitializeGachaArena(); err != nil {
+		return err
+	}
+	return InitializeGachaLadder(time.Now())
 }

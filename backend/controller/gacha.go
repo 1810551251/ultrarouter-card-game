@@ -50,6 +50,10 @@ func decodeGachaIntent(c *gin.Context, body any, allowed []string) bool {
 func writeGachaError(c *gin.Context, err error) {
 	status, code, message := http.StatusInternalServerError, "GACHA_INTERNAL_ERROR", "游戏服务暂时不可用，请稍后重试"
 	switch {
+	case errors.Is(err, model.ErrGachaLadder):
+		status, code, message = http.StatusConflict, "GACHA_LADDER_CHANGED", "排名或领取状态已变化，请刷新后重试"
+	case errors.Is(err, model.ErrGachaLadderLimit):
+		status, code, message = http.StatusConflict, "GACHA_LADDER_LIMIT", "挑战后冷却10秒，每天5次挑战于北京时间05:00重置"
 	case errors.Is(err, model.ErrGachaIntent):
 		status, code, message = http.StatusBadRequest, "GACHA_INVALID_INTENT", "操作参数不正确"
 	case errors.Is(err, model.ErrGachaStage):
@@ -57,17 +61,43 @@ func writeGachaError(c *gin.Context, err error) {
 	case errors.Is(err, model.ErrGachaTeam):
 		status, code, message = http.StatusBadRequest, "GACHA_TEAM_INVALID", "请先上阵已拥有的少女，队伍最多四人且不能重复"
 	case errors.Is(err, model.ErrGachaLocked):
-		status, code, message = http.StatusConflict, "GACHA_STAGE_LOCKED", "请先通关前置关卡"
+		status, code, message = http.StatusConflict, "GACHA_STAGE_LOCKED", "尚未满足关卡的前置通关或船长等级条件"
+	case errors.Is(err, model.ErrGachaVoyageLimit):
+		status, code, message = http.StatusConflict, "GACHA_VOYAGE_LIMIT", "此航点的今日次数已用完，北京时间零点刷新"
+	case errors.Is(err, model.ErrGachaVoyageChest):
+		status, code, message = http.StatusConflict, "GACHA_VOYAGE_CHEST", "本档星箱已寄送或本章此难度星数不足，请查看副本与邮箱"
+	case errors.Is(err, model.ErrGachaSweepStars):
+		status, code, message = http.StatusConflict, "GACHA_SWEEP_STARS", "先在此航点取得三星，才能扫荡"
+	case errors.Is(err, model.ErrGachaSweepDate):
+		status, code, message = http.StatusConflict, "GACHA_SWEEP_DATE", "已进入新的北京时间游戏日，请同步副本后再扫荡"
+	case errors.Is(err, model.ErrGachaSweepBurst):
+		status, code, message = http.StatusConflict, "GACHA_SWEEP_BATCH", "本批扫荡将跨过休整节点，请改为单次扫荡"
 	case errors.Is(err, model.ErrGachaFunds):
 		status, code, message = http.StatusConflict, "GACHA_RESOURCES_REQUIRED", "代币、体力、金币、碎片或材料不足"
 	case errors.Is(err, model.ErrGachaExperience):
 		status, code, message = http.StatusConflict, "GACHA_EXPERIENCE_REQUIRED", "等级需要真实经验，金币不能直升；请完成经验训练或挑战副本"
+	case errors.Is(err, model.ErrGachaCaptainClaim):
+		status, code, message = http.StatusConflict, "GACHA_CAPTAIN_CLAIM", "这份奖励不在可领取状态，请同步船长日志查看今日进度和补给时段"
+	case errors.Is(err, model.ErrGachaMailUnavailable):
+		status, code, message = http.StatusConflict, "GACHA_MAIL_UNAVAILABLE", "附件已领取或邮件已更新，请同步邮箱"
+	case errors.Is(err, model.ErrGachaMailboxFull):
+		status, code, message = http.StatusConflict, "GACHA_MAILBOX_FULL", "邮箱待领附件已达200封，请先收取邮件再继续"
+	case errors.Is(err, model.ErrGachaRedeemCode):
+		status, code, message = http.StatusConflict, "GACHA_REDEEM_CODE", "兑换码无效、已过期或本账号已领取，请核对兑换码"
+	case errors.Is(err, model.ErrGachaFestivalDate):
+		status, code, message = http.StatusConflict, "GACHA_FESTIVAL_DATE", "活动轮值已更新，请同步日历查看今日的两场活动和本周集章册"
+	case errors.Is(err, model.ErrGachaFestivalAttempt):
+		status, code, message = http.StatusConflict, "GACHA_FESTIVAL_ATTEMPT", "本场已集章或可用次数已变化，请同步日历查看最新进度"
+	case errors.Is(err, model.ErrGachaFestivalAlbum):
+		status, code, message = http.StatusConflict, "GACHA_FESTIVAL_ALBUM", "本档航章尚未集齐或奖励已领取，请同步集章册查看进度"
 	case errors.Is(err, model.ErrGachaPermits):
 		status, code, message = http.StatusConflict, "GACHA_PERMITS_REQUIRED", "招募券不足，请到成长页面领取日常、周常或主线奖励"
 	case errors.Is(err, model.ErrGachaProgressionLimit):
 		status, code, message = http.StatusConflict, "GACHA_PROGRESSION_LIMIT", "该机会已使用、已过期或尚未满足条件，请查看成长页面"
 	case errors.Is(err, model.ErrGachaAwakening):
 		status, code, message = http.StatusConflict, "GACHA_AWAKENING_REQUIRED", "觉醒需要对应等级、星级和专属试炼；一至三阶分别需要40/50/60级与3/4/5星"
+	case errors.Is(err, model.ErrGachaCultivationLocked):
+		status, code, message = http.StatusConflict, "GACHA_CULTIVATION_LOCKED", "尚未满足培养条件、已达上限或铭刻未改变，本次不消耗材料"
 	case errors.Is(err, model.ErrGachaDualTeam):
 		status, code, message = http.StatusConflict, "GACHA_DUAL_TEAM_REQUIRED", "请保存八名不同角色的两支队伍；双队试炼要求每名角色至少40级3星"
 	case errors.Is(err, model.ErrGachaProgressionAdmin):
@@ -102,7 +132,7 @@ func writeGachaError(c *gin.Context, err error) {
 	case errors.Is(err, model.ErrGachaGuild):
 		status, code, message = http.StatusConflict, "GACHA_GUILD", "公会不存在、邀请码无效，或你已加入公会"
 	case errors.Is(err, model.ErrGachaGuildLimit):
-		status, code, message = http.StatusConflict, "GACHA_GUILD_LIMIT", "公会人数已满、今日已挑战或奖励暂不可领取；会长需待其他成员退出后才能退出"
+		status, code, message = http.StatusConflict, "GACHA_GUILD_LIMIT", "公会名额、共建进度或今日次数已更新，请刷新港务厅查看；有其他成员时会长不能退出"
 	case errors.Is(err, model.ErrGachaArenaLimit):
 		status, code, message = http.StatusConflict, "GACHA_ARENA_LIMIT", "每日最多匹配五场，明天北京时间零点刷新"
 	case errors.Is(err, model.ErrGachaOpponent):
@@ -150,7 +180,7 @@ func ApplyGachaAction(c *gin.Context) {
 		return
 	}
 	var body model.GachaActionIntent
-	if !decodeGachaIntent(c, &body, []string{"request_id", "action", "count", "girl_id", "squad", "enabled", "item_id", "stake_e", "queue_id", "room_id", "choice", "config"}) {
+	if !decodeGachaIntent(c, &body, []string{"request_id", "action", "count", "girl_id", "squad", "enabled", "item_id", "stake_e", "queue_id", "room_id", "choice", "config", "materials", "opponent_id"}) {
 		return
 	}
 	if err := model.ValidateGachaAction(body); err != nil {
@@ -171,6 +201,24 @@ func GetGachaSocial(c *gin.Context) {
 		return
 	}
 	result, err := model.GetGachaSocial(userID)
+	if err != nil {
+		writeGachaError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
+func GetGachaFleet(c *gin.Context) {
+	userID, ok := gachaSessionUser(c)
+	if !ok {
+		return
+	}
+	after, err := strconv.Atoi(c.DefaultQuery("after", "0"))
+	if err != nil || after < 0 {
+		writeGachaError(c, model.ErrGachaIntent)
+		return
+	}
+	result, err := model.GetGachaFleet(userID, c.DefaultQuery("board", "directory"), after, time.Now())
 	if err != nil {
 		writeGachaError(c, err)
 		return
@@ -210,6 +258,32 @@ func GetGachaArenaRooms(c *gin.Context) {
 		return
 	}
 	result, err := model.GetGachaArenaRooms(userID, time.Now())
+	if err != nil {
+		writeGachaError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
+func GetGachaLadder(c *gin.Context) {
+	userID, ok := gachaSessionUser(c)
+	if !ok {
+		return
+	}
+	result, err := model.GetGachaLadder(userID, time.Now())
+	if err != nil {
+		writeGachaError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
+func GetGachaLadderReplay(c *gin.Context) {
+	userID, ok := gachaSessionUser(c)
+	if !ok {
+		return
+	}
+	result, err := model.GetGachaLadderReplay(userID, c.Query("request_id"))
 	if err != nil {
 		writeGachaError(c, err)
 		return

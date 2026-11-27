@@ -1,0 +1,37 @@
+package model_test
+
+import (
+	"os"
+	"testing"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+)
+
+func TestGachaPR3ProduceLegacy(t *testing.T) {
+	reviewOpen(t, true)
+	user := gachaUser(t)
+	state := gachaState(t, user.Id, reviewStart)
+	strongGachaState(state)
+	state.Gold, state.Mats["mat_r"] = 937, 13
+	state.Token, state.Multi = 31, 4
+	state.Progression.Permits, state.Progression.Marks = 12, 9
+	state.Girls["c04"].Shards = 17
+	seedGachaState(t, user.Id, state)
+	run, err := model.StartGachaRun(user.Id, "s1", uuid.NewString(), reviewStart)
+	require.NoError(t, err)
+	clock := time.UnixMilli(run.ReadyAt + 1)
+	out, err := model.FinishGachaRun(user.Id, run.ID, false, clock)
+	require.NoError(t, err)
+	require.True(t, out.Win)
+	state = gachaState(t, user.Id, clock)
+	require.True(t, state.Cleared["s1"])
+	fixture := reviewFixture{UserID: user.Id, At: clock.UnixMilli(), Digest: reviewDocument(t, user.Id), Assets: reviewInventory(state)}
+	data, err := common.Marshal(fixture)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(reviewRecord, data, 0600))
+	t.Logf("legacy complete: cards=%d gold=%d mat_r=%d s1_stars=%d", len(state.Girls), state.Gold, state.Mats["mat_r"], state.Stars["s1"])
+}

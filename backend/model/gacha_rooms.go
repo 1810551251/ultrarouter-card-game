@@ -178,7 +178,7 @@ func applyGachaRoomAction(userID int, intent GachaActionIntent, now time.Time) (
 						return err
 					}
 				}
-				snapshot, err := common.Marshal(state)
+				snapshot, err := freezeGachaRoster(state)
 				if err != nil {
 					return err
 				}

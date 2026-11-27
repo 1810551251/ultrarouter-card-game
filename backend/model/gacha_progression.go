@@ -153,24 +153,28 @@ var gachaAwakeningPowerWeights = map[string]float64{
 }
 
 var gachaProgressionActivities = []string{"training", "wish", "campaign", "rift", "trial", "weekly", "dual"}
-var gachaProgressionActions = []string{"daily_permits", "contract_claim", "wish", "weekly_claim", "starter_select", "shard_unlock", "mainline_claim", "awakening", "awakening_branch", "teams_save", "sigil_refine", "progression_config"}
+var gachaProgressionActions = []string{"daily_permits", "contract_claim", "wish", "weekly_claim", "starter_select", "shard_unlock", "mainline_claim", "awakening", "awakening_branch", "teams_save", "sigil_refine", "progression_config", "weapon_upgrade", "weapon_awaken", "weapon_engrave", "potential_unlock", "use_manual", "iv_roll", "iv_lock"}
 
 func validateGachaProgressionIntent(intent GachaActionIntent) error {
-	if intent.Enabled != nil || intent.OpponentID != nil || intent.StakeE != nil || intent.QueueID != nil || intent.RoomID != nil {
+	if (intent.Enabled != nil) != (intent.Action == "iv_lock") || intent.OpponentID != nil || intent.StakeE != nil || intent.QueueID != nil || intent.RoomID != nil {
 		return ErrGachaIntent
 	}
 	if intent.Action != "teams_save" && intent.Squad != nil || intent.Action != "sigil_refine" && intent.Count != nil ||
 		intent.Action != "progression_config" && intent.Config != nil {
 		return ErrGachaIntent
 	}
-	usesGirl := slices.Contains([]string{"wish", "weekly_claim", "starter_select", "shard_unlock", "awakening", "awakening_branch"}, intent.Action)
+	usesGirl := slices.Contains([]string{"wish", "weekly_claim", "starter_select", "shard_unlock", "awakening", "awakening_branch", "weapon_upgrade", "weapon_awaken", "weapon_engrave", "potential_unlock", "use_manual", "iv_roll", "iv_lock"}, intent.Action)
 	usesItem := slices.Contains([]string{"daily_permits", "contract_claim", "weekly_claim", "mainline_claim", "sigil_refine"}, intent.Action)
-	usesChoice := slices.Contains([]string{"awakening", "awakening_branch", "sigil_refine"}, intent.Action)
+	usesChoice := slices.Contains([]string{"awakening", "awakening_branch", "sigil_refine", "weapon_engrave", "iv_lock"}, intent.Action)
 	if !usesGirl && intent.GirlID != nil || usesGirl && (intent.GirlID == nil || gachaGirl(*intent.GirlID) == nil) ||
 		!usesItem && intent.ItemID != nil || usesItem && intent.ItemID == nil || !usesChoice && intent.Choice != nil {
 		return ErrGachaIntent
 	}
 	switch intent.Action {
+	case "iv_lock":
+		if intent.Choice == nil || gachaIndividualIndex(*intent.Choice) < 0 {
+			return ErrGachaIntent
+		}
 	case "daily_permits", "contract_claim":
 		if _, err := gachaCalendarDay(*intent.ItemID); err != nil {
 			return ErrGachaIntent
@@ -193,6 +197,13 @@ func validateGachaProgressionIntent(intent GachaActionIntent) error {
 		}
 	case "awakening":
 		if intent.Choice != nil && !validGachaBranch(*intent.GirlID, *intent.Choice) {
+			return ErrGachaIntent
+		}
+	case "weapon_engrave":
+		if intent.Choice == nil {
+			return ErrGachaIntent
+		}
+		if _, ok := gachaCultivation.Engravings[*intent.Choice]; !ok {
 			return ErrGachaIntent
 		}
 	case "teams_save":
@@ -335,7 +346,7 @@ func normalizeGachaProgression(state *GachaGameState, now time.Time, rules Gacha
 		if own.Awakening < 0 || own.Awakening > 3 || own.Awakening == 0 && own.Branch != "" {
 			return ErrGachaRunState
 		}
-		if own.Awakening > 0 && (own.Level < 30+own.Awakening*10 || own.Star < 2+own.Awakening || !validGachaBranch(id, own.Branch)) {
+		if own.Awakening > 0 && (gachaPeakLevel(own) < 30+own.Awakening*10 || own.Star < 2+own.Awakening || !validGachaBranch(id, own.Branch)) {
 			return ErrGachaRunState
 		}
 	}
@@ -375,36 +386,47 @@ func recordGachaProgressionActivity(state *GachaGameState, kind string, now time
 	}
 }
 
-func awardGachaExperience(state *GachaGameState, squad []string, amount int) error {
+func awardGachaExperience(state *GachaGameState, squad []string, amount int, drops *[]string) error {
 	if amount < 0 || amount > 100_000 {
 		return ErrGachaIntent
 	}
+	limit, total := gachaCaptainLevel(state), 0
+	entries := make([]string, 0, len(squad))
 	for _, id := range squad {
-		own := state.Girls[id]
-		if own == nil || own.Star < 1 || own.Level < 1 {
+		own, girl := state.Girls[id], gachaGirl(id)
+		if !gachaCardOwned(own) || girl == nil {
 			return ErrGachaTeam
 		}
-		if own.Level >= gachaCatalog.Growth.MaxLevel {
-			continue
+		credited, err := trainGachaLevel(own, amount, limit)
+		if err != nil {
+			return err
 		}
-		if own.Exp < 0 || own.Exp > gachaMaxResource-amount {
-			return ErrGachaRunState
+		total += credited
+		entry := fmt.Sprintf("%s +%d", girl.Name, credited)
+		if credited < amount {
+			entry += "（已达等级上限）"
 		}
-		own.Exp += amount
-		for own.Level < gachaCatalog.Growth.MaxLevel && own.Exp >= own.Level*gachaCatalog.Growth.ExpPerLevel {
-			own.Exp -= own.Level * gachaCatalog.Growth.ExpPerLevel
-			own.Level++
-		}
-		if own.Level == gachaCatalog.Growth.MaxLevel {
-			own.Exp = 0
+		entries = append(entries, entry)
+	}
+	if len(entries) > 0 && amount > 0 {
+		switch {
+		case len(entries) > 1 && total == 0:
+			*drops = append(*drops, fmt.Sprintf("伙伴经验 +0（全员已达 Lv.%d 上限）", limit))
+		case len(entries) > 1 && total == len(entries)*amount:
+			*drops = append(*drops, fmt.Sprintf("伙伴经验：每人 +%d", amount))
+		default:
+			*drops = append(*drops, "伙伴经验："+strings.Join(entries, "、"))
 		}
 	}
 	return nil
 }
 
 func gachaStarShardCost(girl *GachaGirl, nextStar int) int {
-	if nextStar < 2 || nextStar > 5 || girl == nil {
+	if nextStar < 2 || nextStar > gachaCatalog.Growth.StarMax || girl == nil {
 		return 0
+	}
+	if nextStar >= gachaFirstAdvancedStar {
+		return gachaCultivation.AdvancedShards[girl.Rarity][nextStar-gachaFirstAdvancedStar]
 	}
 	if girl.Rarity == "R" {
 		return [4]int{20, 40, 60, 80}[nextStar-2]
@@ -414,8 +436,6 @@ func gachaStarShardCost(girl *GachaGirl, nextStar int) int {
 	}
 	return gachaCatalog.Growth.StarCost[nextStar]
 }
-
-func gachaRarityDust(girl *GachaGirl) string { return "shard_dust_" + strings.ToLower(girl.Rarity) }
 
 func GachaAwakeningBranches(girlID string) []GachaAwakeningBranch {
 	g := gachaGirl(girlID)
@@ -532,6 +552,8 @@ func gachaAwakeningSkill(girl *GachaGirl, own *GachaOwnedGirl) GachaSkill {
 func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState, intent GachaActionIntent, result *GachaActionResult, now time.Time) error {
 	p := state.Progression
 	switch intent.Action {
+	case "weapon_upgrade", "weapon_awaken", "weapon_engrave", "potential_unlock", "use_manual", "iv_roll", "iv_lock":
+		return applyGachaCultivationAction(state, intent, result)
 	case "daily_permits", "contract_claim":
 		for i := range p.Days {
 			d := &p.Days[i]
@@ -571,7 +593,7 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 			}
 			own := state.Girls[girl.ID]
 			if own == nil {
-				own = &GachaOwnedGirl{Gems: make([]string, 3)}
+				own = &GachaOwnedGirl{Gems: newGachaGemSlots()}
 				state.Girls[girl.ID] = own
 			}
 			if own.Shards > gachaMaxResource-d.Rules.ShardsPerWish {
@@ -599,7 +621,7 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 			girl := gachaGirl(*intent.GirlID)
 			own := state.Girls[girl.ID]
 			if own == nil {
-				own = &GachaOwnedGirl{Gems: make([]string, 3)}
+				own = &GachaOwnedGirl{Gems: newGachaGemSlots()}
 				state.Girls[girl.ID] = own
 			}
 			if own.Shards > gachaMaxResource-w.Rules.ShardsPerWeek {
@@ -620,7 +642,7 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 		girl := gachaGirl(*intent.GirlID)
 		own := state.Girls[girl.ID]
 		if own == nil {
-			own = &GachaOwnedGirl{Gems: make([]string, 3)}
+			own = &GachaOwnedGirl{Gems: newGachaGemSlots()}
 			state.Girls[girl.ID] = own
 		}
 		if own.Star > 0 {
@@ -631,11 +653,11 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 		} else {
 			own.Star, own.Level = 3, 1
 		}
-		if err := awardGachaExperience(state, []string{girl.ID}, 19_000); err != nil {
-			return err
-		}
 		p.StarterClaimed = true
 		result.Drops = append(result.Drops, "\u9996\u6838\u5fc3\u81ea\u9009\uff1a"+girl.Name+"\uff08\u5df2\u62e5\u6709\u65f6\u8f6c\u4e3a\u4e13\u5c5e\u788e\u7247\uff09")
+		if err := awardGachaExperience(state, []string{girl.ID}, 19_000, &result.Drops); err != nil {
+			return err
+		}
 	case "shard_unlock":
 		girl := gachaGirl(*intent.GirlID)
 		own := state.Girls[girl.ID]
@@ -660,13 +682,13 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 		if len(state.Squad) < 1 {
 			return ErrGachaTeam
 		}
-		if err := awardGachaExperience(state, state.Squad, xp); err != nil {
+		result.Drops = append(result.Drops, fmt.Sprintf("主线首通里程碑：招募券 +%d、金币 +%d", permits, gold))
+		if err := awardGachaExperience(state, state.Squad, xp, &result.Drops); err != nil {
 			return err
 		}
 		p.Permits += permits
 		state.Gold += gold
 		p.MainlineClaims = append(p.MainlineClaims, stageID)
-		result.Drops = append(result.Drops, fmt.Sprintf("\u4e3b\u7ebf\u9996\u901a\u91cc\u7a0b\u7891\uff1a\u62db\u52df\u5238 +%d\u3001\u91d1\u5e01 +%d\u3001\u51fa\u6218\u7ecf\u9a8c +%d", permits, gold, xp))
 	case "awakening", "awakening_branch":
 		own := state.Girls[*intent.GirlID]
 		if own == nil || own.Star < 3 || own.Level < 40 {
@@ -714,7 +736,7 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 		team := *intent.Squad
 		for i, id := range team {
 			own := state.Girls[id]
-			if own == nil || own.Star < 1 || own.Level < 1 || gachaGirl(id) == nil || slices.Contains(team[:i], id) {
+			if !gachaCardOwned(own) || gachaGirl(id) == nil || slices.Contains(team[:i], id) {
 				return ErrGachaDualTeam
 			}
 		}
@@ -939,11 +961,11 @@ func settleGachaProgressionMode(state *GachaGameState, snapshot *GachaRunSnapsho
 				return ErrGachaRunState
 			}
 		}
-		if err := awardGachaExperience(state, snapshot.Squad, snapshot.ProgressionStage.Exp); err != nil {
+		if err := awardGachaExperience(state, snapshot.Squad, snapshot.ProgressionStage.Exp, &result.Drops); err != nil {
 			return err
 		}
 		recordGachaProgressionActivity(state, "training", now)
-		result.Drops = append(result.Drops, fmt.Sprintf("\u51fa\u6218\u5c11\u5973\u7ecf\u9a8c +%d\uff08\u8bad\u7ec3\u4e0d\u4ea7\u51faE\uff09", snapshot.ProgressionStage.Exp))
+		result.Drops = append(result.Drops, "训练不产出 E")
 	case "dual_trial":
 		if snapshot.Week != p.Dual.Week {
 			if snapshot.Floor == 2 {

@@ -213,7 +213,7 @@ func applyGachaQueueAction(userID int, intent GachaActionIntent, now time.Time) 
 				return ErrGachaArenaFunds
 			}
 			deltas[userID] -= amount
-			snapshot, err := common.Marshal(state)
+			snapshot, err := freezeGachaRoster(state)
 			if err != nil {
 				return err
 			}
@@ -266,24 +266,24 @@ func settleGachaArenaPair(tx *gorm.DB, state *GachaGameState, seat, other *Gacha
 	if state.Daily.ArenaPlayed >= GachaArenaDailyLimit || otherState.Daily.ArenaPlayed >= GachaArenaDailyLimit {
 		return ErrGachaArenaLimit
 	}
-	var frozen GachaGameState
-	if err := common.Unmarshal([]byte(other.Snapshot), &frozen); err != nil {
+	frozen, err := thawGachaRoster(other.Snapshot)
+	if err != nil {
 		return err
 	}
 	minimum, maximum := gachaArenaPowerRange(seat.Power)
-	frozenPower, err := GachaSquadPower(&frozen)
+	frozenPower, err := GachaSquadPower(frozen)
 	if err != nil || frozenPower != other.Power || frozenPower < minimum || frozenPower > maximum {
 		return ErrGachaOpponent
 	}
-	var ownFrozen GachaGameState
-	if err := common.Unmarshal([]byte(seat.Snapshot), &ownFrozen); err != nil {
+	ownFrozen, err := thawGachaRoster(seat.Snapshot)
+	if err != nil {
 		return err
 	}
-	ownPower, err := GachaSquadPower(&ownFrozen)
+	ownPower, err := GachaSquadPower(ownFrozen)
 	if err != nil || ownPower != seat.Power {
 		return ErrGachaOpponent
 	}
-	report, err := SimulateGachaArena(&frozen, &ownFrozen)
+	report, err := SimulateGachaArena(frozen, ownFrozen)
 	if err != nil {
 		return err
 	}

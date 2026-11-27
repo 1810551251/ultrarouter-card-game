@@ -24,17 +24,28 @@ import (
 // Credentials and browser saves are never accepted as game state. All writes
 // serialize on this user's row, with a revision CAS also protecting SQLite.
 type GachaPlayer struct {
-	UserID       int    `gorm:"primaryKey;autoIncrement:false"`
-	State        string `gorm:"type:text;not null"`
-	Revision     int64  `gorm:"not null"`
-	Power        int    `gorm:"not null;default:0;index:idx_gacha_power"`
-	PowerVersion int    `gorm:"not null;default:0"`
-	ArenaPoints  int    `gorm:"not null;default:0;index:idx_gacha_arena_points"`
-	CreatedAt    int64
-	UpdatedAt    int64
+	UserID          int           `gorm:"primaryKey;autoIncrement:false"`
+	State           GachaDocument `gorm:"not null"`
+	Revision        int64         `gorm:"not null"`
+	Power           int           `gorm:"not null;default:0;index:idx_gacha_power"`
+	PowerVersion    int           `gorm:"not null;default:0"`
+	ArenaPoints     int           `gorm:"not null;default:0;index:idx_gacha_arena_points"`
+	FleetIndexed    bool          `gorm:"not null;default:false"`
+	FleetEdition    int           `gorm:"not null;default:0"`
+	FleetStars      int           `gorm:"not null;default:0;index:idx_gacha_fleet_stars"`
+	FleetWins       int           `gorm:"not null;default:0;index:idx_gacha_fleet_wins"`
+	FleetPortrait   string        `gorm:"type:varchar(512);not null;default:''"`
+	CollectionCount int           `gorm:"not null;default:0;index:idx_gacha_collection"`
+	FleetLeader     int           `gorm:"not null;default:0"`
+	FleetMembers    int           `gorm:"not null;default:0;index:idx_gacha_recruitment"`
+	FleetName       string        `gorm:"type:varchar(64);not null;default:''"`
+	FleetWeek       string        `gorm:"type:varchar(8);not null;default:'';index:idx_gacha_fleet_score,priority:1"`
+	FleetScore      int           `gorm:"not null;default:0;index:idx_gacha_fleet_score,priority:2"`
+	CreatedAt       int64
+	UpdatedAt       int64
 }
 
-// Battle playback may exceed MySQL TEXT's 64 KiB limit.
+// Battle playback and player mailboxes may exceed MySQL TEXT's 64 KiB limit.
 type GachaDocument string
 
 func (GachaDocument) GormDataType() string { return "string" }
@@ -54,31 +65,64 @@ type GachaAction struct {
 }
 
 type GachaOwnedGirl struct {
-	Star      int      `json:"star"`
-	Level     int      `json:"level"`
-	Exp       int      `json:"exp"`
-	Shards    int      `json:"shards"`
-	Sockets   int      `json:"sockets"`
-	Gems      []string `json:"gems"`
-	Talent    string   `json:"talent,omitempty"`
-	Sigil     string   `json:"sigil,omitempty"`
-	Awakening int      `json:"awakening,omitempty"`
-	Branch    string   `json:"branch,omitempty"`
+	Vigil       *GachaVigil                    `json:"vigil,omitempty"`
+	Training    *GachaCardTraining             `json:"training,omitempty"`
+	Star        int                            `json:"star"`
+	Level       int                            `json:"level"`
+	PeakLevel   int                            `json:"peak_level,omitempty"`
+	Exp         int                            `json:"exp"`
+	Shards      int                            `json:"shards"`
+	Sockets     int                            `json:"sockets"`
+	Gems        []string                       `json:"gems"`
+	Talent      string                         `json:"talent,omitempty"`
+	Sigil       string                         `json:"sigil,omitempty"`
+	Carry       string                         `json:"carry,omitempty"`
+	Awakening   int                            `json:"awakening,omitempty"`
+	Branch      string                         `json:"branch,omitempty"`
+	WeaponLevel int                            `json:"weapon_level,omitempty"`
+	WeaponAwake int                            `json:"weapon_awake,omitempty"`
+	WeaponRune  string                         `json:"weapon_rune,omitempty"`
+	Potential   int                            `json:"potential,omitempty"`
+	Chips       []string                       `json:"chips,omitempty"`
+	ChipLocks   int                            `json:"chip_locks,omitempty"`
+	IVValues    []int                          `json:"iv_values,omitempty"`
+	IVLocks     int                            `json:"iv_locks,omitempty"`
+	Equipment   map[string]GachaEquipmentPiece `json:"equipment,omitempty"`
 }
 type GachaGameDaily struct {
-	Date           string         `json:"date"`
-	TokenGained    int            `json:"tokenGained"`
-	ShopBought     map[string]int `json:"shopBought,omitempty"`
-	ArenaOpponents []int          `json:"arenaOpponents,omitempty"`
-	ArenaPlayed    int            `json:"arenaPlayed"`
-	GuildAttacked  bool           `json:"guild_attacked"`
-	RelicRuns      int            `json:"relic_runs"`
+	CaptainLog     *GachaCaptainDay  `json:"captain_log,omitempty"`
+	VoyageAttempts map[string]int    `json:"voyage_attempts,omitempty"`
+	Dispatch       *GachaDispatchDay `json:"dispatch,omitempty"`
+	VigilMarks     map[string]int    `json:"vigil_marks,omitempty"`
+	EffortSpent    map[string]int    `json:"effort_spent,omitempty"`
+	SkillSpent     int               `json:"skill_spent,omitempty"`
+	Date           string            `json:"date"`
+	TokenGained    int               `json:"tokenGained"`
+	ShopBought     map[string]int    `json:"shopBought,omitempty"`
+	ArenaOpponents []int             `json:"arenaOpponents,omitempty"`
+	ArenaPlayed    int               `json:"arenaPlayed"`
+	GuildAttacked  bool              `json:"guild_attacked"`
+	GuildSupplied  bool              `json:"guild_supplied,omitempty"`
+	RelicRuns      int               `json:"relic_runs"`
 }
 type GachaPullHistory struct {
 	Name   string `json:"n"`
 	Rarity string `json:"r"`
 }
 type GachaGameState struct {
+	Mailbox          *GachaMailbox     `json:"mailbox,omitempty"`
+	VoyageEdition    int               `json:"voyage_edition"`
+	VoyagePasses     map[string]bool   `json:"voyage_passes,omitempty"`
+	Captain          *GachaCaptain     `json:"captain,omitempty"`
+	VoyageClaims     map[string]bool   `json:"voyage_claims,omitempty"`
+	Festival         *GachaFestivalLog `json:"festival,omitempty"`
+	Cipher           *GachaCipherState `json:"cipher,omitempty"`
+	cipherSeed       string
+	mirrorTactic     string
+	Dispatch         *GachaDispatchState        `json:"dispatch,omitempty"`
+	Casebook         *GachaCasebook             `json:"casebook,omitempty"`
+	EffortVersion    int                        `json:"effort_version"`
+	SkillPool        *GachaSkillPool            `json:"skill_pool,omitempty"`
 	Stamina          int                        `json:"stamina"`
 	StaminaMax       int                        `json:"staminaMax"`
 	StaminaTs        int64                      `json:"staminaTs"`
@@ -96,6 +140,8 @@ type GachaGameState struct {
 	History          []GachaPullHistory         `json:"history"`
 	Mats             map[string]int             `json:"mats"`
 	GemInventory     map[string]int             `json:"gem_inventory"`
+	CarryInventory   map[string]int             `json:"carry_inventory"`
+	ChipInventory    map[string]int             `json:"chip_inventory"`
 	Sigils           map[string]*GachaSigil     `json:"sigils"`
 	Activity         GachaRunActivity           `json:"activity"`
 	Power            int                        `json:"power"`
@@ -104,9 +150,14 @@ type GachaGameState struct {
 	WeeklyBoss       GachaWeeklyBossState       `json:"weekly_boss,omitempty"`
 	Guild            *GachaGuildState           `json:"guild,omitempty"`
 	GuildRewardWeek  string                     `json:"guild_reward_week,omitempty"`
+	FleetClaims      *GachaFleetClaims          `json:"fleet_claims,omitempty"`
 	Progression      *GachaProgressionState     `json:"progression,omitempty"`
 	ProgressionRules GachaProgressionConfig     `json:"progression_rules"`
 	BattleBuff       string                     `json:"-"`
+	legacyArenaStats bool
+	previousAtelier  bool
+	previousMastery  bool
+	previousTraining bool
 }
 type GachaStats struct {
 	HP  int `json:"hp"`
@@ -131,9 +182,6 @@ var gachaGemSpecs = map[string]GachaGemSpec{
 	"wind":     {Name: "风灵晶", Effect: "速度 +3"},
 	"amethyst": {Name: "紫晶", Effect: "暴击 +3%"},
 }
-
-var gachaSocketGoldCosts = [3]int{200, 600, 1500}
-var gachaSocketMaterialCosts = [3]int{5, 12, 25}
 
 type GachaSkill struct {
 	Name          string  `json:"name"`
@@ -299,6 +347,7 @@ var (
 const gachaMaxResource = 1_000_000_000
 
 type GachaActionIntent struct {
+	Materials  map[string]int          `json:"materials,omitempty"`
 	RequestID  string                  `json:"request_id"`
 	Action     string                  `json:"action"`
 	Count      *int                    `json:"count,omitempty"`
@@ -320,6 +369,9 @@ type GachaPullResult struct {
 	Shards int    `json:"shards"`
 }
 type GachaActionResult struct {
+	Ladder           *GachaLadderResult         `json:"ladder,omitempty"`
+	Feed             *GachaFeedReceipt          `json:"feed,omitempty"`
+	ArtifactLoot     []GachaArtifactLoot        `json:"artifact_loot,omitempty"`
 	Save             *GachaGameState            `json:"save"`
 	Revision         int64                      `json:"revision"`
 	Drops            []string                   `json:"drops,omitempty"`
@@ -336,8 +388,10 @@ type GachaActionResult struct {
 type GachaShardDecomposition struct {
 	GirlID string `json:"girl_id"`
 	Shards int    `json:"shards"`
-	Dust   int    `json:"dust"`
+	Dust   int    `json:"dust,omitempty"`
 	Rarity string `json:"rarity,omitempty"`
+	ItemID string `json:"item_id,omitempty"`
+	Amount int    `json:"quantity,omitempty"`
 }
 type GachaRunResult struct {
 	ID       string             `json:"id"`
@@ -355,21 +409,26 @@ type GachaRunScene struct {
 	StarRound int    `json:"star_round"`
 }
 type GachaRunSnapshot struct {
-	Version            int         `json:"version"`
-	Squad              []string    `json:"squad"`
-	MultiUsed          bool        `json:"multi_used"`
-	Mode               string      `json:"mode,omitempty"`
-	Week               string      `json:"week,omitempty"`
-	Floor              int         `json:"floor,omitempty"`
-	Route              string      `json:"route,omitempty"`
-	RulesVersion       int         `json:"rules_version,omitempty"`
-	RelicEligible      bool        `json:"relic_eligible,omitempty"`
-	ProgressionVersion int         `json:"progression_version,omitempty"`
-	ProgressionStage   *GachaStage `json:"progression_stage,omitempty"`
-	ProgressionGirl    string      `json:"progression_girl,omitempty"`
-	ProgressionRank    int         `json:"progression_rank,omitempty"`
-	TrainingDay        string      `json:"training_day,omitempty"`
-	DualSquads         [][]string  `json:"dual_squads,omitempty"`
+	StaminaDrops       []string                     `json:"stamina_drops,omitempty"`
+	VoyageVersion      int                          `json:"voyage_version,omitempty"`
+	ContractDay        string                       `json:"contract_day,omitempty"`
+	ContractID         string                       `json:"contract_id,omitempty"`
+	Witnesses          map[string]GachaVigilWitness `json:"witnesses,omitempty"`
+	Version            int                          `json:"version"`
+	Squad              []string                     `json:"squad"`
+	MultiUsed          bool                         `json:"multi_used"`
+	Mode               string                       `json:"mode,omitempty"`
+	Week               string                       `json:"week,omitempty"`
+	Floor              int                          `json:"floor,omitempty"`
+	Route              string                       `json:"route,omitempty"`
+	RulesVersion       int                          `json:"rules_version,omitempty"`
+	RelicEligible      bool                         `json:"relic_eligible,omitempty"`
+	ProgressionVersion int                          `json:"progression_version,omitempty"`
+	ProgressionStage   *GachaStage                  `json:"progression_stage,omitempty"`
+	ProgressionGirl    string                       `json:"progression_girl,omitempty"`
+	ProgressionRank    int                          `json:"progression_rank,omitempty"`
+	TrainingDay        string                       `json:"training_day,omitempty"`
+	DualSquads         [][]string                   `json:"dual_squads,omitempty"`
 }
 
 func gachaGirl(id string) *GachaGirl {
@@ -382,6 +441,10 @@ func gachaGirl(id string) *GachaGirl {
 }
 
 func gachaGem(id string) (GachaGemSpec, bool) {
+	id, _, valid := splitGachaRefinement(id)
+	if !valid {
+		return GachaGemSpec{}, false
+	}
 	spec, ok := gachaGemSpecs[id]
 	return spec, ok
 }
@@ -392,14 +455,19 @@ func gachaStage(id string) *GachaStage {
 			return &gachaCatalog.Stages[i]
 		}
 	}
+	if point := gachaVoyage.Stages[id]; point != nil {
+		return &point.GachaStage
+	}
 	return nil
 }
 func newGachaState(now time.Time) *GachaGameState {
-	s := &GachaGameState{Stamina: 120, StaminaMax: 120, StaminaTs: now.UnixMilli(), Gold: 600, Multi: 1,
-		Daily: GachaGameDaily{Date: gachaDay(now)}, Girls: map[string]*GachaOwnedGirl{}, Squad: []string{"c08", "c06", "c01", "c12"},
-		Cleared: map[string]bool{}, Stars: map[string]int{}, History: []GachaPullHistory{}, Mats: map[string]int{"mat_r": 0, "mat_sr": 0, "mat_ssr": 0, "shard_dust": 0}, GemInventory: map[string]int{}, Sigils: map[string]*GachaSigil{}}
+	s := &GachaGameState{Captain: &GachaCaptain{Level: 1}, EffortVersion: 1, Stamina: 120, StaminaMax: 120, StaminaTs: now.UnixMilli(), Gold: 600, Multi: 1,
+		SkillPool: &GachaSkillPool{Points: gachaTraining.SkillPool.Capacity, TickAt: now.UnixMilli()},
+		Daily:     GachaGameDaily{Date: gachaDay(now)}, Girls: map[string]*GachaOwnedGirl{}, Squad: []string{"c08", "c06", "c01", "c12"},
+		Cleared: map[string]bool{}, Stars: map[string]int{}, History: []GachaPullHistory{}, Mats: map[string]int{"mat_r": 0, "mat_sr": 0, "mat_ssr": 0, "shard_dust": 0}, GemInventory: map[string]int{}, ChipInventory: map[string]int{}, Sigils: map[string]*GachaSigil{}}
+	s.VoyageEdition = 1
 	for _, id := range s.Squad {
-		s.Girls[id] = &GachaOwnedGirl{Star: 1, Level: 1, Gems: make([]string, 3)}
+		s.Girls[id] = &GachaOwnedGirl{Star: 1, Level: 1, Gems: newGachaGemSlots()}
 	}
 	return s
 }
@@ -430,7 +498,7 @@ func loadGachaPlayer(tx *gorm.DB, userID int, now time.Time) (*GachaPlayer, *Gac
 	if err != nil {
 		return nil, nil, err
 	}
-	created := GachaPlayer{UserID: userID, State: string(initial), Revision: 1, CreatedAt: now.UnixMilli(), UpdatedAt: now.UnixMilli()}
+	created := GachaPlayer{UserID: userID, State: GachaDocument(initial), Revision: 1, CreatedAt: now.UnixMilli(), UpdatedAt: now.UnixMilli()}
 	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&created).Error; err != nil {
 		return nil, nil, err
 	}
@@ -448,16 +516,44 @@ func loadGachaPlayer(tx *gorm.DB, userID int, now time.Time) (*GachaPlayer, *Gac
 		return nil, nil, ErrGachaIntent
 	}
 	var state GachaGameState
-	if err := common.Unmarshal([]byte(player.State), &state); err != nil {
+	if err := decodeGachaCipherDocument([]byte(player.State), &state); err != nil {
 		return nil, nil, err
 	}
-	if state.Girls == nil || state.Mats == nil || state.Stars == nil || state.Cleared == nil || state.StaminaMax != 120 || state.Stamina < 0 || state.Stamina > 120 || state.Gold < 0 || state.Gold > gachaMaxResource || state.Token < 0 || state.Token > gachaMaxResource || state.Multi < 0 || state.Multi > gachaMaxResource {
+	if state.Girls == nil || state.Mats == nil || state.Stars == nil || state.Cleared == nil || state.StaminaMax != 120 || state.Stamina < 0 || state.Stamina > gachaMaxResource || state.Gold < 0 || state.Gold > gachaMaxResource || state.Token < 0 || state.Token > gachaMaxResource || state.Multi < 0 || state.Multi > gachaMaxResource {
 		return nil, nil, ErrGachaRunState
 	}
-	if state.GemInventory == nil {
-		state.GemInventory = map[string]int{}
+	if err := normalizeGachaArtifacts(&state); err != nil {
+		return nil, nil, err
 	}
+	if err := migrateGachaEffort(&state); err != nil {
+		return nil, nil, err
+	}
+	if state.Daily.Date > gachaDay(now) {
+		return nil, nil, ErrGachaCaptainClaim
+	}
+	migrateGachaVoyage(&state)
 	regenGachaState(&state, now)
+	if err := syncGachaCaptain(&state); err != nil {
+		return nil, nil, err
+	}
+	if err := syncGachaFestival(&state, now); err != nil {
+		return nil, nil, err
+	}
+	if err := syncGachaMailbox(&state); err != nil {
+		return nil, nil, err
+	}
+	if err := syncGachaDispatch(&state, userID, now); err != nil {
+		return nil, nil, err
+	}
+	if err := syncGachaCipher(&state, now); err != nil {
+		return nil, nil, err
+	}
+	if err := normalizeGachaCasebook(&state); err != nil {
+		return nil, nil, err
+	}
+	if err := regenGachaSkillPool(&state, now); err != nil {
+		return nil, nil, err
+	}
 	if err := validateGachaBuildState(&state); err != nil {
 		return nil, nil, err
 	}
@@ -465,33 +561,9 @@ func loadGachaPlayer(tx *gorm.DB, userID int, now time.Time) (*GachaPlayer, *Gac
 	if state.Expedition.Floor < 1 || state.Expedition.Floor > 11 || state.Expedition.Best < 0 || state.Expedition.Best > 10 || state.WeeklyBoss.Attempts < 0 || state.WeeklyBoss.Attempts > 3 || state.WeeklyBoss.BestDamage < 0 {
 		return nil, nil, ErrGachaRunState
 	}
-	for id, count := range state.GemInventory {
-		if _, ok := gachaGem(id); !ok || count < 0 || count > gachaMaxResource {
-			return nil, nil, ErrGachaRunState
-		}
-	}
 	for _, own := range state.Girls {
-		if own == nil || own.Sockets < 0 || own.Sockets > 3 {
-			return nil, nil, ErrGachaRunState
-		}
-		if own.Gems == nil {
-			own.Gems = make([]string, 3)
-		}
-		if len(own.Gems) != 3 {
-			return nil, nil, ErrGachaRunState
-		}
 		if own.Talent != "" && (!slices.Contains(gachaTalentIDs, own.Talent) || own.Star < 3) {
 			return nil, nil, ErrGachaRunState
-		}
-		for slot, gemID := range own.Gems {
-			if slot >= own.Sockets && gemID != "" {
-				return nil, nil, ErrGachaRunState
-			}
-			if gemID != "" {
-				if _, ok := gachaGem(gemID); !ok {
-					return nil, nil, ErrGachaRunState
-				}
-			}
 		}
 	}
 	if dust, ok := state.Mats["shard_dust"]; ok && (dust < 0 || dust > gachaMaxResource) {
@@ -525,19 +597,38 @@ func storeGachaPlayer(tx *gorm.DB, player *GachaPlayer, state *GachaGameState, n
 		return err
 	}
 	state.Power = power
-	data, err := common.Marshal(state)
+	if err := deliverGachaDailyMail(state, now); err != nil {
+		return err
+	}
+	if state.cipherSeed == "" && state.Cipher != nil {
+		var prior struct {
+			Seed string `json:"cipher_seed"`
+		}
+		if err := common.Unmarshal([]byte(player.State), &prior); err != nil || prior.Seed == "" {
+			return ErrGachaRunState
+		}
+		state.cipherSeed = prior.Seed
+	}
+	data, err := encodeGachaCipherDocument(state)
 	if err != nil {
 		return err
 	}
-	result := tx.Model(&GachaPlayer{}).Where("user_id = ? AND revision = ?", player.UserID, player.Revision).
-		Updates(map[string]any{"state": string(data), "revision": player.Revision + 1, "updated_at": now.UnixMilli(),
-			"power": power, "power_version": gachaPowerVersion, "arena_points": state.Arena.Points})
+	columns, err := gachaFleetIndex(player.UserID, state)
+	if err != nil {
+		return err
+	}
+	document := GachaDocument(data)
+	columns["state"], columns["revision"], columns["updated_at"] = document, player.Revision+1, now.UnixMilli()
+	columns["power"], columns["power_version"], columns["arena_points"] = power, gachaPowerVersion, state.Arena.Points
+	result := tx.Model(&GachaPlayer{}).Where("user_id = ? AND revision = ?", player.UserID, player.Revision).Updates(columns)
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected != 1 {
 		return ErrGachaConcurrent
 	}
+	player.State = document
+	state.cipherSeed = ""
 	player.Revision++
 	return nil
 }
@@ -563,17 +654,62 @@ func validateGachaUUID(id string) bool {
 	return err == nil && len(id) == 36 && parsed != uuid.Nil && parsed.String() == strings.ToLower(id)
 }
 func ValidateGachaAction(intent GachaActionIntent) error {
-	if !validateGachaUUID(intent.RequestID) {
+	if !validateGachaUUID(intent.RequestID) || intent.Action != "card_feed" && intent.Materials != nil {
 		return ErrGachaIntent
+	}
+	if strings.HasPrefix(intent.Action, "ladder_") {
+		return validateGachaLadderIntent(intent)
+	}
+	if strings.HasPrefix(intent.Action, "skill_") {
+		return validateGachaSkillIntent(intent)
+	}
+	if intent.Action == "festival_play" || intent.Action == "festival_album" {
+		return validateGachaFestivalIntent(intent)
+	}
+	if strings.HasPrefix(intent.Action, "cipher_") {
+		return validateGachaCipherIntent(intent)
+	}
+	if slices.Contains(dispatchActions, intent.Action) {
+		return validateGachaDispatchIntent(intent)
+	}
+	switch intent.Action {
+	case "mail_read", "mail_claim", "mail_all", "mail_delete_read", "redeem_code":
+		return validateGachaMailIntent(intent)
+	case "daily_contract_claim":
+		intent.Action = "contract_claim"
+		return validateGachaProgressionIntent(intent)
+	case "voyage_chest":
+		return validateGachaVoyageIntent(intent)
+	case "voyage_sweep":
+		return validateGachaSweepIntent(intent)
+	case "captain_task", "captain_supply":
+		return validateGachaCaptainIntent(intent)
+	case "card_feed":
+		return validateGachaFeedIntent(intent)
+	case "vigil_bind", "vigil_ascend", "vigil_refocus", "vigil_ground", "vigil_stance":
+		return validateGachaVigilIntent(intent)
+	case "case_open", "case_step", "case_close":
+		return validateGachaCaseIntent(intent)
+	case "card_breakthrough", "effort_train", "effort_train_max", "effort_promote":
+		return validateGachaTrainingIntent(intent)
 	}
 	if slices.Contains(gachaProgressionActions, intent.Action) {
 		return validateGachaProgressionIntent(intent)
+	}
+	if slices.Contains(gachaArtifactActions, intent.Action) {
+		return validateGachaArtifactIntent(intent)
+	}
+	if strings.HasPrefix(intent.Action, "gear_") {
+		return validateGachaEquipmentIntent(intent)
+	}
+	if strings.HasPrefix(intent.Action, "carry_") {
+		return validateGachaCarryIntent(intent)
 	}
 	if intent.Choice != nil || intent.Config != nil {
 		return ErrGachaIntent
 	}
 	roomAction := slices.Contains([]string{"room_create", "room_join", "room_ready", "room_leave"}, intent.Action)
-	itemAction := slices.Contains([]string{"shop", "gem_equip", "talent", "expedition_route", "guild_create", "guild_join", "sigil_equip", "sigil_salvage", "sigil_craft"}, intent.Action)
+	itemAction := slices.Contains([]string{"shop", "gem_equip", "talent", "expedition_route", "guild_create", "guild_join", "guild_supply", "sigil_equip", "sigil_salvage", "sigil_craft"}, intent.Action)
 	if intent.OpponentID != nil || !itemAction && intent.ItemID != nil || intent.Action != "arena_join" && intent.Action != "room_create" && intent.StakeE != nil || intent.Action != "arena_cancel" && intent.QueueID != nil || !roomAction && intent.RoomID != nil {
 		return ErrGachaIntent
 	}
@@ -620,11 +756,11 @@ func ValidateGachaAction(intent GachaActionIntent) error {
 			return ErrGachaIntent
 		}
 	case "gem_socket", "gem_remove":
-		if intent.GirlID == nil || gachaGirl(*intent.GirlID) == nil || intent.Count == nil || *intent.Count < 1 || *intent.Count > 3 || intent.ItemID != nil || intent.Squad != nil || intent.Enabled != nil {
+		if intent.GirlID == nil || gachaGirl(*intent.GirlID) == nil || intent.Count == nil || *intent.Count < 1 || *intent.Count > len(gachaCultivation.Artifacts.GemSockets) || intent.ItemID != nil || intent.Squad != nil || intent.Enabled != nil {
 			return ErrGachaIntent
 		}
 	case "gem_equip":
-		if intent.GirlID == nil || gachaGirl(*intent.GirlID) == nil || intent.Count == nil || *intent.Count < 1 || *intent.Count > 3 || intent.ItemID == nil || intent.Squad != nil || intent.Enabled != nil {
+		if intent.GirlID == nil || gachaGirl(*intent.GirlID) == nil || intent.Count == nil || *intent.Count < 1 || *intent.Count > len(gachaCultivation.Artifacts.GemSockets) || intent.ItemID == nil || intent.Squad != nil || intent.Enabled != nil {
 			return ErrGachaIntent
 		}
 		if _, ok := gachaGem(*intent.ItemID); !ok {
@@ -662,7 +798,19 @@ func ValidateGachaAction(intent GachaActionIntent) error {
 			return ErrGachaIntent
 		}
 	case "guild_create":
-		if intent.ItemID == nil || !validGachaGuildName(*intent.ItemID) || intent.Count != nil || intent.GirlID != nil || intent.Squad != nil || intent.Enabled != nil {
+		if intent.ItemID == nil || !validGachaGuildName(*intent.ItemID) || intent.Count != nil || intent.GirlID != nil || intent.Squad != nil {
+			return ErrGachaIntent
+		}
+	case "guild_listing":
+		if intent.Enabled == nil || intent.Count != nil || intent.GirlID != nil || intent.Squad != nil {
+			return ErrGachaIntent
+		}
+	case "guild_supply":
+		if intent.ItemID == nil || fleetCargoIndex(*intent.ItemID) < 0 || intent.Count != nil || intent.GirlID != nil || intent.Squad != nil || intent.Enabled != nil {
+			return ErrGachaIntent
+		}
+	case "guild_supply_claim":
+		if intent.Count == nil || *intent.Count < 1 || *intent.Count > len(fleetBeacons) || intent.GirlID != nil || intent.Squad != nil || intent.Enabled != nil {
 			return ErrGachaIntent
 		}
 	case "guild_join":
@@ -756,6 +904,9 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 	if err := ValidateGachaAction(intent); err != nil {
 		return nil, err
 	}
+	if strings.HasPrefix(intent.Action, "ladder_") {
+		return applyGachaLadderAction(userID, intent, now)
+	}
 	if intent.Action == "arena_join" || intent.Action == "arena_cancel" {
 		return applyGachaQueueAction(userID, intent, now)
 	}
@@ -782,7 +933,58 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 			return err
 		}
 		*result = GachaActionResult{}
+		mailTitle := gachaMailActionTitle(intent.Action)
+		var mailBefore map[string]int
+		if mailTitle != "" {
+			mailBefore = beginGachaMailRewards(state)
+		}
 		switch intent.Action {
+		case "mail_read", "mail_claim", "mail_all", "mail_delete_read", "redeem_code":
+			if err := applyGachaMail(state, intent, result, now); err != nil {
+				return err
+			}
+		case "contract_claim", "daily_contract_claim":
+			growthIntent := intent
+			growthIntent.Action = "contract_claim"
+			if err := applyGachaProgressionAction(tx, userID, state, growthIntent, result, now); err != nil {
+				return err
+			}
+		case "captain_task", "captain_supply":
+			if err := applyGachaCaptainClaim(state, intent, result, now); err != nil {
+				return err
+			}
+		case "voyage_chest":
+			if err := claimGachaVoyageChest(state, *intent.ItemID, result); err != nil {
+				return err
+			}
+		case "voyage_sweep":
+			if err := sweepGachaVoyage(tx, userID, state, intent, result, now); err != nil {
+				return err
+			}
+		case "cipher_guess", "cipher_practice":
+			if err := applyGachaCipher(state, intent, result, now); err != nil {
+				return err
+			}
+		case "festival_play", "festival_album":
+			if err := applyGachaFestival(state, intent, result, now); err != nil {
+				return err
+			}
+		case "relic_bind", "relic_wear", "relic_store", "clock_align", "contract_sign", "dispatch_contract_claim", "route_step", "route_bank", "mosaic_place", "mirror_trial":
+			if err := applyGachaDispatch(state, intent, result); err != nil {
+				return err
+			}
+		case "vigil_bind", "vigil_ascend", "vigil_refocus", "vigil_ground", "vigil_stance":
+			if err := applyGachaVigil(state, intent, result); err != nil {
+				return err
+			}
+		case "case_open", "case_step", "case_close":
+			if err := applyGachaCaseAction(state, intent, result); err != nil {
+				return err
+			}
+		case "skill_point", "skill_auto", "skill_buy":
+			if err := applyGachaSkillAction(state, intent, result, now); err != nil {
+				return err
+			}
 		case "token_exchange":
 			result.Exchange, err = exchangeGachaTokens(tx, userID, state, *intent.Count)
 			if err != nil {
@@ -847,7 +1049,7 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 					if own != nil {
 						shards = own.Shards
 					}
-					state.Girls[girl.ID] = &GachaOwnedGirl{Star: gachaCatalog.Rarity[rarity].BaseStar, Level: 1, Shards: shards, Gems: make([]string, 3)}
+					state.Girls[girl.ID] = &GachaOwnedGirl{Star: gachaCatalog.Rarity[rarity].BaseStar, Level: 1, Shards: shards, Gems: newGachaGemSlots()}
 				} else {
 					if own.Shards > gachaMaxResource-girl.DupGain {
 						return ErrGachaFunds
@@ -870,30 +1072,33 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 		case "level", "star":
 			girl := gachaGirl(*intent.GirlID)
 			own := state.Girls[girl.ID]
-			if own == nil || own.Star < 1 || own.Level < 1 {
+			if !gachaCardOwned(own) {
 				return ErrGachaIntent
 			}
 			if intent.Action == "level" {
 				return ErrGachaExperience
 			} else {
 				if own.Star >= gachaCatalog.Growth.StarMax {
-					return ErrGachaIntent
+					return ErrGachaCultivationLocked
 				}
-				need := gachaStarShardCost(girl, own.Star+1)
+				nextStar := own.Star + 1
+				need := gachaStarShardCost(girl, nextStar)
 				matKey := gachaCatalog.MatByRarity[girl.Rarity]
 				needMat := gachaCatalog.MatStarCost[girl.Rarity]
+				if nextStar >= gachaFirstAdvancedStar {
+					tier := nextStar - gachaFirstAdvancedStar
+					if own.Awakening < gachaCultivation.AdvancedAwakening[tier] {
+						return ErrGachaCultivationLocked
+					}
+					needMat *= gachaCultivation.AdvancedMatMultiplier[tier]
+				}
 				if need <= 0 || needMat <= 0 {
 					return ErrGachaIntent
 				}
-				dustKey := gachaRarityDust(girl)
-				if own.Shards+state.Mats[dustKey]+state.Mats["shard_dust"] < need || state.Mats[matKey] < needMat {
+				if own.Shards < need || state.Mats[matKey] < needMat {
 					return ErrGachaFunds
 				}
-				fromGirl := min(own.Shards, need)
-				own.Shards -= fromGirl
-				fromRarity := min(state.Mats[dustKey], need-fromGirl)
-				state.Mats[dustKey] -= fromRarity
-				state.Mats["shard_dust"] -= need - fromGirl - fromRarity
+				own.Shards -= need
 				state.Mats[matKey] -= needMat
 				own.Star++
 			}
@@ -901,7 +1106,7 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 			girl := gachaGirl(*intent.GirlID)
 			own := state.Girls[girl.ID]
 			if own == nil {
-				own = &GachaOwnedGirl{Gems: make([]string, 3)}
+				own = &GachaOwnedGirl{Gems: newGachaGemSlots()}
 				state.Girls[girl.ID] = own
 			}
 			reserve := gachaCatalog.Rarity[girl.Rarity].ShardToUnlock
@@ -911,17 +1116,24 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 					reserve = gachaStarShardCost(girl, own.Star+1)
 				}
 			}
-			dustKey := gachaRarityDust(girl)
-			if own.Shards < reserve || *intent.Count > own.Shards-reserve || state.Mats[dustKey] > gachaMaxResource-*intent.Count {
+			rate := gachaCultivation.Shards.PerOre[girl.Rarity]
+			if rate < 1 || *intent.Count%rate != 0 {
+				return ErrGachaIntent
+			}
+			if own.Shards < reserve || *intent.Count > own.Shards-reserve {
 				return ErrGachaFunds
 			}
+			amount := *intent.Count / rate
+			if state.Mats["forge_ore"] > gachaMaxResource-amount {
+				return ErrGachaCapacity
+			}
 			own.Shards -= *intent.Count
-			state.Mats[dustKey] += *intent.Count
-			result.Decomposition = &GachaShardDecomposition{GirlID: girl.ID, Shards: *intent.Count, Dust: *intent.Count, Rarity: girl.Rarity}
+			state.Mats["forge_ore"] += amount
+			result.Decomposition = &GachaShardDecomposition{GirlID: girl.ID, Shards: *intent.Count, ItemID: "forge_ore", Amount: amount, Rarity: girl.Rarity}
 		case "gem_socket", "gem_equip", "gem_remove":
 			girl := gachaGirl(*intent.GirlID)
 			own := state.Girls[girl.ID]
-			if own == nil || own.Star < 1 || own.Level < 1 || len(own.Gems) != 3 {
+			if !gachaCardOwned(own) || len(own.Gems) != len(gachaCultivation.Artifacts.GemSockets) {
 				return ErrGachaIntent
 			}
 			slot := *intent.Count - 1
@@ -930,14 +1142,16 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 				if slot != own.Sockets || own.Sockets >= len(own.Gems) {
 					return ErrGachaIntent
 				}
-				goldCost := gachaSocketGoldCosts[slot]
-				materialCost := gachaSocketMaterialCosts[slot]
+				rule := gachaCultivation.Artifacts.GemSockets[slot]
+				if own.Star < rule.Star {
+					return ErrGachaCultivationLocked
+				}
 				matKey := gachaCatalog.MatByRarity[girl.Rarity]
-				if state.Gold < goldCost || state.Mats[matKey] < materialCost {
+				if state.Gold < rule.Gold || state.Mats[matKey] < rule.Mat {
 					return ErrGachaFunds
 				}
-				state.Gold -= goldCost
-				state.Mats[matKey] -= materialCost
+				state.Gold -= rule.Gold
+				state.Mats[matKey] -= rule.Mat
 				own.Sockets++
 			case "gem_equip":
 				if slot >= own.Sockets {
@@ -970,10 +1184,30 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 			if err := applyGachaSigilAction(state, intent, result); err != nil {
 				return err
 			}
+		case "chip_equip", "chip_remove", "chip_lock", "gem_refine", "chip_refine", "gem_level", "chip_level", "gem_rank", "chip_rank", "draw_gems", "draw_chips", "convert_tickets", "salvage_dust":
+			if err := applyGachaArtifactAction(state, intent, result); err != nil {
+				return err
+			}
+		case "gear_upgrade", "gear_auto", "gear_star":
+			if err := applyGachaEquipmentAction(state, *intent.GirlID, *intent.ItemID, intent.Action, result); err != nil {
+				return err
+			}
+		case "carry_craft", "carry_equip", "carry_remove":
+			if err := applyGachaCarryAction(state, intent, result); err != nil {
+				return err
+			}
+		case "card_feed":
+			if err := applyGachaFeed(state, intent, result); err != nil {
+				return err
+			}
+		case "card_breakthrough", "effort_train", "effort_train_max", "effort_promote":
+			if err := applyGachaTrainingAction(state, intent, result); err != nil {
+				return err
+			}
 		case "talent":
 			girl := gachaGirl(*intent.GirlID)
 			own := state.Girls[girl.ID]
-			if own == nil || own.Star < 3 || own.Level < 1 {
+			if !gachaCardOwned(own) || own.Star < 3 {
 				return ErrGachaTalentLocked
 			}
 			if own.Talent == *intent.ItemID {
@@ -1012,7 +1246,7 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 			}
 			for i, id := range team {
 				own := state.Girls[id]
-				if own == nil || own.Star < 1 || own.Level < 1 || gachaGirl(id) == nil || slices.Contains(team[:i], id) {
+				if !gachaCardOwned(own) || gachaGirl(id) == nil || slices.Contains(team[:i], id) {
 					return ErrGachaTeam
 				}
 			}
@@ -1024,6 +1258,12 @@ func ApplyGachaAction(userID int, intent GachaActionIntent, now time.Time) (*Gac
 			state.MultiOn = *intent.Enabled
 		default:
 			if err := applyGachaProgressionAction(tx, userID, state, intent, result, now); err != nil {
+				return err
+			}
+		}
+		recordGachaCaptainAction(state, intent.Action)
+		if mailTitle != "" {
+			if err := mailGachaRewards(state, mailBefore, "action:"+intent.RequestID, mailTitle, now, &result.Drops); err != nil {
 				return err
 			}
 		}
@@ -1117,10 +1357,22 @@ func StartGachaRun(userID int, stageID, requestID string, now time.Time) (*Gacha
 			}
 			snapshot.MultiUsed = snapshot.Mode == "expedition" && state.MultiOn && state.Multi > 0
 		}
+		point := gachaVoyage.Stages[stageID]
+		if err := checkGachaVoyagePoint(state, point); err != nil {
+			return err
+		}
+		if point != nil {
+			snapshot.VoyageVersion = 1
+			if len(point.Prize) != 0 {
+				snapshot.MultiUsed = false
+			}
+		}
 		if stage.UnlockStage != "" && !state.Cleared[stage.UnlockStage] {
 			return ErrGachaLocked
 		}
-		snapshot.RulesVersion = 2
+		snapshot.RulesVersion = gachaStaminaXPVersion
+		issueGachaVigil(state, &snapshot)
+		issueGachaDispatch(state, stage, &snapshot)
 		if snapshot.ProgressionVersion == 0 {
 			snapshot.ProgressionVersion = state.ProgressionRules.Version
 		}
@@ -1132,19 +1384,15 @@ func StartGachaRun(userID int, stageID, requestID string, now time.Time) (*Gacha
 		}
 		for i, id := range snapshot.Squad {
 			own := state.Girls[id]
-			if own == nil || own.Star < 1 || own.Level < 1 || slices.Contains(snapshot.Squad[:i], id) {
+			if !gachaCardOwned(own) || slices.Contains(snapshot.Squad[:i], id) {
 				return ErrGachaTeam
 			}
 		}
 		if state.Stamina < stage.Cost {
 			return ErrGachaFunds
 		}
-		var pending int64
-		if err := tx.Model(&GachaRun{}).Where("user_id = ? AND status = ? AND expire_at > ? AND ready_at > ?", userID, "running", now.UnixMilli(), 0).Count(&pending).Error; err != nil {
+		if err := requireGachaRunIdle(tx, userID, now); err != nil {
 			return err
-		}
-		if pending > 0 {
-			return ErrGachaRunState
 		}
 		daily, err := gachaDailyLocked(tx, userID, gachaDay(now), now)
 		if err != nil {
@@ -1171,10 +1419,12 @@ func StartGachaRun(userID int, stageID, requestID string, now time.Time) (*Gacha
 				state.MultiOn = false
 			}
 		}
-		if state.Stamina == state.StaminaMax {
-			state.StaminaTs = now.UnixMilli()
+		if err := spendGachaStamina(state, stage.Cost, now, &snapshot.StaminaDrops); err != nil {
+			return err
 		}
-		state.Stamina -= stage.Cost
+		if err := spendGachaVoyageAttempts(state, point, 1); err != nil {
+			return err
+		}
 		reportJSON, err := common.Marshal(report)
 		if err != nil {
 			return err
@@ -1242,23 +1492,9 @@ func awardGachaGameRewards(state *GachaGameState, stage *GachaStage, snapshot *G
 	}
 	state.Gold += gold
 	result.Drops = append(result.Drops, fmt.Sprintf("金币 x%d", gold))
-	for _, id := range snapshot.Squad {
-		own := state.Girls[id]
-		if own == nil || own.Star < 1 {
-			return ErrGachaRunState
-		}
-		if own.Level < gachaCatalog.Growth.MaxLevel {
-			own.Exp += stage.Exp
-			for own.Level < gachaCatalog.Growth.MaxLevel && own.Exp >= gachaCatalog.Growth.ExpPerLevel*own.Level {
-				own.Exp -= gachaCatalog.Growth.ExpPerLevel * own.Level
-				own.Level++
-			}
-			if own.Level >= gachaCatalog.Growth.MaxLevel {
-				own.Exp = 0
-			}
-		}
+	if err := awardGachaExperience(state, snapshot.Squad, stage.Exp, &result.Drops); err != nil {
+		return err
 	}
-	result.Drops = append(result.Drops, fmt.Sprintf("经验 x%d", stage.Exp))
 	material, err := gachaRandomRange(stage.Mat)
 	if err != nil {
 		return err
@@ -1328,14 +1564,14 @@ func awardGachaGameRewards(state *GachaGameState, stage *GachaStage, snapshot *G
 		}
 		own := state.Girls[girl.ID]
 		if own == nil {
-			own = &GachaOwnedGirl{Gems: make([]string, 3)}
+			own = &GachaOwnedGirl{Gems: newGachaGemSlots()}
 			state.Girls[girl.ID] = own
 		}
 		if own.Shards > gachaMaxResource-drop.count {
 			return ErrGachaFunds
 		}
 		own.Shards += drop.count
-		if own.Star == 0 && own.Shards >= gachaCatalog.Rarity[drop.rarity].ShardToUnlock {
+		if snapshot.RulesVersion < gachaStaminaXPVersion && own.Star == 0 && own.Shards >= gachaCatalog.Rarity[drop.rarity].ShardToUnlock {
 			own.Shards -= gachaCatalog.Rarity[drop.rarity].ShardToUnlock
 			own.Star = gachaCatalog.Rarity[drop.rarity].BaseStar
 			own.Level = 1
@@ -1407,8 +1643,10 @@ func FinishGachaRun(userID int, runID string, abandon bool, now time.Time) (*Gac
 		}
 		stage := gachaStage(run.Stage)
 		rule, exists := gachaStageRules[run.Stage]
+		point := gachaVoyage.Stages[run.Stage]
+		directed := point != nil && len(point.Prize) != 0 && snapshot.VoyageVersion == 1
 		if snapshot.Mode == "" {
-			if stage == nil || !exists {
+			if stage == nil || !exists && !directed {
 				return ErrGachaStage
 			}
 		} else {
@@ -1422,6 +1660,11 @@ func FinishGachaRun(userID int, runID string, abandon bool, now time.Time) (*Gac
 			return err
 		}
 		*result = GachaFinishResult{Win: report.Win && !abandon, Drops: []string{}, Rounds: report.Rounds, AliveN: report.AliveN, TotalN: report.TotalN, Fast: report.Rounds <= stage.StarRound}
+		var mailBefore map[string]int
+		if snapshot.RulesVersion >= gachaStaminaXPVersion {
+			mailBefore = beginGachaMailRewards(state)
+		}
+		settleGachaCaptainRun(state, stage, &snapshot, result)
 		if snapshot.Mode != "" {
 			if result.Win {
 				result.Stars = report.Stars
@@ -1438,8 +1681,50 @@ func FinishGachaRun(userID int, runID string, abandon bool, now time.Time) (*Gac
 					recordGachaProgressionActivity(state, "weekly", now)
 				}
 			}
+		} else if result.Win && directed {
+			if err := awardGachaVoyageMilestones(state, point, report.Stars, result); err != nil {
+				return err
+			}
+			if err := settleGachaVoyagePoint(state, point, &snapshot, &report, result); err != nil {
+				return err
+			}
+			if point.Kind != "resources" {
+				recordGachaProgressionActivity(state, "campaign", now)
+			}
 		} else if result.Win {
 			result.Stars = report.Stars
+			if snapshot.VoyageVersion == 1 {
+				if err := awardGachaVoyageMilestones(state, point, report.Stars, result); err != nil {
+					return err
+				}
+			}
+			if snapshot.RulesVersion >= gachaExperienceLootVersion {
+				settleGachaVigil(state, stage, &snapshot, &report, result)
+				settleGachaDispatch(state, stage, &snapshot, &report, result)
+				if err := awardGachaExperienceMaterials(state, stage, result); err != nil {
+					return err
+				}
+			}
+			if snapshot.RulesVersion >= gachaMasteryLootVersion {
+				if err := awardGachaMasteryLoot(state, stage, result); err != nil {
+					return err
+				}
+			}
+			if snapshot.RulesVersion >= gachaEquipmentLootVersion {
+				if err := awardGachaEquipmentMaterials(state, stage, result); err != nil {
+					return err
+				}
+			}
+			if snapshot.RulesVersion >= gachaArtifactLootVersion {
+				if err := awardGachaArtifactTicket(state, stage, result); err != nil {
+					return err
+				}
+			}
+			if snapshot.RulesVersion >= gachaCultivationLootVersion {
+				if err := awardGachaCultivationLoot(state, stage, result); err != nil {
+					return err
+				}
+			}
 			if err := awardGachaGameRewards(state, stage, &snapshot, &report, result); err != nil {
 				return err
 			}
@@ -1507,6 +1792,11 @@ func FinishGachaRun(userID int, runID string, abandon bool, now time.Time) (*Gac
 				kind = "rift"
 			}
 			recordGachaProgressionActivity(state, kind, now)
+		}
+		if snapshot.RulesVersion >= gachaStaminaXPVersion {
+			if err := mailGachaRewards(state, mailBefore, "battle:"+run.ID, "副本结算 · "+stage.Name, now, &result.Drops); err != nil {
+				return err
+			}
 		}
 		if err := tx.Model(&GachaDaily{}).Where("day = ? AND user_id = ?", daily.Day, userID).Updates(map[string]any{"quota": daily.Quota, "cards": daily.Cards, "updated_at": now.UnixMilli()}).Error; err != nil {
 			return err

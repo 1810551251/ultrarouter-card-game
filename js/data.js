@@ -401,11 +401,22 @@ const MATS = {
   mat_r:   { name: "微光结晶", color: "#93a6c2", from: "林中圣所 · 溪谷哨站 · 夜潮栈道", use: "R 升星" },
   mat_sr:  { name: "元素结晶", color: "#5c8bff", from: "冰晶殿堂 · 天空遗迹 · 潮汐神殿 · 逐星长阶", use: "SR 升星" },
   mat_ssr: { name: "星屑",     color: "#ffcf6e", from: "熔岩要塞 · 深渊回廊 · 月影王庭 · 观星禁域 · 星穹圣座", use: "SSR 升星" },
-  shard_dust: { name: "共鸣尘", color: "#bd82e8", from: "分解多余少女碎片", use: "可按 1:1 补足任意少女升星碎片" },
+  shard_dust: { name: "共鸣尘", color: "#bd82e8", from: "旧版库存", use: "历史材料，用途以当前服务器规则为准" },
 };
 const MAT_BY_RARITY = { R: "mat_r", SR: "mat_sr", SSR: "mat_ssr" };
 /* 升到下一星所需材料数（按稀有度分档） */
 const MAT_STAR_COST = { R: 20, SR: 30, SSR: 50 };
+
+const CULTIVATION_ITEMS = {
+  forge_ore: { name: "星锻矿", from: "主线、裂隙通关", use: "专武强化、铭刻、召唤券兑换与个体洗练" },
+  weapon_core: { name: "觉醒棱芯", from: "通关有首领的主线或裂隙", use: "专武觉醒" },
+  training_manual: { name: "历练手记", from: "通关有首领的主线或裂隙", use: "单人经验" },
+};
+const ARTIFACT_TICKETS = {
+  gem_ticket: { name: "宝石召唤券", color: "#b16a74", from: "主线首领胜利或用星锻矿兑换", use: "宝石召唤池 · 一券抽一颗" },
+  chip_ticket: { name: "芯片召唤券", color: "#557ca1", from: "任意裂隙胜利或用星锻矿兑换", use: "芯片召唤池 · 一券抽一枚" },
+};
+const CULTIVATION_STATS = { hp: "生命", atk: "攻击", def: "防御", spd: "速度" };
 
 /* ---------- 共鸣宝石 ---------- */
 const GEMS = {
@@ -1144,9 +1155,9 @@ const GACHA = {
 /* ---------- 养成配置 ---------- */
 const GROWTH = {
   expPerLevel: 100,       // 每级经验需求（线性，可调）
-  maxLevel: 60,
-  starCost: { 1: 20, 2: 40, 3: 80, 4: 120, 5: 200 },  // 升到对应星级所需碎片
-  starMax: 5,
+  maxLevel: 150,
+  starCost: { 1: 20, 2: 40, 3: 80, 4: 120, 5: 200, 6: 240, 7: 300, 8: 360, 9: 430, 10: 510, 11: 600, 12: 700 },  // 升到对应星级所需碎片
+  starMax: 12,
   levelStatGrow: { hp: 0.06, atk: 0.06, def: 0.05, spd: 0.005 },  // 每级成长率
   starStatGrow: { hp: 0.10, atk: 0.10, def: 0.08, spd: 0.01 },    // 每星成长率
 };
@@ -1174,23 +1185,200 @@ const ENEMY_TPL = [
 // 只用于绘制当前账号的服务器快照，不提供客户端存档上传接口。
 let SAVE = null;
 
+function cultivationRules() { return Store.profile?.cultivation || null; }
+
+function individualBonuses(own) {
+  const rules = cultivationRules()?.individual, stats = { hp: 0, atk: 0, def: 0, spd: 0, cr: 0, cd: 0 };
+  if (rules && own?.star > 0 && own.iv_values?.length === rules.stats.length) {
+    rules.stats.forEach(({ stat, step }, index) => { stats[stat] = Math.floor(own.iv_values[index] / step); });
+  }
+  return stats;
+}
+
+function artifactIdentity(key) {
+  const grades = Store.profile?.artifact_grades;
+  if (grades) {
+    if (typeof key !== "string" || key.length > 40) return null;
+    const match = /^([a-z]+(?:_[1-6])?)(?:~([a-z]+))?(?:@([1-9]\d?)|!([1-9]\d{0,2})\.([1-9]\d?))?$/.exec(key);
+    if (!match) return null;
+    const base = match[1], [family, position] = base.split("_"), chip = !!position;
+    if (chip ? !Object.hasOwn(cultivationRules()?.artifacts?.chip_sets || {},family) : !Object.hasOwn(GEMS,base)) return null;
+    const standard = chip ? grades.chip_default : grades.gem_default, quality = match[2] || standard;
+    const grade = grades.qualities.findIndex(option => option.id === quality), legacy = Number(match[3] || 0);
+    const level = legacy ? legacy+1 : Number(match[4] || 1), rank = legacy ? Math.max(1,legacy) : Number(match[5] || 1);
+    if (grade < 0 || legacy > 12 || level > grades.level_max || rank > grades.rank_max || (rank > 1 && level < grades.rank_levels[rank-2] && (quality !== standard || rank > Math.min(12,level-1)))) return null;
+    const item = {base,family,chip,standard,quality,grade,level,rank};
+    return artifactProgressKey(item) === key ? item : null;
+  }
+  const limit = Store.profile?.equipment?.refinement?.costs.length || 0;
+  const match = /^([a-z]+(?:_[1-6])?)(?:@([1-9]\d?))?$/.exec(key || "");
+  return match && Number(match[2] || 0) <= limit ? { base:match[1], level:Number(match[2] || 0) } : null;
+}
+
+function artifactProgressKey({base,quality,standard,level,rank}) {
+  const id = quality === standard ? base : `${base}~${quality}`;
+  if (level === 1 && rank === 1) return id;
+  const legacy = level-1;
+  return quality === standard && legacy >= 1 && legacy <= 12 && rank === Math.max(1,legacy) ? `${id}@${legacy}` : `${id}!${level}.${rank}`;
+}
+
+function artifactGradeStats(identity, spec) {
+  const grades = Store.profile.artifact_grades, family = grades.families[identity.family], growth = grades.growth;
+  const early = Math.min(identity.level-1,growth.early_steps), late = identity.level-1-early;
+  const value = family.base[identity.grade]+(Math.floor(early/spec.every)+Math.floor(late/(growth.late_every*spec.every)))*spec.step;
+  return {baseValue:family.base[identity.grade],value,extraHp:late*growth.late_hp};
+}
+
+function artifactGradeEffects(item) {
+  const grades = Store.profile.artifact_grades, family = grades.families[item.family];
+  return [{...family.rank_effect, value: Math.max(0,item.rank-1), active:item.rank>1, gate:"每阶"},
+    ...item.spec.effects.map(effect=>({...effect,active:item.rank>=effect.level,gate:`${effect.level}阶`})),
+    ...family.rare.map((effect,index)=>({...effect,active:item.grade>=index+4,gate:grades.qualities[index+4].name}))];
+}
+
+function artifactPrices(tab, item) {
+  const grades = Store.profile.artifact_grades, rules = Store.profile.equipment.refinement, cost = grades.level_cost, step = item.level-1;
+  const material = tab === "gems" ? rules.gem_mat : rules.chip_mat, ticket = tab === "gems" ? "gem_ticket" : "chip_ticket";
+  return {level:item.level >= grades.level_max ? null : {[material]:cost.base+cost.linear*step+Math.floor(step*step/cost.square_divisor),forge_ore:cost.ore_base+Math.floor(step/cost.ore_every)},
+    rank:item.rank >= grades.rank_max ? null : {[Store.profile.equipment.star_mat]:grades.rank_rivets[item.rank-1],[ticket]:grades.rank_tickets[item.rank-1]}, rankLevel:grades.rank_levels[item.rank-1]};
+}
+
+function refinementItem(tab, key) {
+  const identity = artifactIdentity(key), rules = Store.profile?.equipment?.refinement;
+  if (!identity || !rules) return null;
+  const family = tab === "gems" ? identity.base : identity.base.split("_")[0], spec = rules[tab]?.[family];
+  if (identity.quality) return spec && identity.chip === (tab === "chips") ? {...identity,spec,...artifactGradeStats(identity,spec)} : null;
+  return spec ? { ...identity, family, spec, value:spec.base + Math.floor(identity.level / spec.every) * spec.step } : null;
+}
+
+function equippedRefinement(own) {
+  const stats = { hp:0, atk:0, def:0, spd:0, cr:0, cd:0 };
+  if (own?.star) for (const tab of ["gems","chips"]) for (const key of own[tab] || []) {
+    const item = refinementItem(tab,key);
+    if (item) {
+      stats[item.spec.stat] += item.value-(item.quality && item.base === "wind" ? 3 : 0);
+      stats.hp += item.extraHp || 0;
+    }
+  }
+  return stats;
+}
+
+function artifactBonuses(own) {
+  const rules = cultivationRules()?.artifacts;
+  const stats = { hp: 0, atk: 0, def: 0, spd: 0, cr: 0, cd: 0 };
+  if (!rules || !own?.star) return stats;
+  const gemCounts = {}, chipCounts = {};
+  for (const key of own.gems || []) {
+    const gem = artifactIdentity(key)?.base;
+    if (rules.gem_sets[gem]) gemCounts[gem] = (gemCounts[gem] || 0) + 1;
+  }
+  for (const [index, chip] of (own.chips || []).entries()) {
+    const base = artifactIdentity(chip)?.base, family = base?.split("_")[0];
+    if (rules.chip_sets[family] && base === `${family}_${index + 1}`) chipCounts[family] = (chipCounts[family] || 0) + 1;
+  }
+  for (const [counts, sets] of [[gemCounts, rules.gem_sets], [chipCounts, rules.chip_sets]]) {
+    for (const [key, count] of Object.entries(counts)) {
+      const set = sets[key];
+      if (set.base) stats[set.base.stat] += count * set.base.value;
+      for (const tier of set.tiers) if (count >= tier.count) stats[tier.stat] += tier.value;
+    }
+  }
+  return stats;
+}
+
+function collectionBonds(id) {
+  const rules = cultivationRules();
+  return (rules?.crews || rules?.fellowships || rules?.bonds || []).filter(bond => bond.members.includes(id)).map(bond => {
+    const spec = { ...bond, base: bond.base || rules.bond_base, advanced: bond.advanced || rules.bond_advanced };
+    const stars = spec.members.map(member => SAVE.girls[member]?.star || 0);
+    const owned = stars.filter(star => star > 0).length;
+    const percent = owned !== stars.length ? 0 : Math.min(...stars) >= rules.bond_star ? spec.advanced : spec.base;
+    return { spec, owned, percent };
+  });
+}
+
+function collectionBond(id) { return collectionBonds(id)[0] || null; }
+
+function boundGearBonuses(id, own) {
+  const rules = Store.profile?.equipment, stats = { hp: 0, atk: 0, def: 0, spd: 0, cr: 0, cd: 0 };
+  if (!rules || !own?.star) return stats;
+  for (const slot of rules.slots) {
+    const piece = own.equipment?.[slot.id], level = slot.id === "weapon" ? own.weapon_level : piece?.level;
+    const stat = slot.stat === "signature" ? cultivationRules()?.weapons[id]?.stat : slot.stat;
+    if (Object.hasOwn(stats, stat)) stats[stat] += (level || 0) * slot.per_level + (piece?.star || 0) * slot.per_star;
+  }
+  for (const tier of rules.set_tiers) {
+    if (rules.slots.filter(slot => (own.equipment?.[slot.id]?.star || 0) >= tier.star).length >= tier.pieces) {
+      for (const [stat, value] of Object.entries(tier.stats)) stats[stat] += value;
+    }
+  }
+  return stats;
+}
+
+function starMilestones(id) {
+  const girl = GIRLS.find(entry => entry.id === id), star = SAVE?.girls[id]?.star || 0;
+  const describe = {
+    rage: value => `开战时初始怒气 +${value}`,
+    rage_gain: value => `每次普攻额外回复 ${value} 怒气`,
+    shield: value => `开战时获得自身最大生命 ${value}% 的护盾`,
+    skill: value => `怒气技的伤害倍率 +${value}%`,
+    heal: value => `主动治疗与技能护盾效果 +${value}%`,
+    counter: value => `自身受到生命伤害且存活时，反震自身防御 ${value}% 的伤害`,
+    leech: value => `命中造成生命伤害时，回复实际伤害 ${value}% 的生命`,
+  };
+  return (cultivationRules()?.milestones?.[girl?.role] || []).map(step => ({ ...step, description: describe[step.effect](step.value), active: star >= step.star }));
+}
+
+function codexBonuses() {
+  const rules = cultivationRules(), flat = { hp: 0, atk: 0, def: 0 };
+  if (rules) for (const [id, own] of Object.entries(SAVE.girls)) {
+    const stat = rules.weapons[id]?.stat;
+    if (own.star > 0 && Object.hasOwn(flat, stat)) flat[stat] += rules.codex_flat[stat];
+  }
+  return flat;
+}
+
 /* ---------- 角色最终属性计算 ----------
  * finalStats(girlId) -> 含等级/星级成长
  */
+function cardLevelCost(level) {
+  if (level >= GROWTH.maxLevel) return 0;
+  const rules = Store.profile?.training?.experience;
+  const veteran = Math.max(0,level-(rules?.veteran_level ?? 60)+1), master = Math.max(0,level-(rules?.master_level ?? 120)+1);
+  return Math.max(1,level)*GROWTH.expPerLevel + veteran*veteran*(rules?.veteran_growth ?? 10) + master*master*(rules?.master_growth ?? 25);
+}
+
+function cardLevelLimit() {
+  const level = SAVE?.captain?.level;
+  return Number.isSafeInteger(level) && level > 0 ? Math.min(GROWTH.maxLevel, level) : GROWTH.maxLevel;
+}
+
 function finalStats(girlId, includeBonds = false) {
   const g = GIRLS.find(x => x.id === girlId);
   const own = SAVE.girls[girlId];
-  const lv = own && own.star > 0 ? own.level : 1;
+  const lv = own && own.star > 0 ? Math.max(1,own.level) : 1;
   const st = own && own.star > 0 ? own.star : RARITY[g.rarity].baseStar;
   const b = g.base, gr = GROWTH.levelStatGrow, sr = GROWTH.starStatGrow;
   const gemCounts = {};
-  for (const gem of own?.gems || []) if (gem) gemCounts[gem] = (gemCounts[gem] || 0) + 1;
+  for (const key of own?.gems || []) {
+    const gem = artifactIdentity(key)?.base;
+    if (gem) gemCounts[gem] = (gemCounts[gem] || 0) + 1;
+  }
   let hp = b.hp * (1 + gr.hp * (lv-1)) * (1 + sr.hp * (st-1)) * (1 + 0.05 * (gemCounts.jade || 0));
   let atk = b.atk * (1 + gr.atk * (lv-1)) * (1 + sr.atk * (st-1)) * (1 + 0.05 * (gemCounts.ruby || 0));
   let def = b.def * (1 + gr.def * (lv-1)) * (1 + sr.def * (st-1)) * (1 + 0.05 * (gemCounts.sapphire || 0));
   let spd = b.spd * (1 + gr.spd * (lv-1)) * (1 + sr.spd * (st-1)) + 3 * (gemCounts.wind || 0);
   let cr = b.cr + 3 * (gemCounts.amethyst || 0);
   let cd = b.cd, ehr = b.ehr, res = b.res;
+  const artifacts = artifactBonuses(own), individual = individualBonuses(own), gear = boundGearBonuses(girlId, own);
+  const carried = own?.star > 0 && Store.profile?.carry?.items?.[own.carry];
+  const combined = stat => artifacts[stat] + individual[stat] + gear[stat] + (carried?.stat === stat ? carried.value : 0);
+  hp *= 1 + combined("hp") / 100; atk *= 1 + combined("atk") / 100; def *= 1 + combined("def") / 100;
+  spd += combined("spd"); cr += combined("cr"); cd += combined("cd");
+  if (own?.training && typeof trainingBonuses === "function" && Store.profile?.training) {
+    const {percent,flat} = trainingBonuses(own), factor = 1 + percent/100;
+    hp = hp*factor + flat.hp; atk = atk*factor + flat.atk; def = def*factor + flat.def; spd += flat.spd; res += flat.res;
+  }
   const sigil = own?.sigil && SAVE.sigils?.[own.sigil];
   if (sigil && SIGIL_FAMILIES[sigil.family]) {
     const a = sigil.affixes || {};
@@ -1214,6 +1402,25 @@ function finalStats(girlId, includeBonds = false) {
     if (team.filter(girl => girl.role === g.role).length >= 3) hp *= 1.07;
     if (team.length === 4 && new Set(team.map(girl => girl.elem)).size === 4) def *= 1.05;
   }
+  const rules = cultivationRules();
+  if (rules && own?.star > 0) {
+    const stats = { hp, atk, def, spd }, weapon = rules.weapons[girlId];
+    if (weapon) stats[weapon.stat] *= 1 + (own.weapon_level || 0) * rules.weapon_per_level / 100;
+    stats.hp *= 1 + (own.weapon_awake || 0) * rules.weapon_vitality_per_awake / 100;
+    const bondTotals = { hp: 0, atk: 0, def: 0 };
+    for (const { spec, percent } of collectionBonds(girlId)) bondTotals[spec.stat] += percent;
+    for (const [stat, percent] of Object.entries(bondTotals)) stats[stat] *= 1 + Math.min(rules.bond_cap || 30, percent) / 100;
+    const potential = 1 + (own.potential || 0) * rules.potential_per_node / 100;
+    for (const stat of ["hp", "atk", "def"]) stats[stat] *= potential;
+    const engraving = rules.engravings[own.weapon_rune];
+    if (engraving?.stat === "spd") stats.spd += engraving.value;
+    else if (engraving) stats[engraving.stat] *= 1 + engraving.value / 100;
+    const flat = codexBonuses();
+    hp = stats.hp + flat.hp; atk = stats.atk + flat.atk; def = stats.def + flat.def; spd = stats.spd;
+  }
+  const flatRefinement = equippedRefinement(own);
+  hp += flatRefinement.hp; atk += flatRefinement.atk; def += flatRefinement.def; spd += flatRefinement.spd;
+  cr += flatRefinement.cr; cd += flatRefinement.cd;
   return {
     hp: Math.round(hp), atk: Math.round(atk), def: Math.round(def), spd: Math.round(spd),
     cr: Math.min(cr, 100), cd, ehr: Math.min(100, ehr), res: Math.min(100, Math.max(0, res)),

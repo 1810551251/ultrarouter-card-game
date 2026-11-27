@@ -97,6 +97,8 @@ type GachaBattleReport struct {
 }
 
 type gachaCombatUnit struct {
+	vigilAspect string
+	vigilValue  int
 	GachaBattleUnit
 	girl        *GachaGirl
 	skillBoost  float64
@@ -107,6 +109,7 @@ type gachaCombatUnit struct {
 	dotPct      float64
 	dotCap      float64
 	rageBonus   int
+	castRefund  int
 	activeSkill *GachaSkill
 }
 
@@ -211,6 +214,10 @@ func gachaSquadUnits(state *GachaGameState, side, prefix string) ([]*gachaCombat
 	}
 	units := make([]*gachaCombatUnit, 0, len(state.Squad))
 	growth := gachaCatalog.Growth
+	var collection gachaCollection
+	if !state.legacyArenaStats {
+		collection = state.collection()
+	}
 	elemCounts, roleCounts := map[string]int{}, map[string]int{}
 	for _, id := range state.Squad {
 		if girl := gachaGirl(id); girl != nil {
@@ -221,8 +228,11 @@ func gachaSquadUnits(state *GachaGameState, side, prefix string) ([]*gachaCombat
 	seen := make(map[string]bool, len(state.Squad))
 	for i, id := range state.Squad {
 		own := state.Girls[id]
-		if seen[id] || own == nil || own.Level < 1 || own.Level > growth.MaxLevel || own.Star < 1 || own.Star > growth.StarMax {
+		if seen[id] || !gachaCardOwned(own) || own.Star > growth.StarMax {
 			return nil, errors.New("invalid gacha squad ownership")
+		}
+		if !validGachaCultivationStateFor(own, state.advancedMasteryEnabled()) {
+			return nil, ErrGachaRunState
 		}
 		seen[id] = true
 		var girl *GachaGirl
@@ -235,8 +245,8 @@ func gachaSquadUnits(state *GachaGameState, side, prefix string) ([]*gachaCombat
 		if girl == nil {
 			return nil, errors.New("unknown gacha girl")
 		}
-		if len(own.Gems) != 0 && len(own.Gems) != 3 {
-			return nil, errors.New("invalid gacha gem slots")
+		if !validGachaArtifactCard(own) {
+			return nil, ErrGachaRunState
 		}
 		gemCounts := make(map[string]int, 3)
 		for _, gemID := range own.Gems {
@@ -246,17 +256,44 @@ func gachaSquadUnits(state *GachaGameState, side, prefix string) ([]*gachaCombat
 			if _, ok := gachaGem(gemID); !ok {
 				return nil, errors.New("unknown gacha gem")
 			}
-			gemCounts[gemID]++
+			baseID, _, _ := splitGachaRefinement(gemID)
+			gemCounts[baseID]++
 		}
 		base := girl.Base
 		levelGrowth, starGrowth := growth.LevelStatGrow, growth.StarStatGrow
-		level, star := float64(own.Level-1), float64(own.Star-1)
+		level, star := float64(max(0, own.Level-1)), float64(own.Star-1)
 		hp := float64(base.HP) * (1 + levelGrowth.HP*level) * (1 + starGrowth.HP*star) * (1 + 0.05*float64(gemCounts["jade"]))
 		atk := float64(base.Atk) * (1 + levelGrowth.Atk*level) * (1 + starGrowth.Atk*star) * (1 + 0.05*float64(gemCounts["ruby"]))
 		def := float64(base.Def) * (1 + levelGrowth.Def*level) * (1 + starGrowth.Def*star) * (1 + 0.05*float64(gemCounts["sapphire"]))
 		spd := float64(base.Spd)*(1+levelGrowth.Spd*level)*(1+starGrowth.Spd*star) + float64(3*gemCounts["wind"])
 		cr := base.CR + 3*gemCounts["amethyst"]
 		cd, ehr, res := base.CD, base.EHR, base.Res
+		if !state.legacyArenaStats {
+			bonus := gachaArtifactBonuses(own, gemCounts)
+			if state.currentAtelierRules() {
+				addGachaEquipmentBonuses(&bonus, id, own, state.masteryEnabled())
+			}
+			if state.masteryEnabled() && own.Carry != "" {
+				item, ok := gachaCarry.Items[own.Carry]
+				if !ok {
+					return nil, ErrGachaRunState
+				}
+				bonus.addCultivationStat(item.Stat, item.Value)
+			}
+			hp *= 1 + float64(bonus.HP)/100
+			atk *= 1 + float64(bonus.Atk)/100
+			def *= 1 + float64(bonus.Def)/100
+			spd += float64(bonus.Spd)
+			cr += bonus.CR
+			cd += bonus.CD
+		}
+		if state.masteryEnabled() && own.Training != nil {
+			percent, flat := gachaTrainingBonuses(own.Training, state.advancedMasteryEnabled())
+			factor := 1 + float64(percent)/100
+			hp, atk, def = hp*factor+float64(flat.HP), atk*factor+float64(flat.Atk), def*factor+float64(flat.Def)
+			spd += float64(flat.Spd)
+			res += flat.Res
+		}
 		var sigil *GachaSigil
 		if own.Sigil != "" {
 			sigil = state.Sigils[own.Sigil]
@@ -313,6 +350,20 @@ func gachaSquadUnits(state *GachaGameState, side, prefix string) ([]*gachaCombat
 		if len(state.Squad) == 4 && len(elemCounts) == 4 {
 			def *= 1.05
 		}
+		if !state.legacyArenaStats {
+			hp, atk, def, spd = collection.stats(id, own, hp, atk, def, spd)
+		}
+		var refinementEffects []GachaRefinementEffect
+		if state.masteryEnabled() {
+			var flat GachaStats
+			if state.advancedMasteryEnabled() {
+				flat, refinementEffects = gachaEquippedArtifactGrades(own)
+			} else {
+				flat, refinementEffects = gachaEquippedRefinement(own)
+			}
+			hp, atk, def, spd = hp+float64(flat.HP), atk+float64(flat.Atk), def+float64(flat.Def), spd+float64(flat.Spd)
+			cr, cd = cr+flat.CR, cd+flat.CD
+		}
 		combatGirl := *girl
 		combatGirl.Skills.Skill = gachaAwakeningSkill(girl, own)
 		u := &gachaCombatUnit{girl: &combatGirl, GachaBattleUnit: GachaBattleUnit{
@@ -353,9 +404,28 @@ func gachaSquadUnits(state *GachaGameState, side, prefix string) ([]*gachaCombat
 				u.Rage += 45
 			}
 		}
-		u.Rage = min(gachaCatalog.Formula.RageMax, u.Rage)
+		if state.currentAtelierRules() {
+			applyGachaMilestones(u, girl.Role, own.Star)
+		}
+		for _, effect := range refinementEffects {
+			applyGachaCultivationEffect(u, effect.Effect, effect.Value)
+		}
+		if state.masteryEnabled() && own.Carry != "" {
+			applyGachaCarryEffects(u, state, gachaCarry.Items[own.Carry])
+		}
+		if state.masteryEnabled() {
+			applyGachaSkillTraining(u, own.Training, state.advancedMasteryEnabled())
+		}
+		u.Rage = min(gachaCatalog.Formula.RageMax, u.Rage+own.WeaponAwake*gachaCultivation.WeaponRagePerAwake)
 		u.HP = u.MaxHP
 		units = append(units, u)
+	}
+	if state.advancedMasteryEnabled() {
+		applyGachaVigilTeam(state, units)
+		applyGachaSealedRelic(state, units)
+	}
+	if state.mirrorTactic != "" {
+		applyMirrorTactic(units, state.mirrorTactic)
 	}
 	return units, nil
 }
@@ -676,6 +746,7 @@ func (b *gachaCombat) act(u *gachaCombatUnit) {
 		return
 	}
 	var taunter *gachaCombatUnit
+	b.invokeVigil(u, team, foes, "ready")
 	for _, f := range foes {
 		if f.Taunt > 0 {
 			taunter = f
@@ -683,7 +754,7 @@ func (b *gachaCombat) act(u *gachaCombatUnit) {
 		}
 	}
 	if u.girl != nil && u.Rage >= b.formula.RageMax {
-		u.Rage = 0
+		u.Rage = min(b.formula.RageMax, u.castRefund)
 		skill := u.girl.Skills.Skill
 		u.activeSkill = &skill
 		skill.Mult *= 1 + u.skillBoost
@@ -825,4 +896,9 @@ func (b *gachaCombat) act(u *gachaCombatUnit) {
 		}
 	}
 	b.record(event)
+	if event.Skill {
+		b.invokeVigil(u, team, foes, "cast")
+	} else {
+		b.invokeVigil(u, team, foes, "strike")
+	}
 }

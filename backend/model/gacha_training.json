@@ -1,0 +1,29 @@
+{
+  "grades": [
+    {"id":"white","name":"素白","max_plus":2,"level":1,"plus_levels":[1,5]},
+    {"id":"green","name":"青绿","max_plus":2,"level":10,"plus_levels":[5,12]},
+    {"id":"blue","name":"苍蓝","max_plus":3,"level":20,"plus_levels":[6,15,24]},
+    {"id":"purple","name":"绛紫","max_plus":3,"level":30,"plus_levels":[10,20,32]},
+    {"id":"gold","name":"鎏金","max_plus":4,"level":40,"plus_levels":[12,22,32,44]},
+    {"id":"orange","name":"焰橙","max_plus":4,"level":50,"plus_levels":[15,28,40,52]},
+    {"id":"red","name":"绯红","max_plus":5,"level":60,"plus_levels":[20,45,75,110,150]}
+  ],
+  "break_cost":{"ink_base":8,"ink_step":4,"seal_interval":3},
+  "break_percent":1,
+  "experience":{"veteran_level":60,"veteran_growth":10,"master_level":120,"master_growth":25,"materials":[{"id":"training_manual","xp":600},{"id":"field_notes","xp":1200},{"id":"expedition_atlas","xp":3600},{"id":"astral_treatise","xp":7200}],"drops":{"campaign":{"field_notes":1},"campaign_boss":{"field_notes":2},"rift":{"expedition_atlas":1},"nightmare":{"astral_treatise":1}}},
+  "effort_daily":10,
+  "effort_knee":960,
+  "effort_stages":[
+    {"name":"整备","cap":160,"gain":10,"ink":1,"seals":0}, {"name":"扎营","cap":400,"gain":14,"ink":1,"seals":1},
+    {"name":"踏勘","cap":800,"gain":20,"ink":2,"seals":2}, {"name":"巡守","cap":1400,"gain":25,"ink":2,"seals":3},
+    {"name":"拓境","cap":2300,"gain":32,"ink":3,"seals":4}, {"name":"执旗","cap":3600,"gain":44,"ink":3,"seals":6},
+    {"name":"渡险","cap":5600,"gain":56,"ink":4,"seals":8}, {"name":"破阵","cap":8500,"gain":72,"ink":4,"seals":10},
+    {"name":"远征","cap":12500,"gain":90,"ink":5,"seals":14}, {"name":"凌霄","cap":17800,"gain":110,"ink":5,"seals":18},
+    {"name":"极境","cap":24500,"gain":130,"ink":6,"seals":23}, {"name":"摘星","cap":33000,"gain":150,"ink":6,"seals":30}
+  ],
+  "effort_stats":[{"id":"hp","name":"生命","early_step":20,"early_gain":5,"step":20,"gain":1},{"id":"atk","name":"攻击","early_step":20,"early_gain":1,"step":120,"gain":1},{"id":"def","name":"防御","early_step":40,"early_gain":1,"step":160,"gain":1},{"id":"spd","name":"速度","early_step":160,"early_gain":1,"step":1100,"gain":1},{"id":"res","name":"抵抗","early_step":160,"early_gain":1,"step":1500,"gain":1}],
+  "skill_pool":{"capacity":20,"interval_seconds":20,"buy_gold":120,"upgrade_gold_base":30,"upgrade_gold_step":8,"normal_bps":50,"rage_bps":50,"cast_refund_every":5,"normal_rage_every":4},
+  "skill_daily":4,"skill_levels":[5,15,28,42,54],"skill_gold":[100,220,380,600,900],
+  "normal_percent":4,"rage_percent":4,"cast_refund":2,"normal_rage":3,
+  "drops":{"campaign":{"training_ink":2},"campaign_boss":{"training_ink":4,"break_seal":1},"rift":{"training_ink":5,"break_seal":2},"nightmare":{"training_ink":8,"break_seal":3}}
+}

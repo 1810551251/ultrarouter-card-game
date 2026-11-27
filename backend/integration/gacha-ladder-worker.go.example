@@ -1,0 +1,26 @@
+package model
+
+import (
+	"context"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+)
+
+// Start once per host process after migrations. The SQL gate also makes multiple
+// nodes safe. Pass the host's shutdown context; never start a goroutine per user.
+// Settlement uses the 21:00 Asia/Shanghai boundary, regardless of server timezone.
+func RunGachaLadderWorker(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		if err := SettleGachaLadder(ctx, time.Now()); err != nil && ctx.Err() == nil {
+			common.SysError("ranked arena settlement failed: " + err.Error())
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}

@@ -1,24 +1,24 @@
 {
   "format": 1,
-  "reviewed_on": "2026-11-25",
+  "reviewed_on": "2026-11-27",
   "credential_values_recorded": false,
   "files": {
     "backend/model/gacha_game_test.go": {
-      "sha256": "f213247f78bce038220a206b4c955837d02737dac7b3341c336c5c8e0c27d32b",
+      "sha256": "7f33cdbad3d216881ab34dca3f3ad1ed820629e9956915d46e81ade006b14ad0",
       "categories": [
         "quoted_secret"
       ],
       "reason": "Reviewed synthetic test account, mock response or test URL; no production values or production connections."
     },
     "tests/server-authority-check.js": {
-      "sha256": "66850e424c54c6a349f1172d256a15c4b0840d0c76e5adac6e43a0c707a2f28f",
+      "sha256": "d15742f19c6a24b843f36c3252ef9be9da4be36069198bbc913ffd6311b743eb",
       "categories": [
         "quoted_secret"
       ],
       "reason": "Reviewed synthetic test account, mock response or test URL; no production values or production connections."
     },
     "tests/server-ui-check.js": {
-      "sha256": "3e3b4f9f64d3f92708b9ac25615ba6acab3a0dad01fcced0e7753897632e37ca",
+      "sha256": "cf872184b41970ff0ff2f4e66c30391d18daa576fcfa71fe4234a5e45c3253cf",
       "categories": [
         "quoted_secret"
       ],

@@ -62,6 +62,9 @@ type GachaGuildState struct {
 	TotalDamage      int                `json:"total_damage"`
 	ContributionWeek string             `json:"contribution_week"`
 	MyDamage         int                `json:"my_damage"`
+	Listed           bool               `json:"listed,omitempty"`
+	Cargo            [3]int             `json:"cargo,omitempty"`
+	MyCargo          int                `json:"my_cargo,omitempty"`
 }
 
 type GachaGuildView struct {
@@ -78,6 +81,8 @@ type GachaGuildView struct {
 	CanClaim      bool               `json:"can_claim"`
 	RewardClaimed bool               `json:"reward_claimed"`
 	BossElement   string             `json:"boss_element"`
+	Listed        bool               `json:"listed"`
+	Harbor        GachaFleetHarbor   `json:"harbor"`
 }
 
 func gachaWeekKey(now time.Time) string {
@@ -123,6 +128,7 @@ func resetGachaWeeklyModes(state *GachaGameState, now time.Time) {
 	state.WeeklyBoss.Mechanic = weeklyBossMechanic(week)
 	if state.Guild != nil && state.Guild.ContributionWeek != week {
 		state.Guild.ContributionWeek, state.Guild.MyDamage = week, 0
+		state.Guild.MyCargo = 0
 	}
 }
 
@@ -252,18 +258,9 @@ func settleGachaMode(state *GachaGameState, stage *GachaStage, snapshot *GachaRu
 	result.Drops = append(result.Drops, fmt.Sprintf("金币 +%d", gold))
 	matName := map[string]string{"mat_r": "微光结晶", "mat_sr": "元素结晶", "mat_ssr": "星屑"}[stage.MatKey]
 	result.Drops = append(result.Drops, fmt.Sprintf("%s x%d", matName, material))
-	for _, id := range snapshot.Squad {
-		own := state.Girls[id]
-		if own == nil || own.Star <= 0 || own.Level >= gachaCatalog.Growth.MaxLevel {
-			continue
-		}
-		own.Exp += stage.Exp
-		for own.Exp >= own.Level*gachaCatalog.Growth.ExpPerLevel && own.Level < gachaCatalog.Growth.MaxLevel {
-			own.Exp -= own.Level * gachaCatalog.Growth.ExpPerLevel
-			own.Level++
-		}
+	if err := awardGachaExperience(state, snapshot.Squad, stage.Exp, &result.Drops); err != nil {
+		return err
 	}
-	result.Drops = append(result.Drops, fmt.Sprintf("出战少女经验 +%d", stage.Exp))
 	if state.Expedition.Week == snapshot.Week {
 		state.Expedition.Best = max(state.Expedition.Best, snapshot.Floor)
 		state.Expedition.Floor++
@@ -319,6 +316,7 @@ func resetGuildBoss(guild *GachaGuildState, now time.Time) {
 	week := gachaWeekKey(now)
 	if guild.Week != week {
 		guild.Week, guild.BossMaxHP, guild.BossHP, guild.TotalDamage = week, gachaGuildBossMaxHP, gachaGuildBossMaxHP, 0
+		guild.Cargo = [3]int{}
 	}
 }
 
@@ -368,7 +366,8 @@ func getGachaGuildView(tx *gorm.DB, userID int, state *GachaGameState, now time.
 	claimed := state.GuildRewardWeek == week
 	return &GachaGuildView{Code: owner.Code, Name: owner.Name, LeaderID: owner.LeaderID, Members: slices.Clone(owner.Members),
 		BossWeek: week, BossHP: viewOwner.BossHP, BossMaxHP: viewOwner.BossMaxHP, TotalDamage: viewOwner.TotalDamage,
-		MyDamage: myDamage, AttackedToday: state.Daily.GuildAttacked, RewardClaimed: claimed,
+		MyDamage: myDamage, AttackedToday: state.Daily.GuildAttacked, RewardClaimed: claimed, Listed: owner.Listed,
+		Harbor:   fleetHarborView(state, &viewOwner, week),
 		CanClaim: viewOwner.BossHP == 0 && myDamage > 0 && !claimed, BossElement: weeklyBossElement(week)}, nil
 }
 
@@ -416,7 +415,10 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 			if err != nil {
 				return err
 			}
-			if err := common.Unmarshal([]byte(ownerPlayer.State), &ownerState); err != nil {
+			if err := decodeGachaCipherDocument([]byte(ownerPlayer.State), &ownerState); err != nil {
+				return err
+			}
+			if err := migrateGachaEffort(&ownerState); err != nil {
 				return err
 			}
 			resetGachaWeeklyModes(&ownerState, now)
@@ -440,6 +442,11 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 			return err
 		}
 		*result = GachaActionResult{}
+		mailTitle := gachaMailActionTitle(intent.Action)
+		var mailBefore map[string]int
+		if mailTitle != "" {
+			mailBefore = beginGachaMailRewards(state)
+		}
 		owner := &ownerState
 		if leaderID == userID {
 			owner = state
@@ -455,11 +462,11 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 				return ErrGachaGuild
 			}
 			var user User
-			if err := tx.Select("username").First(&user, userID).Error; err != nil {
+			if err := tx.Select("display_name").First(&user, userID).Error; err != nil {
 				return err
 			}
 			state.Guild = &GachaGuildState{Code: fmt.Sprintf("%08X", userID), Name: strings.TrimSpace(*intent.ItemID), LeaderID: userID,
-				Members: []GachaGuildMember{{UserID: userID, Name: user.Username}}, Week: week, BossHP: gachaGuildBossMaxHP, BossMaxHP: gachaGuildBossMaxHP, ContributionWeek: week}
+				Listed: intent.Enabled != nil && *intent.Enabled, Members: []GachaGuildMember{{UserID: userID, Name: fleetPublicName(user.DisplayName, userID)}}, Week: week, BossHP: gachaGuildBossMaxHP, BossMaxHP: gachaGuildBossMaxHP, ContributionWeek: week}
 		case "guild_join":
 			code := strings.ToUpper(*intent.ItemID)
 			if state.Guild != nil || ownerMissing || leaderID == userID || !validGachaGuildOwner(owner.Guild, leaderID, code) {
@@ -479,10 +486,10 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 				return ErrGachaGuild
 			}
 			var user User
-			if err := tx.Select("username").First(&user, userID).Error; err != nil {
+			if err := tx.Select("display_name").First(&user, userID).Error; err != nil {
 				return err
 			}
-			owner.Guild.Members = append(owner.Guild.Members, GachaGuildMember{UserID: userID, Name: user.Username})
+			owner.Guild.Members = append(owner.Guild.Members, GachaGuildMember{UserID: userID, Name: fleetPublicName(user.DisplayName, userID)})
 			state.Guild = &GachaGuildState{Code: code, Name: owner.Guild.Name, LeaderID: leaderID, ContributionWeek: week}
 			ownerChanged = true
 		case "guild_leave":
@@ -499,12 +506,26 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 				}
 			}
 			state.Guild = nil
-		case "guild_attack", "guild_claim":
+		case "guild_attack", "guild_claim", "guild_listing", "guild_supply", "guild_supply_claim":
 			if state.Guild == nil || ownerMissing || !validGachaGuildOwner(owner.Guild, leaderID, state.Guild.Code) ||
 				!slices.ContainsFunc(owner.Guild.Members, func(member GachaGuildMember) bool { return member.UserID == userID }) {
 				return ErrGachaGuild
 			}
 			resetGuildBoss(owner.Guild, now)
+			if intent.Action == "guild_listing" {
+				if leaderID != userID {
+					return ErrGachaGuild
+				}
+				owner.Guild.Listed = *intent.Enabled
+				break
+			}
+			if intent.Action == "guild_supply" || intent.Action == "guild_supply_claim" {
+				if err := applyFleetCargo(state, owner.Guild, intent, result, now); err != nil {
+					return err
+				}
+				ownerChanged = intent.Action == "guild_supply"
+				break
+			}
 			if intent.Action == "guild_claim" {
 				if owner.Guild.BossHP != 0 || state.Guild.MyDamage <= 0 || state.Guild.ContributionWeek != week || state.GuildRewardWeek == week {
 					return ErrGachaGuildLimit
@@ -536,14 +557,16 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 				return err
 			}
 			damage := min(owner.Guild.BossHP, max(250, min(3000, int(int64(power)*int64(variance)*18/10000))))
-			state.Stamina -= 10
+			if err := spendGachaStamina(state, 10, now, &result.Drops); err != nil {
+				return err
+			}
 			state.Daily.GuildAttacked = true
 			state.Gold += 80
 			state.Guild.MyDamage += damage
 			owner.Guild.BossHP -= damage
 			owner.Guild.TotalDamage += damage
 			ownerChanged = true
-			result.Drops = []string{fmt.Sprintf("本次造成 %d 伤害 · 金币 +80", damage)}
+			result.Drops = append(result.Drops, fmt.Sprintf("本次造成 %d 伤害 · 金币 +80", damage))
 			if owner.Guild.BossHP == 0 {
 				result.Drops = append(result.Drops, "首领已讨伐，参与者可领取本周协作奖励")
 			}
@@ -557,6 +580,11 @@ func applyGachaGuildAction(userID int, intent GachaActionIntent, now time.Time) 
 		}
 		if intent.Action == "guild_attack" {
 			recordGachaProgressionActivity(state, "weekly", now)
+		}
+		if mailTitle != "" {
+			if err := mailGachaRewards(state, mailBefore, "action:"+intent.RequestID, mailTitle, now, &result.Drops); err != nil {
+				return err
+			}
 		}
 		if err := storeGachaPlayer(tx, player, state, now); err != nil {
 			return err
