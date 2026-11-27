@@ -81,3 +81,13 @@ func RecordLog(id, kind int, message string) {
 		panic(err)
 	}
 }
+
+// Represents another host subsystem reserving the same wallet row. The SQL
+// condition is atomic; this fixture contains no relay or production service.
+func TryReserveUserQuota(id, amount int) (bool, error) {
+	if amount <= 0 {
+		return false, nil
+	}
+	result := DB.Model(&User{}).Where("id = ? AND status = ? AND quota >= ?", id, common.UserStatusEnabled, amount).Update("quota", gorm.Expr("quota - ?", amount))
+	return result.RowsAffected == 1, result.Error
+}

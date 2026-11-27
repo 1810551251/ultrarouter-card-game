@@ -6,6 +6,8 @@ apt-get install -qy --no-install-recommends ca-certificates curl gcc libc6-dev g
 service mysql start
 service postgresql start
 runuser -u postgres -- createuser root
+mysql --protocol=socket -e 'CREATE DATABASE gacha_upgrade_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+runuser -u postgres -- createdb -O root gacha_upgrade_test
 curl -fsSL https://go.dev/dl/?mode=json\&include=all -o /tmp/go-downloads.json
 curl -fsSL https://go.dev/dl/go1.25.5.linux-amd64.tar.gz -o /tmp/go.tar.gz
 python3 - <<'PY'
@@ -34,7 +36,9 @@ for phase in baseline candidate; do
   cd "$workspace"
   python3 "$harness/setup.py" "$source" "$harness" "/out/$phase-source-hashes.json"
   go mod edit -require=github.com/gin-gonic/gin@v1.10.1 -require=github.com/glebarez/sqlite@v1.11.0 -require=gorm.io/driver/mysql@v1.6.0 -require=gorm.io/driver/postgres@v1.6.0
-  go test -mod=mod -p 1 -parallel 1 -count=1 -timeout=12m -json ./model ./controller > "/out/$phase-tests.jsonl" 2> "/out/$phase-build.txt" || status=1
+  REVIEW_PHASE="$phase" go test -mod=mod -p 1 -parallel 1 -count=1 -timeout=12m -json ./model ./controller -skip '^TestReview' > "/out/$phase-tests.jsonl" 2> "/out/$phase-build.txt" || status=1
+  if [ "$phase" = baseline ]; then case_name=TestReviewProduceLegacy; else case_name=TestReviewUpgradeLegacy; fi
+  REVIEW_PHASE="$phase" go test -mod=mod -p 1 -parallel 1 -count=1 -timeout=8m -json ./model -run "^$case_name$" > "/out/$phase-upgrade-tests.jsonl" 2> "/out/$phase-upgrade-build.txt" || status=1
   if [ -s "/out/$phase-build.txt" ]; then cat "/out/$phase-build.txt"; fi
 done
 python3 "$harness/summarize.py"
