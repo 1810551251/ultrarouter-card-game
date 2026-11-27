@@ -39,6 +39,9 @@ for phase in baseline candidate; do
   REVIEW_PHASE="$phase" go test -mod=mod -p 1 -parallel 1 -count=1 -timeout=12m -json ./model ./controller -skip '^TestReview' > "/out/$phase-tests.jsonl" 2> "/out/$phase-build.txt" || status=1
   if [ "$phase" = baseline ]; then case_name=TestReviewProduceLegacy; else case_name=TestReviewUpgradeLegacy; fi
   REVIEW_PHASE="$phase" go test -mod=mod -p 1 -parallel 1 -count=1 -timeout=8m -json ./model -run "^$case_name$" > "/out/$phase-upgrade-tests.jsonl" 2> "/out/$phase-upgrade-build.txt" || status=1
+  if [ "$phase" = candidate ]; then
+    go test -mod=mod -p 1 -parallel 1 -count=1 -timeout=8m -json ./model -run '^TestReviewActualGuildCombatCorpus$' > /out/actual-combat-tests.jsonl 2> /out/actual-combat-build.txt || status=1
+  fi
   if [ -s "/out/$phase-build.txt" ]; then cat "/out/$phase-build.txt"; fi
 done
 python3 "$harness/summarize.py"
