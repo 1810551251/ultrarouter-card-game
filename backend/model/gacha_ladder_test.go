@@ -234,37 +234,71 @@ func runGachaLadderMatrix(t *testing.T, clock time.Time) {
 	})
 }
 
+var ladderTestZone = time.FixedZone("UTC+8", 8*3600)
+
+func nextLadderTestBoundary(t *testing.T) time.Time {
+	t.Helper()
+	var gate model.GachaLadderGate
+	require.NoError(t, model.DB.First(&gate, 1).Error)
+	return time.UnixMilli(gate.SettledThrough).In(ladderTestZone).Add(24 * time.Hour)
+}
+
+func seedGachaLadderLeaders(t *testing.T, when time.Time) (model.User, model.User) {
+	t.Helper()
+	leader, runnerUp := gachaUser(t), gachaUser(t)
+	for offset, user := range []model.User{leader, runnerUp} {
+		_, err := model.ApplyGachaAction(user.Id, model.GachaActionIntent{RequestID: uuid.NewString(), Action: "ladder_join"}, when)
+		require.NoError(t, err)
+		require.NoError(t, model.DB.Transaction(func(tx *gorm.DB) error {
+			var entry model.GachaLadderEntry
+			if err := tx.First(&entry, user.Id).Error; err != nil {
+				return err
+			}
+			originalRank := entry.Rank
+			if err := tx.Model(&entry).Update("position", 0).Error; err != nil {
+				return err
+			}
+			rank := offset + 1
+			if err := tx.Model(&model.GachaLadderEntry{}).Where("position = ?", rank).Update("position", originalRank).Error; err != nil {
+				return err
+			}
+			return tx.Model(&entry).Updates(map[string]any{"position": rank, "best_rank": rank}).Error
+		}))
+	}
+	return leader, runnerUp
+}
+
+func ladderTestMail(t *testing.T, userID int, boundary time.Time) []model.GachaLadderMail {
+	t.Helper()
+	var mail []model.GachaLadderMail
+	require.NoError(t, model.DB.Where("user_id = ? AND day = ?", userID, boundary.Format("2006-01-02")).Find(&mail).Error)
+	return mail
+}
+
 func runGachaLadderEligibility(t *testing.T) {
-	for _, removal := range []string{"disabled", "deleted", "withdrawn"} {
-		t.Run(removal, func(t *testing.T) {
-			var gate model.GachaLadderGate
-			require.NoError(t, model.DB.First(&gate, 1).Error)
-			boundary := time.UnixMilli(gate.SettledThrough).Add(24 * time.Hour)
+	for _, scenario := range []struct {
+		name, removal string
+		refresh       bool
+	}{
+		{name: "disabled_with_refresh", removal: "disabled", refresh: true},
+		{name: "disabled_without_refresh", removal: "disabled"},
+		{name: "deleted_without_refresh", removal: "deleted"},
+		{name: "withdrawn", removal: "withdrawn"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			previous := nextLadderTestBoundary(t)
+			leader, runnerUp := seedGachaLadderLeaders(t, previous.Add(-time.Minute))
+			require.NoError(t, model.SettleGachaLadder(context.Background(), previous))
+			leaderHistory, runnerHistory := ladderTestMail(t, leader.Id, previous), ladderTestMail(t, runnerUp.Id, previous)
+			require.Len(t, leaderHistory, 1)
+			require.Len(t, runnerHistory, 1)
+			require.Equal(t, 2, runnerHistory[0].Rank)
+			require.Equal(t, model.GachaLadderMaterials{R: 100, SR: 50, SSR: 15}, runnerHistory[0].Materials)
+			boundary := previous.Add(24 * time.Hour)
 			when := boundary.Add(-time.Minute)
-			leader, runnerUp := gachaUser(t), gachaUser(t)
-			for _, user := range []model.User{leader, runnerUp} {
-				_, err := model.ApplyGachaAction(user.Id, model.GachaActionIntent{RequestID: uuid.NewString(), Action: "ladder_join"}, when)
-				require.NoError(t, err)
-			}
-			for rank, user := range []model.User{leader, runnerUp} {
-				require.NoError(t, model.DB.Transaction(func(tx *gorm.DB) error {
-					var entry model.GachaLadderEntry
-					if err := tx.First(&entry, user.Id).Error; err != nil {
-						return err
-					}
-					originalRank := entry.Rank
-					if err := tx.Model(&entry).Update("position", 0).Error; err != nil {
-						return err
-					}
-					if err := tx.Model(&model.GachaLadderEntry{}).Where("position = ?", rank+1).Update("position", originalRank).Error; err != nil {
-						return err
-					}
-					return tx.Model(&entry).Update("position", rank+1).Error
-				}))
-			}
 			cooldown := when.Add(10 * time.Second).UnixMilli()
-			require.NoError(t, model.DB.Model(&model.GachaLadderEntry{}).Where("id = ?", leader.Id).Updates(map[string]any{"used": 4, "day": when.In(time.FixedZone("CST", 8*3600)).Format("2006-01-02"), "cooldown_until": cooldown}).Error)
-			switch removal {
+			require.NoError(t, model.DB.Model(&model.GachaLadderEntry{}).Where("id = ?", leader.Id).Updates(map[string]any{"used": 4, "day": when.Format("2006-01-02"), "cooldown_until": cooldown}).Error)
+			switch scenario.removal {
 			case "disabled":
 				require.NoError(t, model.DB.Model(&leader).Update("status", common.UserStatusDisabled).Error)
 			case "deleted":
@@ -276,23 +310,45 @@ func runGachaLadderEligibility(t *testing.T) {
 				_, err = model.ApplyGachaAction(leader.Id, leave, when)
 				require.NoError(t, err)
 			}
-			view, err := model.GetGachaLadder(runnerUp.Id, when.Add(time.Second))
+			if scenario.refresh {
+				view, err := model.GetGachaLadder(runnerUp.Id, when.Add(time.Second))
+				require.NoError(t, err)
+				require.NotNil(t, view.Me)
+				require.Equal(t, 1, view.Me.Rank)
+			} else if scenario.removal != "withdrawn" {
+				var before model.GachaLadderEntry
+				require.NoError(t, model.DB.First(&before, runnerUp.Id).Error)
+				require.Equal(t, 2, before.Rank, "no ladder request or worker has reclaimed the seat")
+			}
+			require.Empty(t, ladderTestMail(t, runnerUp.Id, boundary))
+			require.NoError(t, model.SettleGachaLadder(context.Background(), boundary))
+			var settledSeat model.GachaLadderEntry
+			require.NoError(t, model.DB.First(&settledSeat, runnerUp.Id).Error)
+			require.Equal(t, 1, settledSeat.Rank)
+			require.Empty(t, ladderTestMail(t, leader.Id, boundary))
+			mail := ladderTestMail(t, runnerUp.Id, boundary)
+			require.Len(t, mail, 1)
+			require.Equal(t, 1, mail[0].Rank)
+			require.Equal(t, model.GachaLadderMaterials{R: 120, SR: 60, SSR: 20}, mail[0].Materials)
+			require.Equal(t, boundary.UnixMilli(), mail[0].SettledAt)
+			for _, retry := range []time.Time{boundary, boundary.Add(time.Minute)} {
+				require.NoError(t, model.SettleGachaLadder(context.Background(), retry))
+				require.Equal(t, mail, ladderTestMail(t, runnerUp.Id, boundary))
+				require.Empty(t, ladderTestMail(t, leader.Id, boundary))
+				require.Equal(t, leaderHistory, ladderTestMail(t, leader.Id, previous))
+				require.Equal(t, runnerHistory, ladderTestMail(t, runnerUp.Id, previous))
+			}
+			view, err := model.GetGachaLadder(runnerUp.Id, boundary.Add(time.Minute))
 			require.NoError(t, err)
+			require.NotNil(t, view.Me)
 			require.Equal(t, 1, view.Me.Rank)
+			require.NotEmpty(t, view.Board)
+			require.Equal(t, runnerUp.Id, view.Board[0].ID)
 			require.Len(t, view.Opponents, 5)
 			for _, entry := range view.Opponents {
 				require.NotEqual(t, leader.Id, entry.ID)
 			}
-			require.NoError(t, model.SettleGachaLadder(context.Background(), boundary))
-			var count int64
-			require.NoError(t, model.DB.Model(&model.GachaLadderMail{}).Where("user_id = ?", leader.Id).Count(&count).Error)
-			require.Zero(t, count)
-			view, err = model.GetGachaLadder(runnerUp.Id, boundary)
-			require.NoError(t, err)
-			require.Len(t, view.Mail, 1)
-			require.Equal(t, model.GachaLadderMaterials{R: 120, SR: 60, SSR: 20}, view.Mail[0].Materials)
-			require.Equal(t, 1, view.Mail[0].Rank)
-			if removal == "withdrawn" {
+			if scenario.removal == "withdrawn" {
 				_, err := model.ApplyGachaAction(leader.Id, model.GachaActionIntent{RequestID: uuid.NewString(), Action: "ladder_join"}, boundary)
 				require.NoError(t, err)
 				view, err := model.GetGachaLadder(leader.Id, boundary)
@@ -301,7 +357,45 @@ func runGachaLadderEligibility(t *testing.T) {
 				require.Equal(t, 1, view.Remaining)
 				require.Equal(t, cooldown, view.Me.CooldownUntil)
 			}
-			t.Logf("%s: rank 2 -> 1; removed-account awards=0; promoted awards=120/60/20; recommendations=5", removal)
+			t.Logf("%s: board rank=1, mail rank=1 and 120/60/20; new rows A/B=0/1 after two retries; prior mail unchanged", scenario.name)
 		})
 	}
+	t.Run("player_challenge_at_cutoff", func(t *testing.T) {
+		for _, scenario := range []struct {
+			name     string
+			offset   time.Duration
+			mailRank int
+			award    model.GachaLadderMaterials
+		}{
+			{name: "before_21", offset: -5 * time.Second, mailRank: 1, award: model.GachaLadderMaterials{R: 120, SR: 60, SSR: 20}},
+			{name: "after_21", offset: 5 * time.Second, mailRank: 2, award: model.GachaLadderMaterials{R: 100, SR: 50, SSR: 15}},
+		} {
+			t.Run(scenario.name, func(t *testing.T) {
+				boundary := nextLadderTestBoundary(t)
+				setup := boundary.Add(-time.Minute)
+				leader, runnerUp := seedGachaLadderLeaders(t, setup)
+				state := gachaState(t, runnerUp.Id, setup)
+				strongGachaState(state)
+				seedGachaState(t, runnerUp.Id, state)
+				first := 1
+				intent := model.GachaActionIntent{RequestID: uuid.NewString(), Action: "ladder_challenge", OpponentID: &leader.Id, Count: &first}
+				result, err := model.ApplyGachaAction(runnerUp.Id, intent, boundary.Add(scenario.offset))
+				require.NoError(t, err)
+				require.NotNil(t, result.Ladder)
+				require.True(t, result.Ladder.Win)
+				require.Equal(t, 2, result.Ladder.OwnBefore)
+				require.Equal(t, 1, result.Ladder.OwnAfter)
+				require.NoError(t, model.SettleGachaLadder(context.Background(), boundary.Add(time.Minute)))
+				challengerMail := ladderTestMail(t, runnerUp.Id, boundary)
+				require.Len(t, challengerMail, 1)
+				require.Equal(t, scenario.mailRank, challengerMail[0].Rank)
+				require.Equal(t, scenario.award, challengerMail[0].Materials)
+				defenderMail := ladderTestMail(t, leader.Id, boundary)
+				require.Len(t, defenderMail, 1)
+				require.Equal(t, 3-scenario.mailRank, defenderMail[0].Rank)
+				require.Equal(t, model.GachaLadderReward(defenderMail[0].Rank), defenderMail[0].Materials)
+				t.Logf("%s: real win 2 -> 1, credited cutoff rank=%d and %d/%d/%d", scenario.name, scenario.mailRank, scenario.award.R, scenario.award.SR, scenario.award.SSR)
+			})
+		}
+	})
 }

@@ -180,21 +180,19 @@ func settleGachaLadder(tx *gorm.DB, now time.Time) error {
 	if err := tx.Model(&GachaLadderEntry{}).Where("position > 0 AND id > 0 AND id NOT IN (?)", enabled).Order("position ASC").Pluck("id", &inactive).Error; err != nil {
 		return err
 	}
+	if err := removeGachaLadderSeats(tx, inactive); err != nil {
+		return err
+	}
 	var gate GachaLadderGate
 	if err := tx.First(&gate, "id = ?", 1).Error; err != nil {
 		return err
 	}
 	due := gachaLadderBoundary(now, 21)
 	if gate.SettledThrough >= due.UnixMilli() {
-		return removeGachaLadderSeats(tx, inactive)
+		return nil
 	}
-	// Ranks cannot have changed since SettledThrough without this settlement.
 	var players []GachaLadderEntry
-	eligible := tx.Select("id", "position", "joined_at").Where("id > 0 AND position > 0")
-	if len(inactive) > 0 {
-		eligible = eligible.Where("id NOT IN ?", inactive)
-	}
-	if err := eligible.Find(&players).Error; err != nil {
+	if err := tx.Select("id", "position", "joined_at").Where("id > 0 AND position > 0").Find(&players).Error; err != nil {
 		return err
 	}
 	for at := time.UnixMilli(gate.SettledThrough).In(gameZone).AddDate(0, 0, 1); !at.After(due); at = at.AddDate(0, 0, 1) {
@@ -209,10 +207,7 @@ func settleGachaLadder(tx *gorm.DB, now time.Time) error {
 			}
 		}
 	}
-	if err := tx.Model(&gate).Update("settled_through", due.UnixMilli()).Error; err != nil {
-		return err
-	}
-	return removeGachaLadderSeats(tx, inactive)
+	return tx.Model(&gate).Update("settled_through", due.UnixMilli()).Error
 }
 
 func removeGachaLadderSeats(tx *gorm.DB, ids []int) error {
