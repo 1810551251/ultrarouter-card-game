@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/QuantumNous/new-api/common"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -8,6 +10,7 @@ import (
 )
 
 var DB, LOG_DB *gorm.DB
+var gameZone = time.FixedZone("UTC+8", 8*60*60)
 const LogTypeSystem = 1
 
 type User struct {

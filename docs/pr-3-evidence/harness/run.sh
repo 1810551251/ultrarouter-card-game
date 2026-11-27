@@ -26,5 +26,15 @@ for phase in legacy current; do
     cp "$root/shared_test.go.example" model/review_shared_test.go
     cp "$root/${phase}_test.go.example" model/review_phase_test.go
     python3 "$root/harness/helpers.py" "$phase"
+    if [ "$phase" = current ]; then
+        mkdir /tmp/pr3-ui
+        git -c safe.directory=/src -C /src archive "$revision" index.html '*.css' js assets > ui.tar
+        tar xf ui.tar -C /tmp/pr3-ui
+        apt-get update -qq
+        DEBIAN_FRONTEND=noninteractive apt-get install -qy --no-install-recommends chromium fonts-noto-cjk python3-venv
+        python3 -m venv /tmp/pr3-browser
+        /tmp/pr3-browser/bin/pip install --disable-pip-version-check playwright==1.56.0
+        cp "$root/harness/browser_test.go.example" model/browser_test.go
+    fi
     go test -mod=mod -p 1 -parallel 1 -count=1 -v ./model -run "^TestGachaPR3${testname}$"
 done
