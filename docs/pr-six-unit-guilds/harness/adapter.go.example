@@ -70,7 +70,14 @@ func lockForUpdate(tx *gorm.DB) *gorm.DB {
 	}
 	return tx.Clauses(clause.Locking{Strength: "UPDATE"})
 }
-func cacheIncrUserQuota(int, int64) error { panic("cache disabled during review") }
+func cacheIncrUserQuota(int, int64) error {
+	// Host wallet helpers may invoke this after committing even with Redis off.
+	// Disabled caches are a no-op; an enabled cache needs a real host adapter.
+	if common.RedisEnabled {
+		panic("cache enabled during review")
+	}
+	return nil
+}
 func syncCreditUserQuotaCache(int, int, string) {
 	if common.RedisEnabled {
 		panic("cache enabled during review")
