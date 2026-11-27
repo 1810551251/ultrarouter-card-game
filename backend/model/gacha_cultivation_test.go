@@ -130,6 +130,7 @@ func runGachaCultivationMatrix(t *testing.T, now time.Time) {
 	t.Run("picked_books_and_oaths_are_idempotent_server_spends", func(t *testing.T) {
 		user := gachaUser(t)
 		state := gachaState(t, user.Id, now)
+		state.Captain.Level = 60 // Feeding requires room below the captain's cap.
 		state.Mats["field_notes"], state.Mats["break_seal"] = 2, 10
 		seedGachaState(t, user.Id, state)
 		feed := cultivationIntent("card_feed", "c01")

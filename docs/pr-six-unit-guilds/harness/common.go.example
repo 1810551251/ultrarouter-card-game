@@ -38,7 +38,8 @@ func GetEnvOrDefaultBool(name string, fallback bool) bool {
 }
 func SysError(message string) { panic(message) }
 func WalletQuotaFromDecimalStrict(value decimal.Decimal) (int, error) {
-	quota := value.Mul(decimal.NewFromInt(500000))
+	// Callers already express the amount in integral wallet quota units.
+	quota := value
 	if quota.IsNegative() || !quota.Equal(quota.Truncate(0)) || quota.GreaterThan(decimal.NewFromInt(MaxWalletQuota)) {
 		return 0, errors.New("invalid quota")
 	}

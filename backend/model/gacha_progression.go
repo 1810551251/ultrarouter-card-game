@@ -629,7 +629,11 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 			}
 			p.Marks += w.Rules.MarksPerWeek
 			p.Permits += w.Rules.PermitsPerWeek
-			own.Shards += w.Rules.ShardsPerWeek
+			if w.Rules.ShardsPerWeek > 0 {
+				if err := grantGachaDirectResources(state, map[string]int{"shard:" + girl.ID: w.Rules.ShardsPerWeek}, result, now); err != nil {
+					return err
+				}
+			}
 			w.Claimed = true
 			result.Drops = append(result.Drops, fmt.Sprintf("\u5468\u5e38\uff1a\u5951\u7ea6\u5370 +%d\u3001\u62db\u52df\u5238 +%d\u3001%s\u788e\u7247 +%d", w.Rules.MarksPerWeek, w.Rules.PermitsPerWeek, girl.Name, w.Rules.ShardsPerWeek))
 			return nil

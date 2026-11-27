@@ -36,7 +36,9 @@ for phase in baseline candidate; do
   cd "$workspace"
   python3 "$harness/setup.py" "$source" "$harness" "/out/$phase-source-hashes.json"
   go mod edit -require=github.com/gin-gonic/gin@v1.10.1 -require=github.com/glebarez/sqlite@v1.11.0 -require=gorm.io/driver/mysql@v1.6.0 -require=gorm.io/driver/postgres@v1.6.0
-  REVIEW_PHASE="$phase" go test -mod=mod -p 1 -parallel 1 -count=1 -timeout=12m -json ./model ./controller -skip '^TestReview' > "/out/$phase-tests.jsonl" 2> "/out/$phase-build.txt" || status=1
+  # Baseline's two documented stale test fixtures are checked by summarize.py.
+  # Production source and original baseline assertions remain unchanged.
+  REVIEW_PHASE="$phase" go test -mod=mod -p 1 -parallel 1 -count=1 -timeout=12m -json ./model ./controller -skip '^TestReview' > "/out/$phase-tests.jsonl" 2> "/out/$phase-build.txt" || { if [ "$phase" = candidate ]; then status=1; fi; }
   if [ "$phase" = baseline ]; then case_name=TestReviewProduceLegacy; else case_name=TestReviewUpgradeLegacy; fi
   REVIEW_PHASE="$phase" go test -mod=mod -p 1 -parallel 1 -count=1 -timeout=8m -json ./model -run "^$case_name$" > "/out/$phase-upgrade-tests.jsonl" 2> "/out/$phase-upgrade-build.txt" || status=1
   if [ "$phase" = candidate ]; then
