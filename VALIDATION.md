@@ -1,5 +1,9 @@
 # Game-Only Export Validation
 
+## Consolidated Review · 2026-11-27
+
+PR #2 contains the fixes and history from PRs #1–#3. The [consolidated report](docs/pr-2-evidence/README.md) records the pinned baseline, Git tree comparison, three real database engines (15/15 focused cases), same-file SQLite upgrade and mail checks, 100 UI assertions, 129 Node tests, 19 Python tests, the release audit, and nine browser screenshots. The dated reports below describe their original revisions, not the consolidated result.
+
 ## Captain, Mailbox, Dungeons And Rankings · 2026-11-27
 
 - **24 focused Node DOM tests and 93 existing server-UI assertions passed.** Coverage includes visible captain XP and the avatar dossier, Beijing meal boundaries, five daily tasks, three dungeon difficulties, star chests, dated sweep intents, fourteen event previews, guild cooperation, five ranking categories and the separate fictional ranking demo. Mail tests verify intent-only requests, no optimistic grants, duplicate-click suppression and late-session responses. Node test files ran serially with one V8 pool worker; the full `npm test` command was not rerun for this revision.

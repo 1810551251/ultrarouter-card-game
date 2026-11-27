@@ -66,6 +66,12 @@ Git 仓库的[本次更新公告](docs/pr-harbor-voyages/README.md)附有桌面�
 
 Not included: the website dashboard, account-management implementation, API-provider relay, QQ bot/binding system, payment platform, production deployment scripts, server addresses, credentials, real accounts, or database files.
 
+## 排名竞技场
+
+排名挑战免费且不碰站点余额。报名保存当前防守阵容，允许其他玩家离线挑战；退出后立即退榜，已结算材料仍可领取。重新报名从榜尾开始，不重置次数或冷却。每天 5 次挑战，北京时间 05:00 重置，21:00 按结算时的名次发放材料。余额匹配和自定义大厅仍是独立入口，要求每场双方自愿且战力差不超过较低方的 20%。
+
+[合并与复审证据](docs/pr-2-evidence/README.md)列出了游戏端的验证条件、结果与截图。宿主迁移和结算任务见 [Backend Integration](backend/INTEGRATION.md)。
+
 ## What Can Run Locally
 
 Use Node.js 24+ and Python 3.10+:

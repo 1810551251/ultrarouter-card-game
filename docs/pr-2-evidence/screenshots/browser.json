@@ -1,0 +1,104 @@
+{
+  "run_type": "actual game UI with synthetic API fixtures",
+  "browser": "156.0.4314.50",
+  "revision": "01dee1b64fa6b2d4dbb8b73d0dccc91a65a154d0",
+  "runs": [
+    {
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "captures": [
+        {
+          "file": "01-ranked-challenges.png",
+          "bytes": 579401,
+          "layout": {
+            "scroll": 1366,
+            "viewport": 1366
+          }
+        },
+        {
+          "file": "02-transient-retry.png",
+          "bytes": 67003,
+          "layout": {
+            "scroll": 1366,
+            "viewport": 1366
+          }
+        },
+        {
+          "file": "03-confirmed-rank-change.png",
+          "bytes": 114788,
+          "layout": {
+            "scroll": 1366,
+            "viewport": 1366
+          }
+        },
+        {
+          "file": "04-daily-materials.png",
+          "bytes": 24425,
+          "layout": {
+            "scroll": 1366,
+            "viewport": 1366
+          }
+        },
+        {
+          "file": "06-withdrawal-consent.png",
+          "bytes": 91778,
+          "layout": {
+            "scroll": 1366,
+            "viewport": 1366
+          }
+        },
+        {
+          "file": "07-today-and-banked-contracts.png",
+          "bytes": 115326,
+          "layout": {
+            "scroll": 1366,
+            "viewport": 1366
+          }
+        },
+        {
+          "file": "08-independent-dispatch-claim.png",
+          "bytes": 56744,
+          "layout": {
+            "scroll": 1366,
+            "viewport": 1366
+          }
+        },
+        {
+          "file": "09-dispatch-claimed.png",
+          "bytes": 56055,
+          "layout": {
+            "scroll": 1366,
+            "viewport": 1366
+          }
+        }
+      ],
+      "actions": [
+        "ladder_challenge",
+        "ladder_leave",
+        "daily_contract_claim",
+        "dispatch_contract_claim"
+      ],
+      "page_errors": []
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "captures": [
+        {
+          "file": "05-ladder-mobile.png",
+          "bytes": 58241,
+          "layout": {
+            "scroll": 390,
+            "viewport": 390
+          }
+        }
+      ],
+      "actions": [],
+      "page_errors": []
+    }
+  ]
+}

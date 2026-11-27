@@ -114,6 +114,14 @@ Run the existing power-index initialization on upgrade and ship all embedded cat
 
 Keep the cipher generation seed in the private player-document envelope only. Do not return it, answers or solver state in profiles, action receipts or ranked snapshots. Optional desks hide on older hosts without their corresponding profile rules. Do not enable new clients against an unpatched action handler.
 
+## Ranked Arena
+
+Install the four `GachaLadder*` tables and the session-scoped read routes from `integration/`. After the host account tables exist, `InitializeGachaLadder` seeds 100 NPCs on an empty ladder and retains existing seats on subsequent runs. Run the host worker in `integration/gacha-ladder-worker.go.example` after migration. It settles at Beijing 21:00; a missed tick is caught up before the next successful rank mutation. Neither ranked challenges nor their claims touch E balances or the E matchmaking allowance.
+
+`ladder_join` opts in to asynchronous defense and saves the current squad. `ladder_defense` refreshes the snapshot. `ladder_leave` removes the active seat, but preserves earned claims, battle history, daily usage and cooldown. Rejoining appends to the tail. `ladder_challenge` verifies `opponent_id` and `count` (expected position); a stale quote changes no balance, rank or attempt. `ladder_claim` uses the entitlement date as `item_id` and commits the inventory delta, claimed marker and request receipt together.
+
+Under the SQL gate, disabled and missing accounts cannot receive newly generated entitlements. Inactive seats are removed and the positive ranks compacted. Catch-up prices overdue days using the previously stored ranks of currently eligible accounts, then applies compaction for subsequent settlements; the game has no historical account-status feed from the host. Claims already settled are not rewritten. Free ranked play has a rank neighborhood, not a power-difference restriction; the existing per-match consent and symmetric power checks for E play still apply.
+
 ## Validation In A Host
 
 Run these commands from your **own compatible host checkout**, inside the shared capped test container:
