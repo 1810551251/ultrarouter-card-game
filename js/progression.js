@@ -287,6 +287,7 @@ async function unlockShardGirl(id) {
   if (document.body.dataset.page === "page-squad") renderSquad();
   if (document.body.dataset.page === "page-bag") renderBag();
   if (document.body.dataset.page === "page-gacha") renderGacha();
+  if (document.body.dataset.page === "page-codex" && typeof renderCodex === "function") { renderCodex(); return; }
   openGirl(id);
 }
 

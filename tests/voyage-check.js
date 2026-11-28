@@ -32,7 +32,7 @@ function voyageHarness(context) {
   context.after(() => dom.window.close());
   const doc = dom.window.document, book = sampleVoyage();
   const save = {gold:700, token:20, stamina:120, staminaMax:120, squad:["c08"], girls:{}, mats:{}, daily:{date:"2026-11-27", voyage_attempts:{}}, captain:{level:7}, cleared:{}, stars:{}, voyage_claims:{}};
-  dom.window.eval(["config","data","store","ui","voyage-map","voyage"].map(name => read(`js/${name}.js`)).join("\n;\n") + `\nconst BAT=null;function requireGame(){return Store.ready()} function renderTopbar(){} function toast(){} function closeOnly(){closeModal()} function nav(page){document.body.dataset.page=page;if(page==='page-stage')renderStage()} function startBattle(id){window.started=id} window.mapAPI={Store,openVoyage,openVoyageChests,renderStage,renderVoyage,renderVoyageSummary,voyageLedger,updateStageRunLimits,voyageResultSummary,voyageStage,closeOnly,setup(state){SAVE=state}};`);
+  dom.window.eval(["config","data","store","ui","reward-chests","voyage-map","voyage"].map(name => read(`js/${name}.js`)).join("\n;\n") + `\nconst BAT=null;function requireGame(){return Store.ready()} function renderTopbar(){} function toast(){} function closeOnly(){closeModal()} function nav(page){document.body.dataset.page=page;if(page==='page-stage')renderStage()} function startBattle(id){window.started=id} window.mapAPI={Store,openVoyage,openVoyageChests,renderStage,renderVoyage,renderVoyageSummary,voyageLedger,updateStageRunLimits,voyageResultSummary,voyageStage,closeOnly,setup(state){SAVE=state}};`);
   const api = dom.window.mapAPI, find = selector => doc.querySelector(selector), all = selector => [...doc.querySelectorAll(selector)];
   api.Store.ready = () => true; api.Store.profile = {voyage:book,items:JSON.parse(read("backend/model/gacha_items.json"))}; api.setup(save);
   api.Store.serverNow = () => Date.parse("2026-11-27T12:00:00+08:00");
@@ -72,7 +72,7 @@ test("home star rewards count unique mainline records and deep-link to a claimab
   assert.equal(find('[data-voy-mode="hard"]').getAttribute("aria-pressed"),"true");
   assert.equal(find("[data-voy-chest-detail]").dataset.voyChestDetail,"c1-hard-1"); assert.equal(find("[data-voy-claim]").disabled,false);
   assert.match(find('[data-voy-chest="c1-hard-1"]').textContent,/可领取/); assert.match(find('[data-voy-chest="c1-hard-2"]').textContent,/还差 3 星/);
-  assert.equal(all('#starRewards .chest-art svg').length,3); assert.equal(find('#starRewards progress').max,9); assert.deepEqual(calls,[]);
+  assert.equal(all('#starRewards .chest-art img[src^="assets/world/box_"]').length,3); assert.equal(find('#starRewards progress').max,9); assert.deepEqual(calls,[]);
   api.closeOnly(); save.voyage_claims['c1-hard-1']=true; api.openVoyageChests(); assert.equal(find("[data-voy-chest-detail]").dataset.voyChestDetail,"c1-story-1");
   assert.match(find("[data-voy-claim]").textContent,/还差 5 星/); assert.equal(find("[data-voy-claim]").disabled,true);
   api.closeOnly(); delete api.Store.profile.voyage; api.renderVoyageSummary(); api.openVoyageChests();

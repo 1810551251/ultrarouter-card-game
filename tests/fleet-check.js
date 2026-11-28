@@ -26,6 +26,7 @@ function setup(context, guild = null, hash = "") {
   const ui = fs.readFileSync(path.join(__dirname, "../js/ui.js"), "utf8");
   window.eval(ui.slice(ui.indexOf("function esc("), ui.indexOf("/* ---------- 页面路由")));
   window.eval(`${fs.readFileSync(path.join(__dirname, "../js/data.js"), "utf8")}\nwindow.GIRLS = GIRLS;`);
+  window.eval(fs.readFileSync(path.join(__dirname, "../js/reward-chests.js"), "utf8"));
   window.eval(fs.readFileSync(path.join(__dirname, "../js/fleet.js"), "utf8"));
   const document = window.document;
   const click = selector => {

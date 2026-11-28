@@ -444,6 +444,7 @@ function renderArtifactPool() {
   const artifacts = !!workshopRules(), world = typeof renderWorldPool === "function", enabled = artifacts || world, pool = drawPoolState().id;
   const tabs = document.getElementById("gacha-pools"), body = document.getElementById("artifact-draw");
   if (!tabs || !body) return false;
+  body.dataset.drawPool = pool;
   const active = enabled && pool !== "heroes";
   tabs.hidden = !enabled; body.hidden = !active;
   for (const control of document.querySelectorAll("#gacha-banner,#gacha-pity,#page-gacha>.gacha-btns,#gacha-result,#gacha-extra")) control.classList.toggle("pool-inactive", active);

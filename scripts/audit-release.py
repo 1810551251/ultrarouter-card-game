@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = {
-    'arena-ladder.css',
+    'arena-ladder.css', 'world.css', 'codex.css', 'reward-chests.css',
     'index.html', 'style.css', 'battle.css', 'battle-motion.css', 'battle-menu.css', 'mobile.css', 'harbor.css', 'voyage.css', 'voyage-map.css', 'voyage-screen.css', 'fleet.css', 'harbor-mail.css', 'package.json', 'package-lock.json',
     '.gitignore', '.gitattributes',
     'README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'ASSETS.md',
@@ -70,9 +70,9 @@ SCOPED_FILES = {
         'tests/festival-check.js', 'tests/captain-check.js', 'tests/voyage-check.js', 'tests/fleet-check.js', 'tests/mail-check.js',
         'tests/ladder-rewards-check.js', 'tests/squad-drag-check.js', 'tests/guild-growth-check.js',
         'tests/unit-catalog-check.js', 'tests/battle-formation-check.js', 'tests/battle-motion-check.js', 'tests/battle-menu-check.js',
-        'tests/world-check.js', 'tests/economy-check.js',
+        'tests/world-check.js', 'tests/economy-check.js', 'tests/codex-check.js',
     },
-    'js': {'js/'+name+'.js' for name in ('config', 'store', 'data', 'ui', 'market', 'world', 'ladder', 'progression', 'atelier', 'carry', 'training', 'experience', 'cases', 'vigil', 'dispatch', 'cipher', 'workshop', 'battle', 'battle-motion', 'captain', 'voyage', 'voyage-map', 'fleet', 'festival', 'mail', 'main')},
+    'js': {'js/'+name+'.js' for name in ('config', 'store', 'data', 'ui', 'codex', 'codex-data', 'codex-effects', 'reward-chests', 'market', 'world', 'ladder', 'progression', 'atelier', 'carry', 'training', 'experience', 'cases', 'vigil', 'dispatch', 'cipher', 'workshop', 'battle', 'battle-motion', 'captain', 'voyage', 'voyage-map', 'fleet', 'festival', 'mail', 'main')},
     '.github': {'.github/workflows/game-checks.yml'},
 }
 IGNORED_PARTS = {'node_modules', 'dist', '__pycache__', '.git', '.local', '.cache'}

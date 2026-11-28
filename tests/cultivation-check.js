@@ -19,7 +19,7 @@ function workshop(context) {
   const dom = new JSDOM(read("index.html"), { runScripts: "outside-only" });
   context.after(() => dom.window.close());
   const state = { squad: ["c01"], girls: { c01: owned(5) }, mats: {}, sigils: {}, daily: {}, cleared: {}, stars: {} };
-  const scripts = ["config", "store", "data", "ui", "progression", "atelier", "training", "carry", "workshop", "battle"].map(name => read(`js/${name}.js`));
+  const scripts = ["config", "store", "data", "ui", "progression", "atelier", "training", "carry", "workshop", "battle", "codex-data", "codex"].map(name => read(`js/${name}.js`));
   dom.window.eval(scripts.join("\n;\n") + `
     function requireGame() { return Store.ready(); }
     window.workshop = { Store, finalStats, artifactBonuses, individualBonuses, growthStarMax, growthStarCost, growthStarStep, shardReserve,
@@ -151,8 +151,9 @@ test("fellowships add before the per-stat cap; all four role milestones describe
     assert.ok(node.textContent.includes(step.name) && node.textContent.includes(step.description));
   }
   view.openGirl("c28");
-  assert.equal(document.querySelectorAll("#modal-box [data-star-milestone]").length, 4, "even an unowned card previews its route");
-  assert.equal(document.querySelectorAll('#modal-box button[onclick="closeModal()"].gbtn').length, 1);
+  assert.equal(document.body.dataset.page, "page-codex", "an unowned card opens its atlas dossier");
+  assert.equal(document.querySelectorAll("#codex-detail [data-star-milestone]").length, 4, "even an unowned card previews its route in the codex");
+  assert.ok(document.querySelector("#modal-mask").classList.contains("hidden"));
 });
 
 test("the item guide uses seven independent quality tiers and covers actual equipment and draw pools", () => {
@@ -350,7 +351,7 @@ test("unlocking an undeployed partner immediately refreshes the squad collection
   state.girls.c04 = owned(4, 20);
   state.girls.c11 = { ...owned(0, 0), shards: catalog.RARITY.SR.shardToUnlock };
   view.renderSquad();
-  assert.ok(document.querySelector('#owned-list [data-id="c11"]').classList.contains("card-locked"));
+  assert.equal(document.querySelector('#owned-list [data-id="c11"]'), null, "enough shards still do not make an acquired hero");
   view.Store.mutate = async (action, fields) => {
     assert.equal(action, "shard_unlock");
     assert.deepEqual(plain(fields), { girl_id: "c11" });

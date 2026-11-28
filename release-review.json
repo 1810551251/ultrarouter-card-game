@@ -11,14 +11,14 @@
       "reason": "Reviewed synthetic test account, mock response or test URL; no production values or production connections."
     },
     "tests/server-authority-check.js": {
-      "sha256": "c29b4f5cd3d2820ca8f0dfc1ce390a1f3d3feb8d3b71f9fa77b0ccd9d69de47c",
+      "sha256": "ba95bc45f3cb88d73b4790f0325c5db0833f7b399674757850bc59d19e680bd2",
       "categories": [
         "quoted_secret"
       ],
       "reason": "Reviewed synthetic test account, mock response or test URL; no production values or production connections."
     },
     "tests/server-ui-check.js": {
-      "sha256": "0b77ab8d2c94e47af0b53c21027aafe02c434d1f6ffe4138eb16cd15837516ce",
+      "sha256": "9f0b7bda24a81df1e9cfb91ef93e53125aad4abc259397c6dbd49e32f551b495",
       "categories": [
         "quoted_secret"
       ],

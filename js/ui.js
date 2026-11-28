@@ -11,6 +11,7 @@ function esc(value) {
 /* ---------- 页面路由 ---------- */
 function nav(pageId) {
   if (!requireGame()) return;
+  if (pageId !== "page-codex" && typeof closeCodexDialogs === "function") closeCodexDialogs(false);
   if (typeof discardArtifactReturn === "function") discardArtifactReturn();
   stopArenaPolling();
   if (typeof stopGrowthRestTimer === "function") stopGrowthRestTimer();
@@ -26,7 +27,7 @@ function nav(pageId) {
   document.body.classList.toggle("in-battle", pageId === "page-battle");  // 横屏战斗全屏态
   document.body.dataset.page = pageId;                                    // 供样式按页面微调
   const R = { "page-home": renderHome, "page-gacha": renderGacha,
-              "page-squad": renderSquad, "page-stage": renderStage,
+              "page-squad": renderSquad, "page-codex": typeof renderCodex === "function" ? renderCodex : null, "page-stage": renderStage,
               "page-modes": renderModes, "page-growth": typeof renderGrowth === "function" ? renderGrowth : null,
               "page-bag": renderBag, "page-shop": renderShop, "page-arena": renderArena,
               "page-captain": typeof renderCaptain === "function" ? renderCaptain : null,
@@ -472,9 +473,9 @@ function renderSquad() {
     <span>均速 <b>${Math.round(agg.spd / n)}</b></span>
     <div class="bond-line"><b>上阵羁绊</b>${squadBondLabels(SAVE.squad).map(x => `<span>${esc(x)}</span>`).join("")}</div>${collectionAlbumMarkup()}`;
 
-  // 列表：图鉴全量展示（未获得置灰），在队优先，其次已拥有、稀有度、等级
+  // 编队只列出已获得的整卡；未获得英雄与碎片进度在独立图鉴中查看。
   const order = { SSR: 0, SR: 1, R: 2 };
-  const ids = GIRLS.map(g => g.id).sort((a, b) => {
+  const ids = GIRLS.filter(g => SAVE.girls[g.id]?.star > 0).map(g => g.id).sort((a, b) => {
     const ia = SAVE.squad.indexOf(a), ib = SAVE.squad.indexOf(b);
     const ina = ia >= 0, inb = ib >= 0;
     if (ina !== inb) return ina ? -1 : 1;
@@ -486,16 +487,11 @@ function renderSquad() {
       || (SAVE.girls[b] ? SAVE.girls[b].level : 0) - (SAVE.girls[a] ? SAVE.girls[a].level : 0);
   });
   document.getElementById("owned-title").textContent =
-    "图鉴 " + Object.values(SAVE.girls).filter(g => g.star > 0).length + "/" + GIRLS.length +
+    "已拥有 " + ids.length + "/" + GIRLS.length +
     " · 在队 " + SAVE.squad.length + " 位";
   document.getElementById("owned-list").innerHTML = ids.map(id => {
     const g = GIRLS.find(x => x.id === id);
     const own = SAVE.girls[id];
-    if (!own || own.star <= 0) return `<div class="card r-${g.rarity} card-locked" data-id="${id}" title="尚未获得">
-      <img src="${g.img}" loading="lazy">
-      <span class="shard-n">${own?.shards > 0 ? "碎片 " + own.shards : ""}</span>
-      <div class="name">${g.name}<i>${(own?.shards || 0) >= RARITY[g.rarity].shardToUnlock ? "可合成召唤" : "未获得"}</i></div>
-    </div>`;
     const slot = SAVE.squad.indexOf(id);          // -1 = 未上阵
     const inSquad = slot >= 0;
     return `<div class="card r-${g.rarity} ${inSquad ? "in-team" : ""}" data-id="${id}" ${typeof trainingFrame === "function" ? trainingFrame(own) : ""} data-prestige-card="${own.star >= 12 ? "crown" : own.star >= 9 ? "crimson" : own.star >= 6 ? "gold" : ""}">
@@ -506,7 +502,7 @@ function renderSquad() {
       <div class="name">${g.name} ${typeof trainingGradeTag === "function" ? trainingGradeTag(own) : ""}<i>Lv${own.level} · ${own.star}星${own.talent ? ` · ${TALENTS[own.talent]?.name || "天赋"}` : ""}</i></div>
       <span class="quick-toggle" title="${inSquad ? "移出队伍" : "加入队伍"}">${inSquad ? "−" : "+"}</span>
     </div>`;
-  }).join("");
+  }).join("") || '<p class="squad-empty">尚未获得伙伴，可前往图鉴查看获取途径。</p>';
 
   // 事件委托：点角标快速上下阵，点卡片打开详情
   document.querySelectorAll("#owned-list .card").forEach(card => {
@@ -660,7 +656,7 @@ async function selectSquadSlot(index) {
   const id = SAVE.squad[index];
   if (!id) {
     if (squadSelectedId) return moveSquadCard(squadSelectedId, index);
-    return toast("从下方图鉴点 + 上阵，或拖动队员到这里移至队尾");
+    return toast("从下方已拥有伙伴点 + 上阵，或拖动队员到这里移至队尾");
   }
   if (!squadSelectedId || !SAVE.squad.includes(squadSelectedId)) squadSelectedId = id;
   else if (squadSelectedId === id) squadSelectedId = null;
@@ -976,6 +972,8 @@ function refreshCultivationViews(id) {
     }
   }
   if (page === "page-squad") renderSquad();
+  if (page === "page-codex" && typeof renderCodex === "function") renderCodex();
+  if (page === "page-captain" && typeof renderCaptain === "function") renderCaptain();
   if (page === "page-home") renderGrowthSummary();
   renderTopbar();
   if (document.querySelector("#modal-mask:not(.hidden) [data-cultivation-card]")?.dataset.cultivationCard === id) {
@@ -1023,6 +1021,7 @@ function openGirl(id) {
   const g = GIRLS.find(x => x.id === id);
   if (!g) return;
   const own = SAVE.girls[id];
+  if (!(own?.star > 0) && typeof openCodex === "function") return openCodex(id);
   if (own?.star && typeof openWorkshop === "function" && workshopRules()) return openWorkshop(id);
   const s = finalStats(id);
   const el = ELEM[g.elem], rar = RARITY[g.rarity];

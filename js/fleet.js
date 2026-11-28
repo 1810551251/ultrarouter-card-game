@@ -37,9 +37,16 @@ function fleetGrowth(guild) {
 function fleetCrew(guild) {
   if (!guild) return fleetNoGuild();
   const harbor = guild.harbor;
+  const beacons = harbor?.beacons.map(beacon => rewardChestCard({
+    title:beacon.name, threshold:`三个工位各 ${beacon.goal} 份`, tier:beacon.tier,
+    state:beacon.claimed ? "claimed" : beacon.eligible ? "ready" : "locked",
+    status:beacon.claimed ? "已领取" : beacon.eligible ? "领取物资" : "未达成",
+    rewards:[{name:fleetResourceName("gold"), count:beacon.gold}, {name:fleetResourceName("forge_ore"), count:beacon.ore}],
+    attributes:{"data-fleet-act":"claim", "data-value":String(beacon.tier)}, disabled:!beacon.eligible
+  })).join("") || "";
   return `${fleetGuildHeader(guild)}<div class="guild-overview-links">${fleetButton("每日任务与公会成长", "tab", "growth")}${fleetButton("进入公会副本", "tab", "raid")}${fleetButton("打开公会商店", "tab", "shop")}${fleetButton("查看成员与职位", "tab", "members")}</div>
     ${harbor ? `<section class="fleet-section"><div class="fleet-section-title"><h3>母港共建</h3><small>本周交付 ${fleetNumber(harbor.my_cargo)} 次 · ${harbor.supplied ? "今日已交付" : "今日任选一项"}</small></div><p class="fleet-note">每日交付获得公会经验 40、公会币 35，并推进全会物资集结目标。公会成长永久保留，个人币不随退会清零。</p><div class="fleet-lanes">${harbor.lines.map((line, index) => `<article><small>工位 0${index + 1}</small><h4>${esc(line.name)}</h4><progress aria-label="${esc(line.name)}进度" value="${line.done}" max="${harbor.line_limit}"></progress><small>${fleetNumber(line.done)} / ${fleetNumber(harbor.line_limit)} 份</small>${fleetButton(`${line.cost} · 交付`, "supply", line.id, !line.eligible)}</article>`).join("")}</div>
-    <h4 class="fleet-minor-title">共建里程</h4><p class="fleet-note">三个工位同时达标后，本周在本会交付过的成员可领取。每档每账号每周一次，奖励直接入库。</p><div class="fleet-list">${harbor.beacons.map(beacon => `<div class="fleet-row"><span class="fleet-ordinal">${beacon.tier}</span><div><b>${esc(beacon.name)}</b><small>各 ${beacon.goal} 份 · 金币 ${beacon.gold}、星锻矿 ${beacon.ore}</small></div>${fleetButton(beacon.claimed ? "已领取" : beacon.eligible ? "领取物资" : "未达成", "claim", String(beacon.tier), !beacon.eligible)}</div>`).join("")}</div></section>` : ""}
+    <h4 class="fleet-minor-title">共建里程</h4><p class="fleet-note">三个工位同时达标后，本周在本会交付过的成员可领取。每档每账号每周一次，奖励直接入库。</p><div class="reward-chest-grid" tabindex="0" role="group" aria-label="公会共建里程宝箱">${beacons}</div></section>` : ""}
     <section class="fleet-section"><h3>公会成长路线</h3><div class="guild-roadmap"><span><b>Lv.1</b>10 位成员 · 暗礁守卫</span><span><b>Lv.3</b>20 位成员 · 深潮统领</span><span><b>Lv.5</b>30 位成员 · 深渊主宰</span><span><b>Lv.7</b>40 位成员 · 高阶远征</span><span><b>Lv.9</b>50 位成员 · 终阶远征</span><span><b>Lv.10</b>55 位成员 · 母港满级</span></div><p class="fleet-note">公会副本与商店提供额外成长资源。等级、职位和成员容量由母港记录共同维护。</p>${guild.can_manage || Store.profile.user_id === guild.leader_id ? fleetButton(guild.listed ? "停止公开招募" : "开启公开招募", "listing", guild.listed ? "off" : "on") : ""}</section>`;
 }
 function fleetRaidRanking(guild) {

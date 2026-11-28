@@ -59,6 +59,8 @@ Included: the browser game, 28 character definitions, game artwork, server-owned
 
 Git 仓库的[本次更新公告](docs/pr-six-unit-guilds/README.md)与[合并验证记录](docs/pr-six-unit-guilds/VALIDATION.md)包含六人战斗、公会与领奖改动、三库升级数据和桌面／手机截图。截图与图表使用独立 GitHub 图床，不随游戏源文件压缩包分发；[上一版公告](docs/pr-harbor-voyages/README.md)继续保留。
 
+最新的[强者世界、人物图鉴与每日任务更新说明](docs/pr-codex-daily-world-ui/README.md)包含界面配图、碎片合成规则、九项每日任务导航验收及独立图床索引。
+
 ## 卡牌培养
 
 打开「成长」或从「编队」点卡进入工坊：用顶部下拉框切换已获得的角色，卡面保留当前突破色、星级和实际属性，其余空间用于培养。培养和收藏羁绊不要求上阵；装备套装、战斗见证和队阵只看对应的实装、出战成员。

@@ -148,7 +148,7 @@ function check(condition, label) { assert.ok(condition, label); checks++; consol
   await G.Store.profilePromise;
   check(G.Store.ready(), "valid site session unlocks server save");
   check(w.document.getElementById("title-screen").classList.contains("hidden"), "authenticated gate is hidden");
-  for (const page of ["home", "gacha", "squad", "stage", "growth", "bag"]) {
+  for (const page of ["home", "gacha", "squad", "codex", "stage", "growth", "bag"]) {
     G.nav("page-" + page);
     check(w.document.body.dataset.page === "page-" + page, "renders " + page);
   }
@@ -178,11 +178,12 @@ function check(condition, label) { assert.ok(condition, label); checks++; consol
   w.pickChapter(5);
   check(w.document.querySelectorAll("#node-track .node.locked").length === 6, "nightmare rifts remain locked before their corresponding rifts are cleared");
   G.nav("page-squad");
-  const locked = w.document.querySelector('[data-id="c14"]');
-  check(locked.classList.contains("card-locked") && !locked.querySelector(".quick-toggle"), "shards do not count as owned or permit squad toggle");
-  check(w.document.getElementById("owned-title").textContent.includes("4/" + catalog.GIRLS.length), "owned count excludes locked shards");
+  check(!w.document.querySelector('#owned-list [data-id="c14"]'), "shard-only heroes do not appear in the formation roster");
+  check(w.document.querySelectorAll("#owned-list .card").length === 4, "formation roster only contains acquired heroes");
   G.openGirl("c14");
-  check(!w.document.getElementById("modal-box").innerHTML.includes("levelUp("), "locked character has no upgrade action");
+  check(w.document.body.dataset.page === "page-codex", "unacquired hero details open in the codex");
+  check(w.document.querySelector('#codex-grid [data-codex-id="c14"]').dataset.status === "shards", "codex shows the shard-only hero's actual acquisition state");
+  check(!w.document.querySelector('#codex-detail [data-codex-action="workshop"],#codex-detail [data-codex-action="squad"]'), "unacquired codex hero cannot train or join a squad");
   G.closeModal();
   const beforeGrowth = server.calls.length;
   await G.levelUp("c08");

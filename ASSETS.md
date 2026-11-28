@@ -9,3 +9,5 @@ The maintainer requested publication of the existing card game, including the su
 Background and UI artwork provenance still needs confirmation. The code's AGPL license does not automatically establish an artwork license.
 
 The previous asset inspection found no EXIF or XMP metadata in the 95 WebP files; animation/playback metadata is not a licensing review. The source ZIP is checked again for known private markers, including binary metadata.
+
+Strong World UI assets in `assets/world/` were extracted on 2026-11-28 from the legacy mobile game project supplied by the user, at their request to reproduce that activity screen. This set contains only activity backgrounds, title artwork, controls, rank badges and reward chests; characters continue to use this project's artwork. The 40 PNG resources were converted to lossless WebP without resizing and checked for identical RGBA pixels. `assets/PROVENANCE.json` records the source APK hash, each original logical asset path and SHA256, output SHA256 and dimensions. This source record and reproduction request do not establish an independent public artwork license.

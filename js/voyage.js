@@ -182,7 +182,7 @@ function voyageChestPanel(chests,total,maximum) {
   return `<section id="starRewards" class="star-panel voy-chests" aria-label="副本星级宝箱"><div class="star-top"><h2>${voyageIcon("chest")}副本星级宝箱</h2><span aria-label="本章此难度 ${total} / ${maximum} 星">${voyageIcon("star")}<b>${total}</b><small> / ${maximum}</small></span></div><nav class="chest-grid" aria-label="三档星级奖励">${chests.map((chest,index) => {
     const claimed = !!SAVE.voyage_claims?.[chest.id], ready = !claimed && total >= chest.stars;
     const status = claimed ? "已领取" : ready ? "可领取" : `还差 ${chest.stars-total} 星`;
-    return `<button type="button" data-voy-chest="${esc(chest.id)}" data-tier="${index+1}" class="chest-button ${claimed ? "claimed" : ready ? "ready" : ""}" aria-label="${chest.stars} 星宝箱，${status}"><span class="chest-art">${voyageIcon(claimed ? "check" : "chest")}</span><span><b>${chest.stars} <span aria-hidden="true">★</span></b><small>${status}</small></span></button>`;
+    return `<button type="button" data-voy-chest="${esc(chest.id)}" data-tier="${index+1}" class="chest-button ${claimed ? "claimed" : ready ? "ready" : ""}" aria-label="${chest.stars} 星宝箱，${status}"><span class="chest-art">${rewardChestArt({tier:index + 1, state:claimed ? "claimed" : ready ? "ready" : "locked"})}</span><span><b>${chest.stars} <span aria-hidden="true">★</span></b><small>${status}</small></span></button>`;
   }).join("")}</nav><progress class="star-track" value="${total}" max="${maximum}" aria-label="章节星级进度"></progress></section>`;
 }
 
