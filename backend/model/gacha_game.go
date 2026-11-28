@@ -166,14 +166,16 @@ type GachaGameState struct {
 	previousTraining bool
 }
 type GachaStats struct {
-	HP  int `json:"hp"`
-	Atk int `json:"atk"`
-	Def int `json:"def"`
-	Spd int `json:"spd"`
-	CR  int `json:"cr"`
-	CD  int `json:"cd"`
-	EHR int `json:"ehr"`
-	Res int `json:"res"`
+	SpAtk int `json:"spAtk,omitempty"`
+	SpDef int `json:"spDef,omitempty"`
+	HP    int `json:"hp"`
+	Atk   int `json:"atk"`
+	Def   int `json:"def"`
+	Spd   int `json:"spd"`
+	CR    int `json:"cr"`
+	CD    int `json:"cd"`
+	EHR   int `json:"ehr"`
+	Res   int `json:"res"`
 }
 
 type GachaGemSpec struct {
@@ -190,6 +192,8 @@ var gachaGemSpecs = map[string]GachaGemSpec{
 }
 
 type GachaSkill struct {
+	Cooldown      int     `json:"cooldown,omitempty"`
+	IgnoreSpDef   float64 `json:"ignoreSpDef,omitempty"`
 	Name          string  `json:"name"`
 	Target        string  `json:"target"`
 	Mult          float64 `json:"mult"`
@@ -219,24 +223,29 @@ type GachaSkill struct {
 	LowHPShield   float64 `json:"lowHPShield,omitempty"`
 }
 type GachaSkills struct {
-	Normal GachaSkill `json:"normal"`
-	Skill  GachaSkill `json:"skill"`
+	Normal          GachaSkill `json:"normal"`
+	Skill           GachaSkill `json:"skill"`
+	JoineryUltimate GachaSkill `json:"xs039-skill-2,omitempty"`
 }
 type GachaGirl struct {
-	ID       string      `json:"id"`
-	Sources  []string    `json:"sources,omitempty"`
-	Name     string      `json:"name"`
-	Rarity   string      `json:"rarity"`
-	Elem     string      `json:"elem"`
-	Role     string      `json:"role"`
-	AtkType  string      `json:"atkType"`
-	Img      string      `json:"img"`
-	Base     GachaStats  `json:"base"`
-	MatBonus float64     `json:"matBonus"`
-	DupGain  int         `json:"dupGain"`
-	Skills   GachaSkills `json:"skills"`
+	InitialStars  int         `json:"initialStars,omitempty"`
+	StatProfile   string      `json:"statProfile,omitempty"`
+	CombatProfile string      `json:"combatProfile,omitempty"`
+	ID            string      `json:"id"`
+	Sources       []string    `json:"sources,omitempty"`
+	Name          string      `json:"name"`
+	Rarity        string      `json:"rarity"`
+	Elem          string      `json:"elem"`
+	Role          string      `json:"role"`
+	AtkType       string      `json:"atkType"`
+	Img           string      `json:"img"`
+	Base          GachaStats  `json:"base"`
+	MatBonus      float64     `json:"matBonus"`
+	DupGain       int         `json:"dupGain"`
+	Skills        GachaSkills `json:"skills"`
 }
 type GachaStage struct {
+	difficulty  *GachaIssuedDifficulty
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
 	Img         string  `json:"img"`
@@ -335,7 +344,7 @@ var gachaCatalog = func() *GachaCatalog {
 	if err := common.Unmarshal(gachaCatalogJSON, &catalog); err != nil {
 		panic(err)
 	}
-	if len(catalog.Girls) != 28 || len(catalog.Stages) != 24 || catalog.StaminaRegenMin < 1 || !validGachaCardSources(catalog.Girls) {
+	if len(catalog.Girls) == 0 || len(catalog.Stages) != 24 || catalog.StaminaRegenMin < 1 || !validGachaCardSources(catalog.Girls) || !validGachaCardDefinitions(catalog.Girls) {
 		panic("invalid gacha catalog")
 	}
 	return &catalog
@@ -402,14 +411,15 @@ type GachaShardDecomposition struct {
 	Amount int    `json:"quantity,omitempty"`
 }
 type GachaRunResult struct {
-	ID       string             `json:"id"`
-	Stage    string             `json:"stage"`
-	ReadyAt  int64              `json:"ready_at"`
-	ExpireAt int64              `json:"expire_at"`
-	Result   *GachaBattleReport `json:"result"`
-	Save     *GachaGameState    `json:"save"`
-	Revision int64              `json:"revision"`
-	Scene    *GachaRunScene     `json:"scene,omitempty"`
+	ID         string                 `json:"id"`
+	Stage      string                 `json:"stage"`
+	ReadyAt    int64                  `json:"ready_at"`
+	ExpireAt   int64                  `json:"expire_at"`
+	Result     *GachaBattleReport     `json:"result"`
+	Save       *GachaGameState        `json:"save"`
+	Revision   int64                  `json:"revision"`
+	Scene      *GachaRunScene         `json:"scene,omitempty"`
+	Difficulty *GachaIssuedDifficulty `json:"difficulty,omitempty"`
 }
 type GachaRunScene struct {
 	Name      string `json:"name"`
@@ -417,6 +427,7 @@ type GachaRunScene struct {
 	StarRound int    `json:"star_round"`
 }
 type GachaRunSnapshot struct {
+	Difficulty         *GachaIssuedDifficulty       `json:"difficulty,omitempty"`
 	StaminaDrops       []string                     `json:"stamina_drops,omitempty"`
 	VoyageVersion      int                          `json:"voyage_version,omitempty"`
 	ContractDay        string                       `json:"contract_day,omitempty"`
@@ -1284,6 +1295,7 @@ func gachaRunView(run *GachaRun, state *GachaGameState, revision int64) (*GachaR
 	if err := common.Unmarshal([]byte(run.Snapshot), &snapshot); err != nil {
 		return nil, err
 	}
+	view.Difficulty = snapshot.Difficulty
 	if snapshot.Mode != "" {
 		stage, err := specialGachaStageFromSnapshot(snapshot, run.Stage)
 		if err != nil {
@@ -1381,7 +1393,11 @@ func StartGachaRun(userID int, stageID, requestID string, now time.Time) (*Gacha
 		} else if snapshot.Mode == "weekly_boss" {
 			state.WeeklyBoss.Attempts++
 		}
-		report, err := SimulateGachaCombat(&combatState, *stage)
+		combatStage, err := issueGachaCombatStage(*stage, &snapshot, state.Cleared)
+		if err != nil {
+			return err
+		}
+		report, err := SimulateGachaCombat(&combatState, combatStage)
 		if err != nil {
 			return err
 		}
@@ -1619,6 +1635,9 @@ func FinishGachaRun(userID int, runID string, abandon bool, now time.Time) (*Gac
 		}
 		*result = GachaFinishResult{Win: report.Win && !abandon, Drops: []string{}, Rounds: report.Rounds, AliveN: report.AliveN, TotalN: report.TotalN, Fast: report.Rounds <= stage.StarRound}
 		settleGachaCaptainRun(state, stage, &snapshot, result)
+		if snapshot.RulesVersion >= gachaExperienceLootVersion {
+			settleGachaDispatch(state, stage, &snapshot, &report, result)
+		}
 		if result.Win && stage.Cost > 0 {
 			if err := recordGuildPersonalActivity(state, "sortie", now); err != nil {
 				return err
@@ -1659,7 +1678,6 @@ func FinishGachaRun(userID int, runID string, abandon bool, now time.Time) (*Gac
 			}
 			if snapshot.RulesVersion >= gachaExperienceLootVersion {
 				settleGachaVigil(state, stage, &snapshot, &report, result)
-				settleGachaDispatch(state, stage, &snapshot, &report, result)
 				if err := awardGachaExperienceMaterials(state, stage, result); err != nil {
 					return err
 				}

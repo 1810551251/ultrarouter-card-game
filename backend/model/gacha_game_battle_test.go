@@ -164,7 +164,9 @@ func TestGachaBattleRejectsInvalidInput(t *testing.T) {
 		change func(*GachaGameState, *GachaStage)
 	}{
 		{"empty squad", func(s *GachaGameState, _ *GachaStage) { s.Squad = nil }},
-		{"too many allies", func(s *GachaGameState, _ *GachaStage) { s.Squad = []string{"c01", "c02", "c03", "c04", "c05", "c06", "c07"} }},
+		{"too many allies", func(s *GachaGameState, _ *GachaStage) {
+			s.Squad = []string{"c01", "c02", "c03", "c04", "c05", "c06", "c07"}
+		}},
 		{"duplicate ally", func(s *GachaGameState, _ *GachaStage) { s.Squad = []string{"c01", "c01"} }},
 		{"missing ownership", func(s *GachaGameState, _ *GachaStage) { delete(s.Girls, "c01") }},
 		{"locked girl", func(s *GachaGameState, _ *GachaStage) { s.Girls["c01"].Star = 0 }},

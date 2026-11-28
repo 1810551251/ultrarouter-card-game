@@ -25,3 +25,4 @@
   .bm-cutin strong { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { .battle-motion-layer { display: none; } }
+.bm-joinery-art { position:absolute; width:clamp(100px,18vw,260px); aspect-ratio:1; object-fit:contain; transform:translate(-50%,-50%); pointer-events:none; filter:drop-shadow(0 0 8px #d2c39688); }

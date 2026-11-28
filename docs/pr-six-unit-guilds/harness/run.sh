@@ -22,6 +22,7 @@ export GACHA_REQUIRE_DB_MATRIX=1
 export TEST_MYSQL_DSN='root@unix(/var/run/mysqld/mysqld.sock)/gacha_authority_test?parseTime=true'
 export TEST_POSTGRES_DSN='host=/var/run/postgresql user=root dbname=gacha_authority_test sslmode=disable'
 harness=/src/docs/pr-six-unit-guilds/harness
+baseline=8877d515dcb59b481709a266d25ea9e156a57213
 status=0
 for phase in baseline candidate; do
   mysql --protocol=socket -e 'DROP DATABASE IF EXISTS gacha_authority_test; CREATE DATABASE gacha_authority_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
@@ -31,10 +32,10 @@ for phase in baseline candidate; do
   source=/src
   if [ "$phase" = baseline ]; then
     source=$(mktemp -d)
-    git -c safe.directory=/src -C /src archive 8877d515dcb59b481709a266d25ea9e156a57213 backend | tar -x -C "$source"
+    git -c safe.directory=/src -C /src archive "$baseline" backend | tar -x -C "$source"
   fi
   cd "$workspace"
-  python3 "$harness/setup.py" "$source" "$harness" "/out/$phase-source-hashes.json"
+  python3 "$harness/setup.py" "$source" "$harness" "/out/$phase-source-hashes.json" "$baseline"
   go mod edit -require=github.com/gin-gonic/gin@v1.10.1 -require=github.com/glebarez/sqlite@v1.11.0 -require=gorm.io/driver/mysql@v1.6.0 -require=gorm.io/driver/postgres@v1.6.0
   # Baseline's two documented stale test fixtures are checked by summarize.py.
   # Production source and original baseline assertions remain unchanged.

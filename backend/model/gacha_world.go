@@ -92,7 +92,7 @@ func grantGachaWholeCard(state *GachaGameState, girl *GachaGirl, source string) 
 			own = &GachaOwnedGirl{Gems: newGachaGemSlots()}
 			state.Girls[girl.ID] = own
 		}
-		own.Level, own.Star = 1, gachaCatalog.Rarity[girl.Rarity].BaseStar
+		own.Level, own.Star = 1, gachaInitialStars(girl)
 		return pull, nil
 	}
 	pull.Dup = true
@@ -166,8 +166,14 @@ type gachaWorldRules struct {
 }
 
 type gachaWorldRulebook struct {
-	Edition  int                     `json:"edition"`
-	Editions map[int]gachaWorldRules `json:"editions"`
+	Rotations []GachaWorldRotation    `json:"rotations"`
+	Edition   int                     `json:"edition"`
+	Editions  map[int]gachaWorldRules `json:"editions"`
+}
+
+type GachaWorldRotation struct {
+	Starts string   `json:"starts"`
+	Heroes []string `json:"heroes"`
 }
 
 //go:embed gacha_world.json
@@ -180,6 +186,9 @@ var gachaWorldBook = func() gachaWorldRulebook {
 	}
 	if _, ok := book.Editions[book.Edition]; !ok {
 		panic("missing active world edition")
+	}
+	if !validGachaWorldRotations(book.Rotations) {
+		panic("invalid world rotation pool")
 	}
 	for edition, rules := range book.Editions {
 		if edition < 1 || rules.ShardPercent < 1 || rules.ShardPercent > 99 || len(rules.Chests) == 0 || len(rules.Chests) > 24 || len(rules.Tiers) == 0 {
@@ -238,16 +247,48 @@ func (rules gachaWorldRules) earnedMask(points int) int {
 
 func gachaWorldSchedule(now time.Time) GachaWorldSeason {
 	monday := gachaMonday(now)
-	var heroes []string
-	for _, girl := range gachaCatalog.Girls {
-		if girl.Rarity == "SSR" && gachaCardHasSource(&girl, "world") {
-			heroes = append(heroes, girl.ID)
-		}
-	}
-	slices.Sort(heroes)
-	week := (monday.Unix() - time.Date(2026, 1, 5, 0, 0, 0, 0, gameZone).Unix()) / (7 * 86400)
+	rotation := gachaWorldRotationAt(now)
+	start, _ := gachaCalendarDay(rotation.Starts)
+	heroes := rotation.Heroes
+	week := (monday.Unix() - start.Unix()) / (7 * 86400)
 	cycle := int64(len(heroes))
 	return GachaWorldSeason{SeasonKey: gachaDay(monday), Hero: heroes[(week%cycle+cycle)%cycle], Edition: gachaWorldBook.Edition, ClosesAt: monday.AddDate(0, 0, 5).UnixMilli()}
+}
+
+func validGachaWorldRotations(rotations []GachaWorldRotation) bool {
+	if len(rotations) == 0 {
+		return false
+	}
+	previous := ""
+	for _, rotation := range rotations {
+		start, err := gachaCalendarDay(rotation.Starts)
+		if err != nil || start.Weekday() != time.Monday || rotation.Starts <= previous || len(rotation.Heroes) == 0 {
+			return false
+		}
+		seen := map[string]bool{}
+		for _, id := range rotation.Heroes {
+			girl := gachaGirl(id)
+			if seen[id] || girl == nil || girl.Rarity != "SSR" || !gachaCardHasSource(girl, "world") {
+				return false
+			}
+			seen[id] = true
+		}
+		previous = rotation.Starts
+	}
+	return true
+}
+
+func gachaWorldRotationAt(now time.Time) GachaWorldRotation {
+	rotation := gachaWorldBook.Rotations[0]
+	week := gachaDay(gachaMonday(now))
+	for _, candidate := range gachaWorldBook.Rotations {
+		if candidate.Starts <= week {
+			rotation = candidate
+		} else {
+			break
+		}
+	}
+	return rotation
 }
 
 func validateGachaWorldIntent(intent GachaActionIntent) error {
@@ -497,6 +538,8 @@ type GachaWorldStanding struct {
 
 type GachaWorldView struct {
 	GachaWorldSeason
+	Rotation      []string             `json:"rotation"`
+	NextHero      string               `json:"next_hero"`
 	NextOpen      int64                `json:"next_open"`
 	Open          bool                 `json:"open"`
 	ShardPercent  int                  `json:"shard_percent"`
@@ -542,7 +585,7 @@ func GetGachaWorld(userID int, now time.Time) (*GachaWorldView, error) {
 			return err
 		}
 		season := gachaWorldSchedule(now)
-		view = GachaWorldView{GachaWorldSeason: season, NextOpen: gachaMonday(now).AddDate(0, 0, 7).UnixMilli()}
+		view = GachaWorldView{GachaWorldSeason: season, NextOpen: gachaMonday(now).AddDate(0, 0, 7).UnixMilli(), Rotation: slices.Clone(gachaWorldRotationAt(now).Heroes), NextHero: gachaWorldSchedule(gachaMonday(now).AddDate(0, 0, 7)).Hero}
 		var stored GachaWorldSeason
 		err := tx.Where("season_key = ?", season.SeasonKey).Take(&stored).Error
 		if err == nil {

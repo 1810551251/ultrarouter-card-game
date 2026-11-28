@@ -23,6 +23,9 @@ SCOPED_FILES = {
         'backend/AGENTS.md', 'backend/INTEGRATION.md',
         'backend/model/gacha.go', 'backend/model/gacha_builds.go',
         'backend/model/gacha_game.go', 'backend/model/gacha_game_battle.go',
+        'backend/model/gacha_joinery.go', 'backend/model/gacha_joinery_test.go',
+        'backend/model/gacha_difficulty.go', 'backend/model/gacha_difficulty.json', 'backend/model/gacha_difficulty_test.go',
+        'backend/model/gacha_issue6_database_test.go', 'backend/model/gacha_daily_economy_database_test.go',
         'backend/model/gacha_matchmaking.go', 'backend/model/gacha_modes.go',
         'backend/model/gacha_progression.go', 'backend/model/gacha_rooms.go',
         'backend/model/gacha_social.go', 'backend/model/gacha_catalog.json',
@@ -70,7 +73,7 @@ SCOPED_FILES = {
         'tests/festival-check.js', 'tests/captain-check.js', 'tests/voyage-check.js', 'tests/fleet-check.js', 'tests/mail-check.js',
         'tests/ladder-rewards-check.js', 'tests/squad-drag-check.js', 'tests/guild-growth-check.js',
         'tests/unit-catalog-check.js', 'tests/battle-formation-check.js', 'tests/battle-motion-check.js', 'tests/battle-menu-check.js',
-        'tests/world-check.js', 'tests/economy-check.js', 'tests/codex-check.js',
+        'tests/world-check.js', 'tests/economy-check.js', 'tests/codex-check.js', 'tests/xs039-check.js',
     },
     'js': {'js/'+name+'.js' for name in ('config', 'store', 'data', 'ui', 'codex', 'codex-data', 'codex-effects', 'reward-chests', 'market', 'world', 'ladder', 'progression', 'atelier', 'carry', 'training', 'experience', 'cases', 'vigil', 'dispatch', 'cipher', 'workshop', 'battle', 'battle-motion', 'captain', 'voyage', 'voyage-map', 'fleet', 'festival', 'mail', 'main')},
     '.github': {'.github/workflows/game-checks.yml'},
@@ -112,7 +115,7 @@ def release_files():
             raise RuntimeError('File is not card-game source: '+relative.as_posix())
         if relative.parts[0] == 'content':
             unit_source = re.fullmatch(r'content/(cards|enemies|bosses)/[a-z][a-z0-9-]*/(card|enemy|boss)\.json', relative.as_posix())
-            unit_art = re.fullmatch(r'content/(cards|enemies|bosses)/[a-z][a-z0-9-]*/assets/[a-z][a-z0-9-]*\.webp', relative.as_posix())
+            unit_art = re.fullmatch(r'content/(cards|enemies|bosses)/[a-z][a-z0-9-]*/assets/(?:fx/[a-z][a-z0-9-]*/)?[a-z][a-z0-9-]*\.webp', relative.as_posix())
             unit_index = relative.as_posix() in {'content/README.md', 'content/ART-SPEC.md', 'content/cards/index.json', 'content/enemies/index.json', 'content/bosses/index.json'}
             if not (unit_source or unit_art or unit_index):
                 raise RuntimeError('File is not card-game content: '+relative.as_posix())

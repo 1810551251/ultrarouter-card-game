@@ -70,7 +70,7 @@ def preview_handler(root=ROOT):
             ) or (
                 parts[0] == 'assets' and relative.endswith('.webp')
             ) or (
-                len(parts) == 5 and parts[0] == 'content' and parts[1] in {'cards', 'enemies', 'bosses'} and parts[3] == 'assets' and relative.endswith('.webp')
+                (len(parts) == 5 or len(parts) == 7 and parts[4] == 'fx') and parts[0] == 'content' and parts[1] in {'cards', 'enemies', 'bosses'} and parts[3] == 'assets' and relative.endswith('.webp')
             )
             if not allowed:
                 self.send_error(404, 'Only game preview assets are served.')

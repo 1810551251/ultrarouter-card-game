@@ -118,6 +118,8 @@ func writeGachaError(c *gin.Context, err error) {
 		status, code, message = http.StatusConflict, "GACHA_CONFIG_VERSION", "配置版本已更新，请同步成长页面后重新提交新版本"
 	case errors.Is(err, model.ErrGachaShopLimit):
 		status, code, message = http.StatusConflict, "GACHA_SHOP_LIMIT", "个人库存已售罄，或货架已更新／无需刷新；北京时间9、14、21点补满"
+	case errors.Is(err, model.ErrGachaArtifactFree), errors.Is(err, model.ErrGachaArtifactFreeFirst):
+		status, code, message = http.StatusConflict, "GACHA_DRAW_PAYMENT", "请同步召唤池：每日先免费单抽一次，之后使用本池券或代币"
 	case errors.Is(err, model.ErrGachaCapacity):
 		status, code, message = http.StatusConflict, "GACHA_CAPACITY", "资源或灵印背包达到上限，请先使用或分解"
 	case errors.Is(err, model.ErrGachaSigil):

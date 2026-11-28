@@ -536,15 +536,25 @@ function battleUnit(battle, uid) {
   return [...battle.allies, ...battle.waves[battle.waveIdx]].find(u => u.uid === uid);
 }
 function mergeBattleEvent(battle, event) {
+  // Validate the complete server position update before moving any DOM nodes.
+  const next = new Map((event.units || []).map(snapshot => [snapshot.uid,snapshot]));
+  for (const team of [battle.allies,battle.waves[battle.waveIdx]]) {
+    const positions = team.map(unit => next.get(unit.uid)?.position ?? unit.slot);
+    if (positions.some(slot => !Number.isInteger(slot) || slot < 0 || slot >= 6) || new Set(positions).size !== positions.length) throw new Error("Invalid server formation snapshot");
+  }
+  let moved = false;
   for (const snapshot of event.units || []) {
     const unit = battleUnit(battle, snapshot.uid);
-    if (unit) { const slot = unit.slot; Object.assign(unit, snapshot, { slot }); updateUnit(unit); }
+    if (unit) { const slot = snapshot.position ?? unit.slot; moved ||= slot !== unit.slot; Object.assign(unit, snapshot, { slot }); updateUnit(unit); }
   }
+  if (moved) { renderBattle(); batLog("对榫换位 · 已按战报调整阵位"); }
   battle.rounds = event.round;
   renderBattleTimeline(battle);
 }
 function battleImpactFeedback(src, dst, target, event, color) {
   const pos = unitPoint(dst);
+  if (target.blocked) floatText(dst, "抵挡", "heal");
+  if (target.rescued) {floatText(dst, "衣角接坠", "heal");batLog(`${esc(dst.name)} 获得致命救援，生命 ${target.hp_set}`);}
   if (target.elemental) {
     const label = target.elemental === "advantage" ? "属性克制 +20%" : "属性受克 −20%";
     batLog(`${esc(src.name)} 对 ${esc(dst.name)} ${label}`);
@@ -630,7 +640,8 @@ async function playServerBattle(battle) {
       if (src) {
         document.getElementById("u-" + src.uid)?.classList.add("acting");
         const color = src.girl?.fxColor || (src.side === "ally" ? "#ffd76e" : "#ff8a8a");
-        if (event.kind === "ailment") batLog(esc(src.name) + " 受到侵蚀伤害");
+        if (event.passive) batLog(esc(src.name) + " · 【" + esc(event.skill_name) + "】");
+        else if (event.kind === "ailment") batLog(esc(src.name) + " 受到侵蚀伤害");
         else if (event.skipped) batLog(esc(src.name) + " 眩晕中，无法行动");
         else if (event.skill) {
           batLog(esc(src.name) + " 发动【" + esc(event.skill_name) + "】");

@@ -162,7 +162,7 @@ function voyageChart(context) {
 }
 
 function voyageItem(id) {
-  return id === "gold" ? "金币" : Store.profile?.items?.items?.[id]?.name || id;
+  return id === "gold" ? "金币" : id === "token" ? "代币" : Store.profile?.items?.items?.[id]?.name || id;
 }
 
 function voyagePrizes(prizes) {
@@ -252,6 +252,14 @@ function voyageRemaining(point) {
   return point.daily_limit ? Math.max(0, point.daily_limit - (SAVE.daily.voyage_attempts?.[point.id] || 0)) : null;
 }
 
+function voyageSweepCredit(point) {
+  const profile = Store.profile, rules = profile?.captain_rules;
+  const task = rules?.tasks?.find(entry => entry.id === "voyage");
+  const patrol = task?.points > 0 && rules.chests?.length ? `每成功扫荡一次，计入每日「${esc(task.name)}」一次；不计其他每日战斗任务。` : "此版本未提供扫荡计入每日巡航的规则，任务进度以服务器回执为准。";
+  const contract = point.kind === "resources" ? "资源航线不计限期委托。" : profile?.dispatch?.sweep_reports === true ? "已签主线委托时，服务器按当前编队逐场验战报；符合条款才计数，不凭历史三星计数。" : "当前服务器未提供扫荡委托战报，请手动出战。";
+  return contract + patrol;
+}
+
 function voyageDetail(id) {
   const point = voyageStage(id), context = voyageContext();
   if (!point || !context?.ids.includes(id)) return;
@@ -268,6 +276,7 @@ function voyageDetail(id) {
   const mechanic = DUNGEON_MECHANICS[point.mechanic];
   showModal(`<h3>${esc(point.name)}</h3><article class="voy-detail" data-voy-detail="${esc(id)}"><header><b>${esc(point.type)} · 敌人 Lv.${point.enemyLv}</b><span>历史最佳 ${starsHTML(best, 13)}</span></header><div class="voy-detail-grid"><figure class="voy-stage-art"><img src="${esc(point.img)}" alt=""><figcaption>${esc(point.desc)}</figcaption></figure><div><h4>三星挑战条件</h4><ul class="voy-star-rules"><li>战斗胜利</li><li>全员存活</li><li>${point.starRound} 回合内取胜</li></ul><h4>敌人阵容</h4><div class="voy-enemy-row">${enemies}</div></div></div><details class="voy-waves"><summary>波次情报 · ${point.waves} 波</summary>${mobs}${mechanic ? `<p>${esc(mechanic)}</p>` : ""}</details><h4>胜利奖励</h4>${rewards}${milestones}${sweep}<div class="voy-meta"><b>体力 ${point.cost}</b>${left !== null ? `<b data-voy-left>今日余 ${left}/${point.daily_limit} 次</b>` : ""}<span>当前 ${SAVE.stamina} 体力</span></div><p class="voy-gate" role="status">${gate ? `解锁条件：${esc(gate)}` : ""}</p><div class="modal-btns"><button class="gbtn gbtn-sm" type="button" data-voy-formation><span>布阵</span></button><button class="gbtn gbtn-primary" type="button" data-voy-start="${esc(id)}"><span>挑战 · ${point.cost} 体力</span></button></div></article>`);
   const detail = document.querySelector("[data-voy-detail]");
+  detail.querySelector("header").insertAdjacentHTML("afterend",dungeonBriefing(id,point));
   detail.dataset.voyDay = date;
   detail.dataset.voyEpoch = String(Store.sessionEpoch);
   detail.querySelector("[data-voy-formation]").onclick = () => { closeModal(); nav("page-squad"); };
@@ -371,3 +380,16 @@ document.addEventListener("keydown", event => {
   if (point) Array.from(document.querySelectorAll("[data-voy-point]")).find(button => button.dataset.voyPoint === point)?.focus();
   if (chest) Array.from(document.querySelectorAll("[data-voy-chest]")).find(button => button.dataset.voyChest === chest)?.focus();
 });
+
+function dungeonBriefing(key, stage = {}) {
+  const book = Store.profile?.difficulty;
+  if (!book || !Object.hasOwn(book.stages || {},key)) return "";
+  const tier = book.tiers?.[book.stages[key]], encounter = book.encounters?.[key] || {};
+  if (!tier || ![tier.hp,tier.atk,tier.def].every(value => Number.isSafeInteger(value) && value > 0)) return "";
+  const element = stage.enemyElem || encounter.element, mechanic = stage.mechanic || encounter.mechanic;
+  const counters = {fire:"水",water:"木",plant:"焰",star:"时",dark:"星",time:"暗"};
+  const tactics = {fury:"优先爆发或先手控场，不要拖长回合。",barrier:"集中输出击穿护盾，利用补盾前的空档。",regrowth:"用侵蚀压制敌方回血，再集火收尾。",reflection:"准备护盾或治疗，避免主攻手被反伤击倒。",venom:"侵蚀会削弱治疗，考虑护盾和尽快减员。",silence:"封怒会打断怒技节奏，可换普攻或反击角色。"};
+  const tactic = tactics[mechanic] || (stage.waves > 1 ? "多波连续出战，给主攻手留一个续航位置。" : "先稳住生存，再按目标数量选择单攻或群攻。");
+  const advantage = Object.hasOwn(counters,element) ? `敌人为${ELEM[element].name}系，可用${counters[element]}系克制。` : "";
+  return `<section class="voy-briefing" data-difficulty-key="${esc(key)}" aria-label="敌情与备战"><strong>敌情 · ${esc(tier.name)}</strong><p>${esc(advantage)}${esc(mechanic && DUNGEON_MECHANICS[mechanic] ? DUNGEON_MECHANICS[mechanic]+"。" : "")}${esc(tactic)}</p><small>相对本关基础：生命 ×${tier.hp/100} · 攻击 ×${tier.atk/100} · 防御 ×${tier.def/100}。难度固定，不随你的战力上涨。</small></section>`;
+}

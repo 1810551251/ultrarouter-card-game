@@ -2277,6 +2277,8 @@ func TestGachaAuthorityDatabaseMatrix(t *testing.T) {
 			runGachaLadderEligibility(t)
 			runGachaContractClaims(t)
 			runGachaWorldMatrix(t)
+			runGachaIssue6Matrix(t, now)
+			runGachaDailyEconomyMatrix(t, now)
 			t.Run("captain_supplies_are_idempotent_and_survive_profile_reload_and_spending", func(t *testing.T) {
 				user := gachaUser(t)
 				when := time.Date(2026, 11, 27, 1, 0, 0, 0, time.UTC)

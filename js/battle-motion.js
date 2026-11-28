@@ -176,6 +176,15 @@
         layer.classList.remove("bm-cutscene");
       }
     }
+    function joineryArt(phase, position) {
+      if (!layer || !position || source.girlId !== "xs039" || !["skill","xs039-skill-2"].includes(event.skill_key) || phase === "impact" && event.variant === "rescue") return null;
+      const art = owns(document.createElement("img"));
+      art.className = "bm-joinery-art";
+      art.src = `content/cards/xs039/assets/fx/${event.skill_key}/${phase}.webp`; art.alt = "";
+      art.style.left = position.x + "px"; art.style.top = position.y + "px";
+      layer.appendChild(art);
+      return art;
+    }
     async function begin() {
       if (!valid() || event.skipped || ["round", "wave", "ailment"].includes(event.kind)) { cancel(); return api; }
       active.add(api);
@@ -196,6 +205,7 @@
         cloneActor();
       }
       if (event.skill) await portrait(duration * .35);
+      const castArt = joineryArt("cast", origin);
       if (valid()) {
         const preparation = duration * (introShare - (event.skill ? .35 : 0));
         if (moves) await travel(contact(hostile[0].uid), preparation, attackType === "heavy");
@@ -203,6 +213,7 @@
           if (actor) actor.style.transform = `translateY(${-Math.sin(Math.PI * t) * 5}px)`;
         });
       }
+      castArt?.remove();
       return api;
     }
     async function presentImpact(target, index = 0, onImpact) {
@@ -232,6 +243,7 @@
       onImpact?.();
       if (!layer || !dst) return true;
       const pulse = owns(document.createElement("i"));
+      const joineryImpact = joineryArt("impact",dst);
       pulse.className = "bm-impact" + (attack ? "" : " bm-support");
       pulse.style.left = dst.x + "px"; pulse.style.top = dst.y + "px";
       layer.appendChild(pulse);
@@ -240,6 +252,7 @@
         pulse.style.transform = `translate(-50%, -50%) scale(${.35 + t * 1.2}) rotate(${attack ? -24 : 0}deg)`;
       });
       pulse.remove();
+      joineryImpact?.remove();
       return valid();
     }
     async function impact(target, index = 0, onImpact) {

@@ -68,7 +68,7 @@ func TestReviewProduceLegacy(t *testing.T) {
 	for _, engine := range []string{"sqlite", "mysql", "postgres"} {
 		t.Run(engine, func(t *testing.T) {
 			reviewOpenUpgrade(t, engine)
-			now := time.Now().UTC().Truncate(time.Second)
+			now := time.Date(2026, time.November, 27, 10, 0, 0, 0, time.UTC)
 			corpus := reviewCorpus{At: now.UnixMilli()}
 			for i := 0; i < 96; i++ {
 				user := gachaUser(t)

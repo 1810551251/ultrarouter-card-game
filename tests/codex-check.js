@@ -69,15 +69,32 @@ function harness(context) {
   return {w,d,api,calls,pending,storage,errors,effects,card,action,visibleIds,change,signOut(){signedIn=false;}};
 }
 
+test("xs039 displays imported skills, keeps design-only milestones explicit, and navigates to Strong World", async context => {
+  const h=harness(context), card=h.api.GIRLS.find(girl=>girl.id==="xs039");
+  h.api.openCodex("xs039");
+  assert.equal(h.d.querySelector("#codex-detail .cx-name").textContent,"解弦川");
+  for (const skill of card.atlas.skills) assert.ok(h.d.querySelector("#codex-detail").textContent.includes(skill.name));
+  assert.match(h.d.querySelector("#codex-detail").textContent,/设计预览 · 尚未启用/);
+  assert.equal(h.d.querySelector("#codex-detail .cx-portrait").getAttribute("src"),card.battleImg);
+  const calls=[];
+  h.w.selectDrawPool=pool=>calls.push(pool);
+  h.action("source").click();
+  assert.equal(h.d.body.dataset.page,"page-gacha");
+  assert.deepEqual(calls,["world"]);
+  h.api.openCodex("xs039");
+  assert.equal(h.action("unlock").disabled,true);
+  assert.deepEqual(h.storage,[]);
+});
+
 test("codex contains only implemented heroes and shard-only heroes never enter the formation roster", async context => {
   const h = harness(context);
   h.api.openCodex("c03");
   assert.equal(h.d.body.dataset.page,"page-codex");
-  assert.equal(h.api.GIRLS.length,28);
-  assert.equal(h.visibleIds().length,28);
+  assert.equal(h.api.GIRLS.length,29);
+  assert.equal(h.visibleIds().length,29);
   assert.deepEqual(h.visibleIds(),copy(h.api.GIRLS.map(girl => girl.id).sort()));
   assert(!h.card("c029") && !h.card("c29") && !h.card("c142"));
-  assert.deepEqual(Object.keys(h.api.CODEX_LORE).sort(),h.visibleIds());
+  assert.deepEqual([...Object.keys(h.api.CODEX_LORE),...h.api.GIRLS.filter(girl=>girl.atlas).map(girl=>girl.id)].sort(),h.visibleIds());
   for (const [id,status,owned,shards] of [["c01","owned",true,0],["c02","missing",false,0],["c03","shards",false,79],["c11","ready",false,h.api.RARITY.SR.shardToUnlock]]) {
     const girl = h.api.GIRLS.find(entry => entry.id === id);
     assert.deepEqual(copy(h.api.codexOwnership(girl)),{owned,shards,need:h.api.RARITY[girl.rarity].shardToUnlock,status});
@@ -222,7 +239,7 @@ test("search and acquisition filters find real heroes while dossiers show the su
 test("all 28 implemented heroes retain the reference skill rules, evolution prose and star resonance", context => {
   const h = harness(context), before = copy(h.api.save);
   let skills = 0, resonances = 0;
-  for (const hero of h.api.GIRLS) {
+  for (const hero of h.api.GIRLS.filter(hero=>!hero.atlas)) {
     const lore = h.api.CODEX_LORE[hero.id];
     h.api.openCodex(hero.id);
     h.d.querySelector('[data-codex-tab="skills"]').click();
@@ -271,7 +288,7 @@ test("all 28 implemented heroes retain the reference skill rules, evolution pros
 test("all reference dossiers show six original stats, the full life and event, folded appearance and four abilities", context => {
   const h = harness(context), before = copy(h.api.save);
   let abilities = 0;
-  for (const hero of h.api.GIRLS) {
+  for (const hero of h.api.GIRLS.filter(hero=>!hero.atlas)) {
     const lore = h.api.CODEX_LORE[hero.id];
     h.api.openCodex(hero.id);
     h.d.querySelector('[data-codex-tab="story"]').click();

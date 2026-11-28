@@ -74,6 +74,10 @@ function worldPanelMarkup(state, view, hero, busy) {
     title = "活动规则";
     const names = GIRLS.filter(girl => girl.rarity === "R" && cardSources(girl).includes("world")).map(girl => esc(girl.name)).join("、");
     content = `<p>北京时间每周一 00:00 至周五 24:00 开放召唤，周末休息。每周轮换一位限定 SSR。</p><h4>召唤与积分</h4><p>每抽消耗 1 张限定券，获得 1 积分。每抽 ${view.shard_percent}% 获得 1 枚${esc(hero.name)}碎片，否则获得一张 R 整卡；不会抽到 SR 或 SSR 整卡，不计入常驻保底。</p><p>同卡碎片集齐 ${RARITY.SSR.shardToUnlock} 枚后，可在图鉴主动合成。重复整卡保留在角色工坊，可自行分解。</p><h4>排名奖励</h4><p>全服前 20 名获得本期英雄碎片。同分先达到者优先，再同分按玩家编号；最终奖励以结算名次为准。积分宝箱与往期未领取奖励可分别领取。</p><h4>限定券来源</h4><p>每日任务积分箱、竞技场排名和本活动积分箱。</p><details><summary>查看 R 整卡名单</summary><p>${names}</p></details>`;
+    const rotation = (view.rotation || []).map(id => GIRLS.find(girl => girl.id === id)).filter(Boolean);
+    if (rotation.length) content += `<h4>轮换卡池</h4><p data-world-rotation>${rotation.map(girl => esc(girl.name)).join(" → ")}</p><p>仅轮换此名单内的角色；已经开启的赛季继续使用原定英雄。</p>`;
+    const next = GIRLS.find(girl => girl.id === view.next_hero);
+    if (next) content += `<p>下期预告：${esc(next.name)}</p>`;
   } else if (state.panel === "history") {
     title = "往期领奖";
     content = (view.unclaimed || []).map(entry => {

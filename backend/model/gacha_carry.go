@@ -89,11 +89,11 @@ func gachaCarryLevel(xp int) int {
 func grantGachaCarry(state *GachaGameState, id string, amount int) error {
 	owned := state.CarryInventory[id]
 	for _, girl := range state.Girls {
-		if girl.Carry == id {
+		if girl != nil && girl.Carry == id {
 			owned++
 		}
 	}
-	if amount < 1 || owned > gachaMaxResource-amount {
+	if _, ok := gachaCarry.Items[id]; !ok || amount < 1 || owned > gachaMaxResource-amount {
 		return ErrGachaCapacity
 	}
 	if state.CarryInventory == nil {

@@ -16,26 +16,28 @@ const gachaFormationColumns = 3
 const gachaBattleReportVersion = 2
 
 type GachaBattleSnapshot struct {
-	UID        string `json:"uid"`
-	HP         int    `json:"hp"`
-	Rage       int    `json:"rage"`
-	Shield     int    `json:"shield"`
-	Alive      bool   `json:"alive"`
-	Slow       int    `json:"slow"`
-	SlowT      int    `json:"slowT"`
-	StunT      int    `json:"stunT"`
-	Taunt      int    `json:"taunt"`
-	DefBreak   int    `json:"defBreak"`
-	DefBreakT  int    `json:"defBreakT"`
-	AtkUp      int    `json:"atkUp"`
-	AtkUpT     int    `json:"atkUpT"`
-	DefUp      int    `json:"defUp"`
-	DefUpT     int    `json:"defUpT"`
-	Extra      bool   `json:"extra"`
-	Dot        int    `json:"dot"`
-	DotT       int    `json:"dotT"`
-	ReflectPct int    `json:"reflectPct,omitempty"`
-	ReflectT   int    `json:"reflectT,omitempty"`
+	Position   *int               `json:"position,omitempty"`
+	Joinery    *GachaJoineryState `json:"joinery,omitempty"`
+	UID        string             `json:"uid"`
+	HP         int                `json:"hp"`
+	Rage       int                `json:"rage"`
+	Shield     int                `json:"shield"`
+	Alive      bool               `json:"alive"`
+	Slow       int                `json:"slow"`
+	SlowT      int                `json:"slowT"`
+	StunT      int                `json:"stunT"`
+	Taunt      int                `json:"taunt"`
+	DefBreak   int                `json:"defBreak"`
+	DefBreakT  int                `json:"defBreakT"`
+	AtkUp      int                `json:"atkUp"`
+	AtkUpT     int                `json:"atkUpT"`
+	DefUp      int                `json:"defUp"`
+	DefUpT     int                `json:"defUpT"`
+	Extra      bool               `json:"extra"`
+	Dot        int                `json:"dot"`
+	DotT       int                `json:"dotT"`
+	ReflectPct int                `json:"reflectPct,omitempty"`
+	ReflectT   int                `json:"reflectT,omitempty"`
 }
 
 type GachaBattleUnit struct {
@@ -52,6 +54,8 @@ type GachaBattleUnit struct {
 	MaxHP     int    `json:"maxHp"`
 	Atk       int    `json:"atk"`
 	Def       int    `json:"def"`
+	SpAtk     int    `json:"spAtk,omitempty"`
+	SpDef     int    `json:"spDef,omitempty"`
 	Spd       int    `json:"spd"`
 	CR        int    `json:"cr"`
 	CD        int    `json:"cd"`
@@ -62,6 +66,9 @@ type GachaBattleUnit struct {
 }
 
 type GachaBattleTarget struct {
+	Blocked   bool   `json:"blocked,omitempty"`
+	Rescued   bool   `json:"rescued,omitempty"`
+	HPSet     int    `json:"hp_set,omitempty"`
 	UID       string `json:"uid"`
 	Damage    int    `json:"damage"`
 	Heal      int    `json:"heal"`
@@ -75,6 +82,9 @@ type GachaBattleTarget struct {
 }
 
 type GachaBattleEvent struct {
+	SkillKey   string                `json:"skill_key,omitempty"`
+	Variant    string                `json:"variant,omitempty"`
+	Passive    bool                  `json:"passive,omitempty"`
 	Seq        int                   `json:"seq"`
 	Order      []string              `json:"order,omitempty"`
 	Kind       string                `json:"kind"`
@@ -123,20 +133,27 @@ type gachaCombatUnit struct {
 }
 
 type gachaCombat struct {
-	allies     []*gachaCombatUnit
-	waves      [][]*gachaCombatUnit
-	wave       int
-	rounds     int
-	roundLimit int
-	rng        *rand.Rand
-	formula    GachaFormula
-	report     *GachaBattleReport
-	pvp        bool
-	mechanic   string
+	joiners         []*gachaCombatUnit
+	pulseSequence   int
+	joineryPending  []GachaBattleEvent
+	joineryFlushing bool
+	allies          []*gachaCombatUnit
+	waves           [][]*gachaCombatUnit
+	wave            int
+	rounds          int
+	roundLimit      int
+	rng             *rand.Rand
+	formula         GachaFormula
+	report          *GachaBattleReport
+	pvp             bool
+	mechanic        string
 }
 
 // The production entry point never accepts a client seed or combat result.
 func SimulateGachaCombat(state *GachaGameState, stage GachaStage) (*GachaBattleReport, error) {
+	if stage.difficulty == nil && stage.ID != "" && gachaStage(stage.ID) != nil {
+		stage = gachaCombatStage(stage, gachaDifficulty.issue(stage.ID))
+	}
 	var seed [16]byte
 	if _, err := cryptorand.Read(seed[:]); err != nil {
 		return nil, err
@@ -158,6 +175,12 @@ func simulateGachaCombat(state *GachaGameState, stage GachaStage, rng *rand.Rand
 	formula := gachaCatalog.Formula
 	if formula.DefK <= 0 || formula.DefLv < 0 || formula.RageMax <= 0 || formula.RagePerNormal <= 0 {
 		return nil, errors.New("invalid gacha combat formula")
+	}
+	hpScale, atkScale, defScale := max(1, stage.HPScale), max(1, stage.AtkScale), max(1, stage.DefScale)
+	if rating := stage.difficulty; rating != nil {
+		hpScale *= float64(rating.HP) / 100
+		atkScale *= float64(rating.Atk) / 100
+		defScale *= float64(rating.Def) / 100
 	}
 	report := &GachaBattleReport{Allies: []GachaBattleUnit{}, Waves: [][]GachaBattleUnit{}, Events: []GachaBattleEvent{}}
 	b := &gachaCombat{rng: rng, formula: formula, report: report, mechanic: stage.Mechanic}
@@ -190,9 +213,9 @@ func simulateGachaCombat(state *GachaGameState, stage GachaStage, rng *rand.Rand
 				Side:                "enemy", Name: template.Name, Img: template.Img, AtkType: template.AtkType,
 				Elem: template.Elem,
 				Boss: bossWave, Level: stage.EnemyLv,
-				MaxHP: int(math.Round(260 * (1 + level*0.10) * template.HPM * max(1, stage.BossHPM) * max(1, stage.HPScale))),
-				Atk:   int(math.Round(55 * (1 + level*0.08) * template.AtkM * max(1, stage.BossAtkM) * max(1, stage.AtkScale))),
-				Def:   int(math.Round(15 * (1 + level*0.06) * template.DefM * max(1, stage.DefScale))),
+				MaxHP: int(math.Round(260 * (1 + level*0.10) * template.HPM * max(1, stage.BossHPM) * hpScale)),
+				Atk:   int(math.Round(55 * (1 + level*0.08) * template.AtkM * max(1, stage.BossAtkM) * atkScale)),
+				Def:   int(math.Round(15 * (1 + level*0.06) * template.DefM * defScale)),
 				Spd:   template.Spd, CR: 5, CD: 130,
 			}}
 			u.Res = stage.EnemyRes
@@ -272,7 +295,7 @@ func gachaSquadUnits(state *GachaGameState, side, prefix string) ([]*gachaCombat
 		}
 		base := girl.Base
 		levelGrowth, starGrowth := growth.LevelStatGrow, growth.StarStatGrow
-		level, star := float64(max(0, own.Level-1)), float64(own.Star-1)
+		level, star := float64(max(0, own.Level-1)), float64(max(0, own.Star-max(1, girl.InitialStars)))
 		hp := float64(base.HP) * (1 + levelGrowth.HP*level) * (1 + starGrowth.HP*star) * (1 + 0.05*float64(gemCounts["jade"]))
 		atk := float64(base.Atk) * (1 + levelGrowth.Atk*level) * (1 + starGrowth.Atk*star) * (1 + 0.05*float64(gemCounts["ruby"]))
 		def := float64(base.Def) * (1 + levelGrowth.Def*level) * (1 + starGrowth.Def*star) * (1 + 0.05*float64(gemCounts["sapphire"]))
@@ -385,6 +408,12 @@ func gachaSquadUnits(state *GachaGameState, side, prefix string) ([]*gachaCombat
 			CR: min(cr, 100), CD: cd, EHR: min(100, ehr), Res: min(100, max(0, res)),
 			Awakening: own.Awakening, Branch: own.Branch,
 		}}
+		if base.SpAtk > 0 {
+			u.SpAtk = int(math.Round(float64(base.SpAtk) * atk / float64(max(1, base.Atk))))
+		}
+		if base.SpDef > 0 {
+			u.SpDef = int(math.Round(float64(base.SpDef) * def / float64(max(1, base.Def))))
+		}
 		u.healBoost = 1
 		switch own.Talent {
 		case "power":
@@ -444,6 +473,7 @@ func gachaSquadUnits(state *GachaGameState, side, prefix string) ([]*gachaCombat
 
 func (b *gachaCombat) fight(starRound int) *GachaBattleReport {
 	report := b.report
+	b.initJoinery()
 	report.Version = gachaBattleReportVersion
 	roundLimit := b.roundLimit
 	if roundLimit <= 0 || roundLimit > 60 {
@@ -493,6 +523,7 @@ battle:
 					b.act(u)
 				}
 			}
+			b.joineryEndRound()
 		}
 		if len(gachaLivingUnits(b.allies)) == 0 {
 			break
@@ -552,10 +583,22 @@ func (b *gachaCombat) record(event GachaBattleEvent) {
 	event.Seq = len(b.report.Events) + 1
 	event.Units = make([]GachaBattleSnapshot, 0, len(b.allies)+len(b.waves[b.wave]))
 	for _, u := range b.allies {
-		event.Units = append(event.Units, u.GachaBattleSnapshot)
+		snapshot := u.GachaBattleSnapshot
+		if u.Joinery != nil {
+			slot := u.Slot
+			snapshot.Position = &slot
+			snapshot.Joinery = cloneJoinery(u.Joinery)
+		}
+		event.Units = append(event.Units, snapshot)
 	}
 	for _, u := range b.waves[b.wave] {
-		event.Units = append(event.Units, u.GachaBattleSnapshot)
+		snapshot := u.GachaBattleSnapshot
+		if u.Joinery != nil {
+			slot := u.Slot
+			snapshot.Position = &slot
+			snapshot.Joinery = cloneJoinery(u.Joinery)
+		}
+		event.Units = append(event.Units, snapshot)
 	}
 	b.report.Events = append(b.report.Events, event)
 	b.report.DurationMS += event.DurationMS
@@ -576,12 +619,29 @@ func (u *gachaCombatUnit) effectiveAttack() float64 {
 }
 
 func (b *gachaCombat) damage(src, dst *gachaCombatUnit, mult float64, ignoreDef int) GachaBattleTarget {
+	return b.damageOptions(src, dst, mult, ignoreDef, false, 0, false, src.activeSkill != nil)
+}
+
+func (b *gachaCombat) damageOptions(src, dst *gachaCombatUnit, mult float64, ignoreDef int, special bool, power float64, noCrit, skillHit bool) GachaBattleTarget {
+	if dst.Joinery != nil {
+		if dst.Joinery.Invulnerable > 0 {
+			return GachaBattleTarget{UID: dst.UID, Blocked: true}
+		}
+		if skillHit && dst.Joinery.Nullify > 0 {
+			dst.Joinery.Nullify--
+			return GachaBattleTarget{UID: dst.UID, Blocked: true}
+		}
+	}
 	if src.activeSkill != nil && src.activeSkill.LowHPBonus > 0 && dst.HP*2 < dst.MaxHP {
 		mult *= 1 + src.activeSkill.LowHPBonus
 	}
-	defense := float64(dst.Def) * (1 + float64(dst.DefUp)/100) * (1 - float64(dst.DefBreak)/100) * (1 - float64(ignoreDef)/100)
+	def := dst.Def
+	if special && dst.SpDef > 0 {
+		def = dst.SpDef
+	}
+	defense := float64(def) * (1 + float64(dst.DefUp)/100) * (1 - float64(dst.DefBreak)/100) * (1 - float64(ignoreDef)/100)
 	defMultiplier := 1 - defense/(defense+float64(b.formula.DefK+b.formula.DefLv*src.Level))
-	critical := b.rng.Float64()*100 < float64(src.CR)
+	critical := !noCrit && b.rng.Float64()*100 < float64(src.CR)
 	critMultiplier := 1.0
 	if critical {
 		critMultiplier = 1 + float64(src.CD)/100
@@ -600,13 +660,24 @@ func (b *gachaCombat) damage(src, dst *gachaCombatUnit, mult float64, ignoreDef 
 		}
 	}
 	elementMultiplier, elemental := gachaElementMultiplier(src.Elem, dst.Elem)
-	damage := max(1, int(math.Round(src.effectiveAttack()*mult*defMultiplier*critMultiplier*(1+bonus)*elementMultiplier)))
+	if power <= 0 {
+		power = src.effectiveAttack()
+		if special {
+			power = src.effectiveSpecial()
+		}
+	}
+	damage := max(0, int(math.Round(float64(max(1, int(math.Round(power*mult*defMultiplier*critMultiplier*(1+bonus)*elementMultiplier))))*b.joineryReduction(dst))))
 	absorbed := min(dst.Shield, damage)
 	dst.Shield -= absorbed
 	healthDamage := min(dst.HP, damage-absorbed)
 	dst.HP -= healthDamage
+	rescued := b.joineryLethal(dst)
 	dst.Alive = dst.HP > 0
 	result := GachaBattleTarget{UID: dst.UID, Damage: healthDamage, Absorbed: absorbed, Crit: critical, Elemental: elemental}
+	if rescued {
+		result.Rescued = true
+		result.HPSet = dst.HP
+	}
 	if src.Alive && healthDamage > 0 && src.lifeSteal > 0 {
 		heal := int(math.Round(float64(healthDamage) * src.lifeSteal))
 		if src.DotT > 0 {
@@ -626,8 +697,9 @@ func (b *gachaCombat) damage(src, dst *gachaCombatUnit, mult float64, ignoreDef 
 		if dst.Alive && dst.ReflectT > 0 && dst.ReflectPct > 0 {
 			counter += absorbed * dst.ReflectPct / 100
 		}
-		result.Reflected = min(src.HP, counter)
+		result.Reflected = min(src.HP, int(math.Round(float64(counter)*b.joineryReduction(src))))
 		src.HP -= result.Reflected
+		b.joineryLethal(src)
 		src.Alive = src.HP > 0
 	}
 	if src.Alive && dst.Alive && src.dotChance > 0 && b.rng.Float64() < min(1, max(0, src.dotChance+float64(src.EHR-dst.Res)/200)) {
@@ -680,6 +752,10 @@ func (b *gachaCombat) support(src, target *gachaCombatUnit, skill GachaSkill) Ga
 	cleanse := skill.Cleanse
 	if src.GirlID == "c13" && src.Awakening == 0 {
 		cleanse = max(cleanse, 1)
+	}
+	if target.Joinery != nil {
+		b.joineryCleanse(target, cleanse)
+		return result
 	}
 	for range cleanse {
 		switch {
@@ -746,15 +822,26 @@ func gachaElementMultiplier(attacker, defender string) (float64, string) {
 }
 
 func (b *gachaCombat) act(u *gachaCombatUnit) {
+	acted := false
+	before := b.joineryDebuffSnapshot()
+	defer func() { b.observeJoineryDebuffs(before); b.joineryAfterAction(u, acted) }()
+	cooldownBlocked := u.Joinery != nil && u.Joinery.Cooldown > 0
+	if cooldownBlocked {
+		u.Joinery.Cooldown--
+	}
 	if u.Alive && u.DotT > 0 {
-		damage := min(u.HP, u.Dot)
+		damage := min(u.HP, int(math.Round(float64(u.Dot)*b.joineryReduction(u))))
 		u.HP -= damage
+		b.joineryLethal(u)
 		u.Alive = u.HP > 0
 		u.DotT--
 		if u.DotT == 0 {
 			u.Dot = 0
 		}
 		b.record(GachaBattleEvent{Kind: "ailment", Wave: b.wave, Round: b.rounds, Src: u.UID, SkillName: "侵蚀", DurationMS: 250, Targets: []GachaBattleTarget{{UID: u.UID, Damage: damage}}})
+	}
+	if !b.joineryBeforeAction(u) {
+		return
 	}
 	foes, team := gachaLivingUnits(b.waves[b.wave]), gachaLivingUnits(b.allies)
 	if u.Side == "enemy" {
@@ -786,12 +873,15 @@ func (b *gachaCombat) act(u *gachaCombatUnit) {
 		}
 	}
 	event := GachaBattleEvent{Kind: "action", Wave: b.wave, Round: b.rounds, Src: u.UID, DurationMS: 450, Targets: []GachaBattleTarget{}}
-	if u.StunT > 0 {
-		u.StunT--
+	if u.StunT > 0 || u.Joinery != nil && u.Joinery.Confused > 0 {
+		if u.StunT > 0 {
+			u.StunT--
+		}
 		event.Skipped = true
 		b.record(event)
 		return
 	}
+	acted = true
 	var taunter *gachaCombatUnit
 	b.invokeVigil(u, team, foes, "ready")
 	for _, f := range foes {
@@ -800,7 +890,9 @@ func (b *gachaCombat) act(u *gachaCombatUnit) {
 			break
 		}
 	}
-	if u.girl != nil && u.Rage >= b.formula.RageMax {
+	if u.girl != nil && u.girl.CombatProfile == "joinery" {
+		event = b.actJoinery(u, team, foes)
+	} else if u.girl != nil && u.Rage >= b.formula.RageMax && !cooldownBlocked && (u.Joinery == nil || u.Joinery.Suppressed == 0) {
 		u.Rage = min(b.formula.RageMax, u.castRefund)
 		skill := u.girl.Skills.Skill
 		u.activeSkill = &skill

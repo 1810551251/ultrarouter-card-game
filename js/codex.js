@@ -17,7 +17,7 @@ function codexOwnership(girl) {
   return {owned,shards,need,status:owned ? "owned" : shards >= need ? "ready" : shards > 0 ? "shards" : "missing"};
 }
 
-function codexLore(id) { return typeof CODEX_LORE === "undefined" ? {} : CODEX_LORE[id] || {}; }
+function codexLore(id) { return GIRLS.find(girl => girl.id === id)?.atlas || (typeof CODEX_LORE === "undefined" ? {} : CODEX_LORE[id] || {}); }
 
 function codexMatches() {
   const state = currentCodex(), query = state.query.trim().toLocaleLowerCase();
@@ -117,9 +117,9 @@ function codexSkillsTab(lore) {
   const skills=lore.skills || [], stars=lore.highStars || [];
   const separate=lore.basic && !skills.some(skill => skill.id === lore.basic.id);
   return `${codexHeading("把本领，写成星光","THE ART OF STARS",`${skills.length} 项技能 · ${separate ? "另含独立普攻" : "含基础普攻"}`)}<div class="cx-skill-list">${separate ? codexSkillMarkup(lore.basic,-1,true) : ""}${skills.map((skill,index)=>codexSkillMarkup(skill,index)).join("")}</div>
-    ${stars.length ? `${codexHeading("星阶共鸣","","依培养阶段解锁")}<div class="cx-awakening-grid">${stars.map(step=>`<article class="cx-awakening-card" data-star-milestone="${step.star}"><span class="cx-star-level">${step.star} ✦</span><h4>${esc(step.name)}</h4>${codexParagraphs(step.text)}</article>`).join("")}</div>` : ""}
+    ${stars.length ? `${codexHeading("星阶共鸣","",lore.implementationNote ? "设计预览 · 尚未启用" : "依培养阶段解锁")}<div class="cx-awakening-grid">${stars.map(step=>`<article class="cx-awakening-card" data-star-milestone="${step.star}"><span class="cx-star-level">${step.star} ✦</span><h4>${esc(step.name)}</h4>${codexParagraphs(step.text)}</article>`).join("")}</div>` : ""}
     ${lore.counter ? `<article class="cx-story-card cx-combat-note"><span class="cx-eyebrow">知其所长，也知其所限</span><h3>应对与边界</h3>${codexParagraphs(lore.counter)}</article>` : ""}
-    <div class="cx-pair-note"><span aria-hidden="true">✧</span><p>演示展现招式的施放意象；具体目标、费用与次数以技能条目为准。星霜演化是此图鉴的融合设计，尚未接入实战结算。</p></div>`;
+    <div class="cx-pair-note"><span aria-hidden="true">✧</span><p>${esc(lore.implementationNote || "演示展现招式的施放意象；具体目标、费用与次数以技能条目为准。星霜演化是此图鉴的融合设计，尚未接入实战结算。")}</p></div>`;
 }
 
 function codexStoryTab(lore) {

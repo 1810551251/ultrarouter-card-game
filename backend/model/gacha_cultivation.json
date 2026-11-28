@@ -156,6 +156,7 @@
     }
   },
   "weapons": {
+    "xs039": {"name": "三枚骨亮榫", "stat": "atk"},
     "c01": {"name": "流火灯轮", "stat": "atk"},
     "c02": {"name": "穗光铃", "stat": "hp"},
     "c03": {"name": "探潮罗盘", "stat": "def"},

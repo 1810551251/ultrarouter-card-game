@@ -652,7 +652,7 @@ func applyGachaProgressionAction(tx *gorm.DB, userID int, state *GachaGameState,
 			return ErrGachaFunds
 		}
 		own.Shards -= need
-		own.Star, own.Level = gachaCatalog.Rarity[girl.Rarity].BaseStar, 1
+		own.Star, own.Level = gachaInitialStars(girl), 1
 		result.Drops = append(result.Drops, "\u788e\u7247\u62db\u52df\u6210\u529f\uff1a"+girl.Name)
 	case "mainline_claim":
 		stageID := *intent.ItemID
@@ -842,13 +842,7 @@ func specialGachaProgressionStage(stageID string, state *GachaGameState, now tim
 		if day == nil {
 			return nil, snapshot, ErrGachaProgressionLimit
 		}
-		tier := 0
-		if state.Cleared["s3"] {
-			tier = 1
-		}
-		if state.Cleared["s6"] {
-			tier = 2
-		}
+		tier := gachaTrainingTier(state.Cleared) - 1
 		stage.Name, stage.EnemyLv, stage.Exp = "\u7ecf\u9a8c\u8bad\u7ec3", 1, day.Rules.TrainingXP[tier]
 		snapshot.TrainingDay, snapshot.ProgressionVersion = day.Date, day.Rules.Version
 		snapshot.Squad = slices.Clone(state.Squad)

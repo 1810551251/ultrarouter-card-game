@@ -23,11 +23,11 @@ test("card-owned definitions agree with both runtime catalogs and own their artw
       identities.add(id);
       const unit = json(`${directory}/${id}/${filename}`);
       assert.equal(unit.id, id);
-      for (const image of [unit.img, unit.battleImg, ...Object.values(unit.legacyImages)]) {
+      for (const image of [unit.img, unit.battleImg, ...Object.values(unit.legacyImages || {})]) {
         assert(image.startsWith(`${directory}/${id}/assets/`), image);
         assert(fs.statSync(path.join(root, image)).isFile(), image);
       }
-      for (const [old, image] of Object.entries(unit.legacyImages)) {
+      for (const [old, image] of Object.entries(unit.legacyImages || {})) {
         assert.equal(aliases[old], undefined, `duplicate alias: ${old}`);
         aliases[old] = image;
       }
