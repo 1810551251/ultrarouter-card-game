@@ -19,6 +19,7 @@ PY
 tar -xzf /tmp/go.tar.gz -C /tmp
 export PATH=/tmp/go/bin:$PATH
 export GACHA_REQUIRE_DB_MATRIX=1
+export GACHA_REVIEW_OUTPUT=/out
 export TEST_MYSQL_DSN='root@unix(/var/run/mysqld/mysqld.sock)/gacha_authority_test?parseTime=true'
 export TEST_POSTGRES_DSN='host=/var/run/postgresql user=root dbname=gacha_authority_test sslmode=disable'
 harness=/src/docs/pr-six-unit-guilds/harness

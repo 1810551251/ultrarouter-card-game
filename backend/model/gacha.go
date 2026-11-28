@@ -167,7 +167,6 @@ type GachaProfile struct {
 	ArtifactGrades *GachaArtifactGradeRules        `json:"artifact_grades"`
 	Items          *GachaItemAtlas                 `json:"items"`
 	Carry          *GachaCarryRules                `json:"carry"`
-	Market         *GachaMarketRules               `json:"market"`
 }
 
 type GachaRunRules struct {

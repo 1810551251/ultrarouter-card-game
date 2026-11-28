@@ -619,7 +619,8 @@ func (u *gachaCombatUnit) effectiveAttack() float64 {
 }
 
 func (b *gachaCombat) damage(src, dst *gachaCombatUnit, mult float64, ignoreDef int) GachaBattleTarget {
-	return b.damageOptions(src, dst, mult, ignoreDef, false, 0, false, src.activeSkill != nil)
+	special := src.AtkType == "magic" && (src.SpAtk > 0 || dst.SpDef > 0)
+	return b.damageOptions(src, dst, mult, ignoreDef, special, 0, false, src.activeSkill != nil)
 }
 
 func (b *gachaCombat) damageOptions(src, dst *gachaCombatUnit, mult float64, ignoreDef int, special bool, power float64, noCrit, skillHit bool) GachaBattleTarget {

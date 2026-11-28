@@ -142,7 +142,7 @@ func TestGachaDifficultyCatalogAndFrozenReports(t *testing.T) {
 		require.NoError(t, err)
 		encoded, err := common.Marshal(snapshot)
 		require.NoError(t, err)
-		run := &GachaRun{Stage: "training", Snapshot: string(encoded), BattleReport: string(encodedReport), ReadyAt: 17}
+		run := &GachaRun{Stage: "training", Snapshot: GachaDocument(encoded), BattleReport: GachaDocument(encodedReport), ReadyAt: 17}
 		view, err := gachaRunView(run, state, 3)
 		require.NoError(t, err)
 		require.Equal(t, archived, view.Difficulty, "never re-resolve a historical tier, including pre-difficulty runs")

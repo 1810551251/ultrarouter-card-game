@@ -38,11 +38,12 @@ function workshop(context) {
   return { state, view, document: dom.window.document };
 }
 
-test("catalog covers all 28 cards, retains v5 bonds and supports seven payable advanced stars", () => {
+test("catalog covers every released card, retains legacy bonds and supports seven payable advanced stars", () => {
   const ids = catalog.GIRLS.map(girl => girl.id).sort();
-  assert.equal(ids.length, 28);
+  const legacy = catalog.GIRLS.filter(girl=>!girl.atlas).map(girl=>girl.id).sort();
+  assert.equal(legacy.length, 28);
   assert.deepEqual(Object.keys(rules.weapons).sort(), ids);
-  assert.deepEqual(rules.bonds.flatMap(bond => bond.members).sort(), ids);
+  assert.deepEqual(rules.bonds.flatMap(bond => bond.members).sort(), legacy);
   assert.equal(new Set(Object.values(rules.weapons).map(weapon => weapon.name)).size, ids.length);
   for (const bond of rules.bonds) {
     assert.equal(bond.members.length, 2);
@@ -59,11 +60,12 @@ test("catalog covers all 28 cards, retains v5 bonds and supports seven payable a
     assert.ok((bond.advanced || rules.bond_advanced) > (bond.base || rules.bond_base));
   }
   assert.equal(edges.size, 56);
-  for (const { id, rarity } of catalog.GIRLS) assert.equal(rules.fellowships.filter(pair => pair.members.includes(id)).length, limits[rarity]);
+  for (const { id, rarity } of catalog.GIRLS.filter(girl => legacy.includes(girl.id))) assert.equal(rules.fellowships.filter(pair => pair.members.includes(id)).length, limits[rarity]);
   assert.deepEqual([2,3].map(size => rules.crews.filter(bond => bond.members.length === size).length), [2,36]);
   assert.equal(new Set(rules.crews.map(bond => [...bond.members].sort().join(":"))).size, rules.crews.length);
   for (const {members} of rules.crews) assert.ok(members.length === new Set(members).size && members.every(id => ids.includes(id)));
-  for (const { id, rarity } of catalog.GIRLS) assert.equal(rules.crews.filter(bond => bond.members.includes(id)).length, limits[rarity]);
+  for (const { id, rarity } of catalog.GIRLS.filter(girl => legacy.includes(girl.id))) assert.equal(rules.crews.filter(bond => bond.members.includes(id)).length, limits[rarity]);
+  for (const group of [rules.bonds, rules.fellowships, rules.crews]) assert.ok(group.every(bond => !bond.members.includes("xs039")), "unreleased xs039 partners must not activate gameplay bonuses");
   for (const role of new Set(catalog.GIRLS.map(girl => girl.role))) {
     assert.deepEqual(rules.milestones[role].map(step => step.star), [3, 6, 9, 12]);
     for (const step of rules.milestones[role]) assert.ok(step.name && Number.isSafeInteger(step.value) && step.value > 0);

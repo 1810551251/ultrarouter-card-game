@@ -1,7 +1,10 @@
 package model
 
 import (
+	"github.com/QuantumNous/new-api/common"
 	"math/rand/v2"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"testing"
@@ -9,6 +12,35 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestJoineryRealBattlePresentationFixture(t *testing.T) {
+	state := battleTestState([]string{"xs039", "c13", "c01"}, 40, 5)
+	state.Girls["xs039"].Talent = "swift"
+	state.Girls["xs039"].WeaponAwake = 3
+	stage := GachaStage{ID: "", Name: "三榫弦场演练", EnemyLv: 10, Waves: 1, EnemyCount: 6, HPScale: 20, StarRound: 60}
+	report, err := simulateGachaCombat(state, stage, battleTestRNG())
+	require.NoError(t, err)
+	ultimate, cut, rescue := 0, 0, 0
+	for _, event := range report.Events {
+		if event.SkillKey == "xs039-skill-2" {
+			ultimate++
+		}
+		if event.Variant == "cut" {
+			cut++
+		}
+		if event.Variant == "rescue" {
+			rescue++
+		}
+	}
+	require.Positive(t, ultimate)
+	require.Positive(t, cut)
+	t.Logf("server-generated presentation fixture: %d events, %d ultimates, %d cuts, %d rescues", len(report.Events), ultimate, cut, rescue)
+	if directory := os.Getenv("GACHA_REVIEW_OUTPUT"); directory != "" {
+		data, err := common.Marshal(map[string]any{"state": state, "report": report, "stage": stage})
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(directory, "xs039-real-battle.json"), data, 0644))
+	}
+}
 
 func joineryBattle(t *testing.T) (*gachaCombat, *gachaCombatUnit) {
 	t.Helper()
