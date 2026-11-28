@@ -1,5 +1,6 @@
 {
   "id": "c20",
+  "sources": ["world", "voyage"],
   "name": "暖弦",
   "rarity": "R",
   "elem": "plant",

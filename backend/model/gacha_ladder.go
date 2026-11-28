@@ -54,17 +54,12 @@ type GachaLadderRewardTier struct {
 	MaxRank   int                  `json:"max_rank"`
 	Materials GachaLadderMaterials `json:"materials"`
 	Token     int                  `json:"token"`
+	ArenaCoin int                  `json:"arena_coin"`
+	Tickets   int                  `json:"limited_ticket"`
 }
 
 // These are game tokens. Ranked rewards never touch the host wallet or E quota.
-var gachaLadderRewards = []GachaLadderRewardTier{
-	{1, GachaLadderMaterials{120, 60, 20}, 300},
-	{3, GachaLadderMaterials{100, 50, 15}, 240},
-	{10, GachaLadderMaterials{80, 40, 12}, 180},
-	{50, GachaLadderMaterials{60, 30, 8}, 120},
-	{100, GachaLadderMaterials{40, 20, 5}, 80},
-	{0, GachaLadderMaterials{30, 15, 3}, 50},
-}
+var gachaLadderRewards = gachaMarket.LadderRewards
 
 type GachaLadderBestRewardTier struct {
 	MaxRank     int   `json:"max_rank"`
@@ -94,6 +89,8 @@ type GachaLadderMail struct {
 	Rank        int                  `json:"rank"`
 	Materials   GachaLadderMaterials `gorm:"embedded;embeddedPrefix:reward_" json:"materials"`
 	Kind        string               `gorm:"type:varchar(16);not null;default:daily" json:"kind"`
+	ArenaCoin   int                  `gorm:"not null;default:0" json:"arena_coin"`
+	Tickets     int                  `gorm:"not null;default:0" json:"limited_ticket"`
 	Token       int                  `gorm:"not null;default:0" json:"token"`
 	SettledAt   int64                `json:"settled_at"`
 	Claimed     bool                 `gorm:"not null;default:false" json:"claimed"`
@@ -117,6 +114,7 @@ type GachaLadderBattle struct {
 
 type GachaLadderResult struct {
 	GachaLadderBattle
+	ArenaCoin int                `json:"arena_coin,omitempty"`
 	Ladder    bool               `json:"ladder"`
 	Name      string             `json:"name"`
 	Win       bool               `json:"win"`
@@ -243,7 +241,7 @@ func syncGachaLadderMailbox(tx *gorm.DB, userID int, state *GachaGameState, now 
 		exists := slices.ContainsFunc(state.Mailbox.Messages, func(message *GachaMailMessage) bool { return message.ID == id })
 		if !exists {
 			resources := map[string]int{}
-			for key, amount := range map[string]int{"token": mail.Token, "mat_r": mail.Materials.R, "mat_sr": mail.Materials.SR, "mat_ssr": mail.Materials.SSR} {
+			for key, amount := range map[string]int{"token": mail.Token, "mat_r": mail.Materials.R, "mat_sr": mail.Materials.SR, "mat_ssr": mail.Materials.SSR, "arena_coin": mail.ArenaCoin, "limited_ticket": mail.Tickets} {
 				if amount < 0 || amount > gachaMaxResource {
 					return false, ErrGachaRunState
 				}
@@ -358,7 +356,7 @@ func settleGachaLadder(tx *gorm.DB, now time.Time) error {
 			}
 			reward := gachaLadderRewardTier(player.Rank)
 			mail := GachaLadderMail{UserID: player.ID, Day: at.Format("2006-01-02"), Kind: "daily", Rank: player.Rank,
-				Materials: reward.Materials, Token: reward.Token, SettledAt: at.UnixMilli()}
+				Materials: reward.Materials, Token: reward.Token, ArenaCoin: reward.ArenaCoin, Tickets: reward.Tickets, SettledAt: at.UnixMilli()}
 			if err := insertGachaLadderMail(tx, &mail); err != nil {
 				return err
 			}
@@ -677,9 +675,19 @@ func applyGachaLadderAction(userID int, intent GachaActionIntent, now time.Time)
 			if err != nil {
 				return err
 			}
+			coins := gachaMarket.ChallengeLoss
+			if result.Ladder.Win {
+				coins = gachaMarket.ChallengeWin
+			}
+			if state.Mats["arena_coin"] > gachaMaxResource-coins {
+				return ErrGachaCapacity
+			}
+			state.Mats["arena_coin"] += coins
+			result.Ladder.ArenaCoin = coins
 			if err := recordGuildPersonalActivity(state, "arena", now); err != nil {
 				return err
 			}
+			advanceGachaCaptainTask(state, "ladder")
 		case "ladder_claim":
 			// Cached clients may still send the old action. It only ensures mailbox
 			// delivery; rewards are claimed exclusively through the public inbox.

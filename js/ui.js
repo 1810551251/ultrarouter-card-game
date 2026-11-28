@@ -47,8 +47,7 @@ function renderTopbar() {
   document.getElementById("res-token").textContent = SAVE.token;
   document.getElementById("res-gold").textContent = SAVE.gold;
   document.getElementById("res-multi").textContent = "x" + SAVE.multi + (SAVE.multiOn ? "（使用中）" : "");
-  document.getElementById("res-budget").textContent =
-    Math.max(0, TOKEN_BUDGET - SAVE.daily.tokenGained);
+  document.getElementById("res-budget").textContent = SAVE.daily.tokenGained || 0;
   const site = document.getElementById("res-site");
   if (site) site.textContent = (Store.serverOK && SITE_ACCOUNT)
     ? quotaToE(SITE_ACCOUNT.quota || 0) + " E"
@@ -137,9 +136,8 @@ function renderHome() {
   if (!requireGame()) return;
   const pityLeft = GACHA.pitySSR - (SAVE.pity % GACHA.pitySSR);
   const owned = Object.values(SAVE.girls).filter(g => g.star > 0).length;
-  const budgetLeft = Math.max(0, TOKEN_BUDGET - SAVE.daily.tokenGained);
   document.getElementById("home-info").innerHTML = `
-    <div class="info-card"><div class="k">今日代币池剩余</div><div class="v">${budgetLeft}/${TOKEN_BUDGET}</div></div>
+    <div class="info-card"><div class="k">今日战斗代币（无日上限）</div><div class="v">${SAVE.daily.tokenGained || 0}</div></div>
     <div class="info-card"><div class="k">SSR 保底</div><div class="v">还差 ${pityLeft} 抽</div></div>
     <div class="info-card"><div class="k">已解锁少女</div><div class="v">${owned}/${GIRLS.length}</div></div>
     <div class="info-card"><div class="k">双倍卡</div>
@@ -352,7 +350,7 @@ function renderGacha() {
         ${hist.length ? hist.map(h => `<span class="hchip r-${h.r}">${h.n}</span>`).join("")
                       : `<span class="gx-empty">暂无记录</span>`}
       </span>
-    </div><div class="growth-gacha-link"><span>招募券来自日常、周常和主线里程碑，不能用金币无限抽取。</span><button type="button" class="gbtn gbtn-sm" onclick="nav('page-growth')"><span>领取招募券</span></button></div>`;
+    </div><details><summary>查看常驻奖池</summary>${["SSR","SR","R"].map(rarity => `<p><b>${rarity}</b> · ${GIRLS.filter(girl => girl.rarity === rarity && cardSources(girl).includes("summon")).map(girl => esc(girl.name)).join("、")}</p>`).join("")}</details><div class="growth-gacha-link"><span>招募券来自日常、周常和主线里程碑，不能用金币无限抽取。</span><button type="button" class="gbtn gbtn-sm" onclick="nav('page-growth')"><span>领取招募券</span></button></div>`;
 }
 
 async function doGacha(times) {
@@ -496,7 +494,7 @@ function renderSquad() {
     if (!own || own.star <= 0) return `<div class="card r-${g.rarity} card-locked" data-id="${id}" title="尚未获得">
       <img src="${g.img}" loading="lazy">
       <span class="shard-n">${own?.shards > 0 ? "碎片 " + own.shards : ""}</span>
-      <div class="name">${g.name}<i>未获得</i></div>
+      <div class="name">${g.name}<i>${(own?.shards || 0) >= RARITY[g.rarity].shardToUnlock ? "可合成召唤" : "未获得"}</i></div>
     </div>`;
     const slot = SAVE.squad.indexOf(id);          // -1 = 未上阵
     const inSquad = slot >= 0;
@@ -1004,6 +1002,22 @@ async function cultivateGirl(action, id, choice) {
 }
 
 /* ---------- 少女详情 / 养成 ---------- */
+function openCardSource(id) {
+  if (!requireGame()) return;
+  const girl = GIRLS.find(entry => entry.id === id);
+  if (!girl) return;
+  const sources = cardSources(girl);
+  closeModal();
+  if (sources.includes("summon") || sources.includes("world")) {
+    nav("page-gacha");
+    if (typeof selectDrawPool === "function") selectDrawPool(sources.includes("summon") ? "heroes" : "world");
+  } else if (sources.includes("growth") || sources.includes("starter")) {
+    nav("page-growth");
+    const wish = document.getElementById("growth-wish");
+    if (wish && Array.from(wish.options).some(option => option.value === id)) { wish.value = id; wish.focus(); }
+  } else nav("page-stage");
+}
+
 function openGirl(id) {
   if (!requireGame()) return;
   const g = GIRLS.find(x => x.id === id);
@@ -1027,7 +1041,7 @@ function openGirl(id) {
             <i class="gc-tag" style="color:${rar.color}">${rar.name}</i>
             <i class="gc-tag" style="color:${el.color}">${el.name}系</i></div>
           <div class="gc-desc">${g.desc}</div>
-          <div class="mat-line">尚未获得 · 碎片 ${own?.shards || 0}/${rar.shardToUnlock}<span>（可召唤获取，或攒副本碎片解锁）</span></div>
+          <div class="mat-line">尚未获得 · 同卡碎片 ${shards}/${rar.shardToUnlock}<span>来源：${esc(cardSourceDescription(g))}</span></div>
         </div>
       </div>
       <div class="gc-body">
@@ -1044,8 +1058,8 @@ function openGirl(id) {
       ${typeof atelierMilestones === "function" ? atelierMilestones(id) : ""}
       <div class="modal-btns">
         <button class="gbtn gbtn-sm" onclick="closeModal()"><span>关闭</span></button>
-        <button class="gbtn gbtn-sm gbtn-primary" onclick="closeModal();nav('page-gacha')"><span>去召唤</span></button>
-        ${SAVE.progression ? `<button type="button" class="gbtn gbtn-sm" onclick="unlockShardGirl('${id}')" ${shards >= RARITY[g.rarity].shardToUnlock ? "" : "disabled"}><span>碎片解锁 · ${RARITY[g.rarity].shardToUnlock}枚</span></button>` : ""}
+        <button class="gbtn gbtn-sm" onclick="openCardSource('${id}')"><span>前往获取途径</span></button>
+        ${SAVE.progression ? `<button type="button" class="gbtn gbtn-sm gbtn-primary" onclick="unlockShardGirl('${id}')" ${shards >= rar.shardToUnlock ? "" : "disabled"}><span>合成召唤 · ${rar.shardToUnlock} 枚同卡碎片</span></button>` : ""}
       </div>`);
     if (decomposableShards > 0) {
       document.querySelector("#modal-box .mb-scroll")?.insertAdjacentHTML("beforeend", `
@@ -1069,6 +1083,7 @@ function openGirl(id) {
           <i class="gc-tag" style="color:${el.color}">${el.name}系</i></div>
         <div class="gc-desc">${g.desc}</div>
         <div class="gc-lv">Lv${own.level} · ${own.star}星 · 碎片 ${own.shards}</div>
+        <div class="mat-line">获取来源：${esc(cardSourceDescription(g))}</div>
         <div class="mat-line"><span>${g.rarity}共鸣尘 ${SAVE.mats["shard_dust_" + g.rarity.toLowerCase()] || 0} · 旧通用共鸣尘 ${SAVE.mats.shard_dust || 0}</span></div>
       </div>
     </div>
@@ -1283,7 +1298,7 @@ function renderModes() {
   const bondLabels = squadBondLabels(SAVE.squad);
   body.innerHTML = `<div class="mode-grid">
     <article class="mode-card expedition-card"><div class="mode-card-head"><div><p class="social-kicker">每周 10 层 · 路线增益</p><h3>星穹远征</h3></div><span>${expedition.week || weekly.week || "本周"}</span></div>
-      <p class="mode-note">当前第 ${Math.min(expedition.floor,10)} / 10 层 · 本周最高 ${expedition.best || 0} 层 · 消耗 ${12 + Math.min(expedition.floor,10)} 体力。胜利奖励仅限游戏内资源。</p>
+      <p class="mode-note">当前第 ${Math.min(expedition.floor,10)} / 10 层 · 本周最高 ${expedition.best || 0} 层 · 消耗 ${12 + Math.min(expedition.floor,10)} 体力。${Store.profile?.market ? `逐层胜利可领远征币（本层 ${Store.profile.market.expedition_base + Store.profile.market.expedition_per_floor * Math.min(expedition.floor,10)}）。<button class="social-refresh" onclick="openGameMarket('expedition')">远征商店 ›</button>` : "胜利奖励仅限游戏内资源。"}</p>
       <div class="route-choices" role="group" aria-label="远征路线">${Object.entries(routeNames).map(([key,name]) => `<button type="button" class="route-choice ${expedition.route === key ? "selected" : ""}" aria-pressed="${expedition.route === key}" onclick="chooseExpeditionRoute('${key}')"><b>${name}</b><small>${routeEffects[key]}</small></button>`).join("")}</div>
       <button type="button" class="gbtn gbtn-primary mode-start" onclick="startModeRun('expedition')" ${expeditionDone || !expedition.route || stamina < 12 + Math.min(expedition.floor,10) ? "disabled" : ""}><span>${expeditionDone ? "本周已通关" : !expedition.route ? "先选择本层路线" : stamina < 12 + Math.min(expedition.floor,10) ? "体力不足" : `挑战第 ${expedition.floor} 层`}</span><span class="sub">${expeditionDone ? "下周重置" : expedition.route ? routeEffects[expedition.route] : "胜利后推进一层，失败可重试"}</span></button></article>
     <article class="mode-card weekly-card"><div class="mode-card-head"><div><p class="social-kicker">每周 3 次 · 元素轮换</p><h3>星蚀巨像</h3></div><span class="boss-element" style="--element:${elem?.color || "#999"}">${elem?.name || "元素"}系</span></div>
@@ -1292,7 +1307,7 @@ function renderModes() {
       <button type="button" class="gbtn gbtn-primary mode-start" onclick="startModeRun('weekly_boss')" ${weekly.cleared || (weekly.attempts || 0) >= 3 || stamina < 20 ? "disabled" : ""}><span>${weekly.cleared ? "本周首领已击败" : (weekly.attempts || 0) >= 3 ? "本周次数用完" : stamina < 20 ? "体力不足" : `挑战首领 · ${3 - (weekly.attempts || 0)} 次剩余`}</span><span class="sub">每次消耗 20 体力</span></button></article>
     ${guildMarkup}
     <article class="mode-card bond-card"><div class="mode-card-head"><div><p class="social-kicker">组合编队 · 实战生效</p><h3>队伍羁绊</h3></div><button class="gbtn gbtn-sm" onclick="nav('page-squad')"><span>调整阵容</span></button></div><div class="guild-members">${bondLabels.map(x => `<span>${esc(x)}</span>`).join("")}</div><p class="mode-note">同元素共鸣、相同定位协奏和四种元素齐备会分别强化属性；效果进入战斗与战力计算。</p></article>
-  </div><p class="mode-help">每周一北京时间零点刷新远征与首领。远征代币与普通副本共享每日代币池；新玩法产出为游戏内资源。</p><button type="button" class="gbtn gbtn-sm" onclick="refreshModes()"><span>刷新玩法与公会</span></button>`;
+  </div><p class="mode-help">每周一北京时间零点刷新远征与首领。远征与普通副本的战斗代币按实际奖励到账，不设每日上限。</p><button type="button" class="gbtn gbtn-sm" onclick="refreshModes()"><span>刷新玩法与公会</span></button>`;
 }
 
 async function startModeRun(id) {
@@ -1370,7 +1385,7 @@ function renderBag() {
       <div class="bag-side">
         <div class="side-row"><span>双倍卡</span><b>x${SAVE.multi}</b></div>
         <div class="side-row"><span>代币余额</span><b>${SAVE.token}</b></div>
-        <button class="gbtn gbtn-sm gbtn-primary" onclick="nav('page-shop')"><span>代币商店</span><span class="sub">兑换金币、体力与材料</span></button>
+        <button class="gbtn gbtn-sm gbtn-primary" onclick="nav('page-shop')"><span>补给商店</span><span class="sub">竞技场、副本与远征物资</span></button>
         <button class="gbtn gbtn-sm gbtn-gold" onclick="openWarehouse()">
           <span>我的仓库</span><span class="sub">站点折扣卡在这里用</span>
         </button>
@@ -1422,81 +1437,7 @@ async function loadSocial(page, render) {
 
 function renderShop() {
   if (!requireGame()) return;
-  loadSocial("page-shop", paintShop);
-}
-function shopDailyRemaining() {
-  const bought = Object.values(SAVE.daily.shopBought || {}).reduce((sum, n) => sum + n, 0);
-  return Math.max(0, (socialData?.shop_daily_limit || 0) - bought);
-}
-function shopBlockReason(item) {
-  if (shopDailyRemaining() === 0) return "今日次数用完";
-  if (SAVE.token < item.price) return "代币不足";
-  if (item.resource === "stamina" && SAVE.stamina + item.amount > SAVE.staminaMax) return "体力空间不足";
-  return "";
-}
-function paintShop() {
-  const items = socialData.shop || [];
-  const exchange = socialData.token_exchange;
-  const maximum = tokenExchangeMax();
-  document.getElementById("shop-body").innerHTML = `
-    <div class="social-wallet"><span>我的代币 <b>${SAVE.token.toLocaleString()}</b></span><span id="shop-daily-remaining">今日兑换剩余 <strong>${shopDailyRemaining()} / ${socialData.shop_daily_limit}</strong> 次</span></div>
-    <section class="token-exchange" aria-labelledby="token-exchange-title">
-      <div><h3 id="token-exchange-title">余额兑换代币</h3><p>1 E = 1 代币 · 站点可用余额 <strong>${quotaToE(SITE_ACCOUNT?.quota || 0)} E</strong></p><p>不占商店兑换次数及副本代币产出额度</p></div>
-      <div class="token-exchange-controls"><label for="token-exchange-count">兑换数量（整数）</label><input id="token-exchange-count" type="number" inputmode="numeric" min="1" max="${maximum}" step="1" value="${Math.max(1, Math.min(10, maximum))}" oninput="updateTokenExchange()" ${exchange?.enabled && maximum > 0 ? "" : "disabled"} aria-describedby="token-exchange-cost"><p id="token-exchange-cost" aria-live="polite"></p><button id="token-exchange-submit" class="gbtn gbtn-sm gbtn-primary" onclick="confirmTokenExchange()"><span>兑换代币</span></button></div>
-    </section>
-    <div class="shop-grid">${items.map(item => {
-      const reason = shopBlockReason(item);
-      const bought = SAVE.daily.shopBought?.[item.id] || 0;
-      const detail = { gold: "用于召唤与升级", stamina: "恢复体力，上限 120", mat_r: "用于 R 少女升星", mat_sr: "用于 SR 少女升星", mat_ssr: "用于 SSR 少女升星", multi: "主页开启后用于下一次副本" }[item.resource] || "游戏补给";
-      const id = /^[a-z_]+$/.test(item.id) ? item.id : "";
-      return `<article class="shop-item shop-${esc(item.resource)}"><span class="shop-mark" aria-hidden="true">${item.resource === "gold" ? "G" : item.resource === "stamina" ? "+" : item.resource === "multi" ? "×2" : "◆"}</span><div><h3>${esc(item.name)} <b>×${item.amount}</b></h3><p>${detail}</p></div><div class="shop-stock">今日已兑换 ${bought} 次 · 全店共用 ${socialData.shop_daily_limit} 次</div><button class="gbtn gbtn-sm gbtn-primary" onclick="confirmShopItem('${id}')" ${reason ? "disabled" : ""}><span>${reason || item.price + " 代币兑换"}</span>${reason ? `<span class="sub">${item.price} 代币</span>` : ""}</button></article>`;
-    }).join("")}</div>
-    <p class="social-note">全店每天共可兑换 ${socialData.shop_daily_limit} 次，北京时间零点刷新。副本每日最多产出 ${TOKEN_BUDGET} 代币，余额兑换的代币另计；副本双倍卡与站点倍率折扣卡是不同奇物。</p>`;
-  updateTokenExchange();
-}
-function tokenExchangeMax() {
-  const rules = socialData?.token_exchange;
-  if (!rules?.enabled || !(rules.quota_per_token > 0)) return 0;
-  return Math.max(0, Math.min(Math.floor((SITE_ACCOUNT?.quota || 0) / rules.quota_per_token), rules.max_count - SAVE.token));
-}
-function updateTokenExchange() {
-  const input = document.getElementById("token-exchange-count");
-  if (!input) return false;
-  const count = Number(input.value);
-  const maximum = tokenExchangeMax();
-  let message = "";
-  if (!socialData?.token_exchange?.enabled) message = "余额兑换暂不可用";
-  else if (maximum < 1) message = "余额不足 1 E 或代币已达上限";
-  else if (!Number.isSafeInteger(count) || count < 1 || count > maximum) message = `请输入 1–${maximum.toLocaleString()} 的整数`;
-  document.getElementById("token-exchange-submit").disabled = Boolean(message);
-  document.getElementById("token-exchange-cost").textContent = message || `消耗 ${count.toLocaleString()} E，获得 ${count.toLocaleString()} 代币`;
-  return !message;
-}
-function confirmTokenExchange() {
-  if (!requireGame() || !updateTokenExchange()) return;
-  const count = Number(document.getElementById("token-exchange-count").value);
-  showModal(`<h3>确认兑换代币</h3><div class="social-confirm"><h4>${count.toLocaleString()} E → ${count.toLocaleString()} 代币</h4><p>将从站点余额扣除 <b>${count.toLocaleString()} E</b>，获得 <b>${count.toLocaleString()} 代币</b>。</p><p>这是单向兑换，代币不能换回站点余额。</p></div><div class="modal-btns"><button class="gbtn gbtn-sm" onclick="closeModal()"><span>取消</span></button><button class="gbtn gbtn-sm gbtn-primary" onclick="exchangeTokens(${count})"><span>确认兑换</span></button></div>`);
-}
-async function exchangeTokens(count) {
-  if (!requireGame()) return;
-  const result = await Store.mutate("token_exchange", { count });
-  if (!result) return;
-  closeModal(); renderTopbar(); renderShop();
-  toast(`兑换成功，获得 ${result.exchange.count} 代币`);
-}
-function confirmShopItem(id) {
-  if (!requireGame()) return;
-  const item = socialData?.shop?.find(x => x.id === id);
-  if (!item) return;
-  const reason = shopBlockReason(item);
-  if (reason) return toast(reason);
-  showModal(`<h3>兑换补给</h3><div class="social-confirm"><h4>${esc(item.name)} ×${item.amount}</h4><p>消耗 <b>${item.price} 代币</b> · 当前拥有 ${SAVE.token}</p><p>全店每日共 ${socialData.shop_daily_limit} 次，今日剩余 ${shopDailyRemaining()} 次；本次占用 1 次。</p></div><div class="modal-btns"><button class="gbtn gbtn-sm" onclick="closeModal()"><span>取消</span></button><button class="gbtn gbtn-sm gbtn-primary" onclick="buyShopItem('${id}')"><span>确认兑换</span></button></div>`);
-}
-async function buyShopItem(id) {
-  if (!requireGame()) return;
-  const result = await Store.mutate("shop", { item_id: id });
-  if (!result) return;
-  closeModal(); renderTopbar(); renderShop(); toast("兑换成功，补给已放入背包");
+  return loadGameMarket();
 }
 
 let arenaQueue = null;

@@ -50,6 +50,11 @@ def load_units(root=ROOT):
             if group == 'cards':
                 if unit.get('rarity') not in {'R', 'SR', 'SSR'} or not all(name in unit.get('skills', {}) for name in ('normal', 'skill')):
                     fail('Invalid rarity or skills for '+identity)
+                sources = unit.get('sources', ['summon'])
+                if not isinstance(sources, list) or not sources or not all(isinstance(source, str) and source in {'summon', 'world', 'voyage', 'growth', 'starter', 'crew'} for source in sources) or len(sources) != len(set(sources)):
+                    fail('Invalid acquisition sources for '+identity)
+                if 'world' in sources and unit['rarity'] == 'SR' or 'starter' in sources and unit['rarity'] != 'SSR':
+                    fail('Invalid acquisition rarity for '+identity)
             elif unit.get('boss') != (group == 'bosses'):
                 fail('Enemy/boss folder classification mismatch: '+identity)
             units.append(unit)
@@ -84,9 +89,14 @@ def outputs(root=ROOT):
     catalog_path = root/'backend/model/gacha_catalog.json'
     catalog = read_json(catalog_path)
     catalog['GIRLS'], catalog['ENEMY_TPL'] = girls, enemies
+    for stage in catalog['STAGES']:
+        curve = catalog['REPEAT_REWARDS'][stage['id'][0]]
+        stage['gold'] = [stage['cost'] * rate for rate in curve['gold_per_stamina']]
+        stage['tokenRange'] = [max(1, stage['cost'] * rate // 100) for rate in curve['token_per_100_stamina']]
     source_path = root/'js/data.js'
     source = source_path.read_text(encoding='utf-8')
     source = replace_block(source, 'GIRLS', girls)
+    source = replace_block(source, 'STAGES', catalog['STAGES'])
     source = replace_block(source, 'ENEMY_TPL', enemies)
     alias_block = generated_block('UNIT_ASSET_ALIASES', aliases)
     alias_pattern = r'// BEGIN GENERATED UNIT_ASSET_ALIASES[^\n]*\n.*?// END GENERATED UNIT_ASSET_ALIASES'

@@ -10,7 +10,7 @@ const ladderNow = () => ladderData ? ladderData.server_now + performance.now() -
 const ladderTime = value => new Date(value).toLocaleString("zh-CN", {timeZone:"Asia/Shanghai", hour12:false});
 const ladderMaterials = materials => `<div class="ladder-materials">${["mat_r", "mat_sr", "mat_ssr"].map(key => `<span><i aria-hidden="true">◆</i>${esc(MATS[key]?.name || key)} <b>×${Number(materials?.[key]) || 0}</b></span>`).join("")}</div>`;
 const ladderToken = amount => `<span class="ladder-token"><i aria-hidden="true">✦</i>代币 <b>×${Number(amount) || 0}</b></span>`;
-const ladderReward = reward => `<div class="ladder-reward-content">${ladderToken(reward?.token)}${ladderMaterials(reward?.materials)}</div>`;
+const ladderReward = reward => `<div class="ladder-reward-content">${ladderToken(reward?.token)}${reward?.arena_coin ? `<span>竞技场币 <b>×${Number(reward.arena_coin)}</b></span>` : ""}${reward?.limited_ticket ? `<span>限定券 <b>×${Number(reward.limited_ticket)}</b></span>` : ""}${ladderMaterials(reward?.materials)}</div>`;
 const ladderGuild = entry => `<span class="ladder-guild ${entry.guild_name ? "has-guild" : ""}">${entry.id < 0 ? "竞技场守卫" : entry.guild_name ? esc(entry.guild_name) : "未加入公会"}</span>`;
 const ladderBestRank = () => ladderData?.best_rank || ladderData?.me?.best_rank || 0;
 
@@ -143,7 +143,7 @@ function paintLadderRewards() {
       const action = !tier.claimed && tier.delivered_at ? '<button class="social-refresh" onclick="openHarborMail()">查看原奖励邮件</button>' : `<button class="social-refresh" data-ladder-best="${tier.max_rank}" ${!claimable || ladderActionPending ? "disabled" : ""} onclick="claimLadderBest(${tier.max_rank},${Store.sessionEpoch})">${state}</button>`;
       return `<article class="ladder-best-tier ${reached ? "is-reached" : ""}"><span>${tier.max_rank === 1 ? "登顶第 1 名" : `进入前 ${tier.max_rank} 名`}</span>${ladderToken(tier.token)}<small>${tier.delivered_at && !tier.claimed ? "旧版已寄出，请从原邮件领取" : tier.claimed ? "本档奖励已领取" : claimable ? "已达成 · 领取后直接到账" : "首次达到此名次后解锁"}</small>${action}</article>`;
     }).join("")}</div>` +
-    `<div class="ladder-mail-entry"><div><b>每日结算奖励保留在邮箱</b><p>每日 21:00 按当时名次寄出代币与材料，离线也不会错过。</p></div><button class="gbtn gbtn-primary" onclick="openHarborMail()"><span>前往邮箱</span></button></div>` +
+    `<div class="ladder-mail-entry"><div><b>每日结算奖励保留在邮箱</b><p>每日 21:00 按当时名次寄出限定券、竞技场币、代币与材料，离线也不会错过。</p></div><button class="gbtn gbtn-primary" onclick="openHarborMail()"><span>前往邮箱</span></button></div>` +
     `<div class="ladder-settlement"><div><span>距离下次每日结算</span><b data-ladder-time>—</b><small>${esc(ladderTime(ladderData.next_settlement))}（北京时间）</small></div><p>每日 21:00 按当时名次发奖，代币与材料一同寄达。</p></div><h3 class="ladder-subtitle">每日排名奖励</h3><div class="ladder-reward-tiers">${rewards.map((tier,i)=>{
     const min=i ? rewards[i-1].max_rank+1 : 1;
     const active=me && me.rank>=min && (!tier.max_rank || me.rank<=tier.max_rank);
@@ -179,7 +179,7 @@ async function replayLadder(id) {
   } catch(e) { if (epoch===Store.sessionEpoch && Store.ready()) toast(e.message); }
 }
 function showLadderResult(result) {
-  showModal(`<h3>排名竞技 · ${result.win?"胜利":"失败"}</h3><div class="social-confirm"><h4>${esc(result.name)}</h4><div class="arena-award">#${result.own_before} → #${result.own_after}<span>我的竞技排名</span></div><p>${result.report.timed_out?"达到60回合上限，防守方获胜。":"本场排名已结算。"} 历史名次达成奖励已自动寄达，每日奖励在21:00按届时名次寄至邮箱。</p><p>回放左侧为进攻方「${esc(result.attacker_name)}」，右侧为防守方「${esc(result.defender_name)}」。</p></div><div class="modal-btns"><button class="gbtn" onclick="leaveArenaReplay()"><span>返回排名竞技</span></button><button class="gbtn gbtn-primary" onclick="watchArenaResult()"><span>重看战斗</span></button></div>`);
+  showModal(`<h3>排名竞技 · ${result.win?"胜利":"失败"}</h3><div class="social-confirm"><h4>${esc(result.name)}</h4><div class="arena-award">#${result.own_before} → #${result.own_after}<span>我的竞技排名</span></div><p>${result.report.timed_out?"达到60回合上限，防守方获胜。":"本场排名已结算。"} ${result.arena_coin ? `本场竞技场币 +${Number(result.arena_coin)}。` : ""}历史名次达成奖励可在奖励页领取；每日 21:00 排名奖励寄至邮箱。</p><p>回放左侧为进攻方「${esc(result.attacker_name)}」，右侧为防守方「${esc(result.defender_name)}」。</p></div><div class="modal-btns"><button class="gbtn" onclick="leaveArenaReplay()"><span>返回排名竞技</span></button><button class="gbtn gbtn-primary" onclick="watchArenaResult()"><span>重看战斗</span></button></div>`);
 }
 function tickLadderClock() {
   clearTimeout(arenaPollTimer);

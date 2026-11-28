@@ -1,5 +1,6 @@
 {
   "id": "c06",
+  "sources": ["crew", "summon", "world", "voyage", "growth"],
   "name": "铃羽",
   "rarity": "R",
   "elem": "plant",

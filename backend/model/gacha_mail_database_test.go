@@ -256,7 +256,7 @@ func testGachaMailDatabase(t *testing.T, _ time.Time) {
 		assert.Equal(t, out.Save.Mats, unpaid.Mats)
 		assert.Equal(t, out.Save.Mailbox, unpaid.Mailbox)
 	})
-	t.Run("receiving_earned_shards_unlocks_only_once", func(t *testing.T) {
+	t.Run("receiving_earned_shards_preserves_them_until_manual_synthesis", func(t *testing.T) {
 		owner := gachaUser(t)
 		state := gachaState(t, owner.Id, now)
 		cardID := "c23"
@@ -269,16 +269,22 @@ func testGachaMailDatabase(t *testing.T, _ time.Time) {
 		weekly.GirlID = &cardID
 		sent, err := model.ApplyGachaAction(owner.Id, weekly, now)
 		require.NoError(t, err)
-		unlocked := sent.Save.Girls[cardID]
-		assert.Equal(t, 2, unlocked.Star)
-		assert.Equal(t, 1, unlocked.Level)
-		assert.Equal(t, 1, unlocked.Shards)
+		before := sent.Save.Girls[cardID]
+		assert.Zero(t, before.Star)
+		assert.Zero(t, before.Level)
+		assert.Equal(t, 51, before.Shards)
 		again, err := model.ApplyGachaAction(owner.Id, weekly, now)
 		require.NoError(t, err)
 		assert.Equal(t, sent, again)
 		weekly.RequestID = uuid.NewString()
 		_, err = model.ApplyGachaAction(owner.Id, weekly, now)
 		require.Error(t, err)
-		assert.Equal(t, unlocked, gachaState(t, owner.Id, now).Girls[cardID])
+		assert.Equal(t, before, gachaState(t, owner.Id, now).Girls[cardID])
+		combine := model.GachaActionIntent{RequestID: uuid.NewString(), Action: "shard_unlock", GirlID: &cardID}
+		out, err := model.ApplyGachaAction(owner.Id, combine, now)
+		require.NoError(t, err)
+		assert.Equal(t, 2, out.Save.Girls[cardID].Star)
+		assert.Equal(t, 1, out.Save.Girls[cardID].Level)
+		assert.Equal(t, 1, out.Save.Girls[cardID].Shards)
 	})
 }

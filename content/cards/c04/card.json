@@ -1,5 +1,6 @@
 {
   "id": "c04",
+  "sources": ["summon", "starter", "voyage", "growth"],
   "name": "龙音",
   "rarity": "SSR",
   "elem": "fire",

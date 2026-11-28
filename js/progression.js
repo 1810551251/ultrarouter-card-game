@@ -82,7 +82,7 @@ function growthGoal(id) {
   if (own.level < level) return { title: `${girl.name}觉醒${rank}：先到${level}级`, note: `当前${own.level}级。经验训练与副本都提供真实经验，金币不能直升。`, action: "training" };
   if (own.star < star) {
     const need = growthStarCost(girl, own.star + 1);
-    return { title: `${girl.name}觉醒${rank}：先升至${star}星`, note: `下一星还缺${Math.max(0, need - own.shards - growthDust(girl))}枚碎片；许愿有稳定专属来源，升星还需对应材料。`, action: "wish" };
+    return { title: `${girl.name}觉醒${rank}：先升至${star}星`, note: `下一星还缺${Math.max(0, need - own.shards - growthDust(girl))}枚碎片；获取途径：${cardSourceDescription(girl)}。`, action: cardSources(girl).includes("growth") ? "wish" : "card_source" };
   }
   if ((p.trial_wins[id] || 0) < rank) return { title: `${girl.name}觉醒${rank}：通过专属试炼`, note: "开局会确保该角色出战。失败可重试，练习不重复发奖。", action: "trial", rank };
   const cost = Store.profile?.progression?.rules?.awakening_costs?.[rank - 1] || [80, 120, 200][rank - 1];
@@ -90,8 +90,8 @@ function growthGoal(id) {
   return { title: `${girl.name}可以觉醒${rank}阶`, note: rank === 1 ? "选择专属技能路线；两条路线互斥，之后可花250金币改选。" : "通过试炼后消耗契约印，永久解锁下一阶技能效果。", action: "awakening", rank };
 }
 
-function growthHeroOptions(selected, ownedOnly = false) {
-  return GIRLS.filter(g => !ownedOnly || (SAVE.girls[g.id]?.star || 0) > 0).map(g => `<option value="${g.id}" ${g.id === selected ? "selected" : ""}>${esc(g.name)} · ${g.rarity}${ownedOnly ? ` · Lv${SAVE.girls[g.id].level}` : ""}</option>`).join("");
+function growthHeroOptions(selected, ownedOnly = false, wish = false) {
+  return GIRLS.filter(g => ownedOnly ? (SAVE.girls[g.id]?.star || 0) > 0 : cardSources(g).includes("growth") && (!wish || SAVE.progression?.days.some(day => day.wish_targets.length < day.rules.wishes_per_day && !day.wish_targets.includes(g.id)))).map(g => `<option value="${g.id}" ${g.id === selected ? "selected" : ""}>${esc(g.name)} · ${g.rarity}${ownedOnly ? ` · Lv${SAVE.girls[g.id].level}` : ""}</option>`).join("");
 }
 
 function selectGrowthGirl(id) {
@@ -145,7 +145,7 @@ function renderGrowth() {
       <article class="mode-card growth-daily" id="growth-contracts"><div class="mode-card-head"><div><p class="social-kicker">任选两种活动 · 可积攒7天</p><h3>日常成长委托</h3></div><span class="growth-badge">可领 ${budget.readyMarks} 契约印</span></div>
         <p class="mode-note">训练、许愿、主线、裂隙、专属试炼、周常、双队任选两种。每次实际完成会推进一个积攒委托，不是一份进度同时领七天。</p>
         <div class="growth-actions"><button type="button" data-growth-run class="gbtn gbtn-primary" onclick="startGrowthRun('training')" ${budget.training < 1 || battleRunning ? "disabled" : ""}><span>经验训练 · ${budget.training}次</span><span class="sub">固定经验 · 不消耗体力 · 失败可重试</span></button><button type="button" class="gbtn" onclick="nav('page-stage')"><span>挑战主线或裂隙</span><span class="sub">不同活动推进契约委托</span></button></div>
-        <label class="growth-select">许愿角色<select id="growth-wish">${growthHeroOptions(growthSelectedGirl)}</select></label><button type="button" class="gbtn gbtn-sm" onclick="wishGrowthGirl()" ${budget.wishes < 1 ? "disabled" : ""}><span>定向许愿 · ${budget.wishes}次剩余</span><span class="sub">每个日资格需选不同角色 · 未解锁也可攒碎片</span></button>
+        <label class="growth-select">许愿角色<select id="growth-wish">${growthHeroOptions(growthSelectedGirl, false, true)}</select></label><button type="button" class="gbtn gbtn-sm" onclick="wishGrowthGirl()" ${budget.wishes < 1 ? "disabled" : ""}><span>定向许愿 · ${budget.wishes}次剩余</span><span class="sub">只列本卡来源允许且仍有资格的角色 · 未解锁也可攒碎片</span></button>
         <details class="growth-bank" open><summary>查看积攒委托和招募券</summary><div>${p.days.map(d => `<div class="growth-bank-row"><div><b>${esc(d.date)}</b><small>${d.activities.map(k => GROWTH_ACTIVITY_NAMES[k]).join(" + ") || "尚未完成活动"} · ${d.activities.length}/2</small><small>训练 ${d.training_left} · 许愿 ${Math.max(0, d.rules.wishes_per_day - d.wish_targets.length)}</small></div><div class="growth-bank-buttons"><button type="button" class="gbtn gbtn-sm" onclick="claimGrowthDay('${d.date}','daily_permits')" ${d.permits_claimed ? "disabled" : ""}><span>${d.permits_claimed ? "招募已寄" : `领${d.rules.permits_per_day}招募券`}</span></button><button type="button" class="gbtn gbtn-sm gbtn-primary" onclick="claimGrowthDay('${d.date}','daily_contract_claim')" ${d.marks_claimed || d.activities.length < 2 ? "disabled" : ""}><span>${d.marks_claimed ? "契约已寄" : `领${d.rules.marks_per_day}契约印`}</span></button></div></div>`).join("")}</div></details>
       </article>
       ${growthAwakeningMarkup(growthSelectedGirl)}
@@ -163,6 +163,7 @@ function renderGrowth() {
 function followGrowthGoal() {
   if (!requireGame()) return;
   const goal = growthGoal(growthSelectedGirl);
+  if (goal.action === "card_source") return openCardSource(growthSelectedGirl);
   if (goal.action === "training") return growthBudget().training > 0 ? startGrowthRun("training") : nav("page-stage");
   if (goal.action === "trial") return startGrowthRun(`trial_${growthSelectedGirl}_${goal.rank}`);
   if (goal.action === "stage") return nav("page-stage");
@@ -209,7 +210,7 @@ function growthMainlineMarkup() {
   // The server serializes an unclaimed Go slice as null.
   const claims = p.mainline_claims ?? [];
   return `<article class="mode-card growth-mainline"><div class="mode-card-head"><div><p class="social-kicker">每个账号一次 · 老玩家也可领取</p><h3>主线成长补给</h3></div></div>${[{ id: "s1", n: 5, xp: 14000 }, { id: "s3", n: 10, xp: 8000 }, { id: "s6", n: 15, xp: 0 }].map(m => { const stage = STAGES.find(s => s.id === m.id); const claimed = claims.includes(m.id); return `<div class="growth-bank-row"><div><b>${esc(stage.name)}</b><small>${m.n}招募券${m.xp ? ` · 出战经验${m.xp}` : ""} · 金币补给</small></div><button type="button" class="gbtn gbtn-sm" onclick="claimGrowthMainline('${m.id}')" ${claimed || !SAVE.cleared[m.id] ? "disabled" : ""}><span>${claimed ? "已领取" : SAVE.cleared[m.id] ? "领取奖励" : "先通关"}</span></button></div>`; }).join("")}
-    <h4 class="growth-subhead">首核心SSR自选</h4><p class="mode-note">通关第一章冰晶殿堂后选择输出、盾卫或治疗核心，附带入门经验。已拥有时转为该角色碎片，不覆盖原培养。</p><div class="growth-starters">${["c04", "c07", "c28"].map(id => { const girl = GIRLS.find(g => g.id === id); return `<button type="button" class="growth-starter" onclick="confirmGrowthStarter('${id}')" ${p.starter_claimed || !SAVE.cleared.s2 ? "disabled" : ""}><img src="${girl.img}" alt="" loading="lazy"><b>${esc(girl.name)}</b><small>${({ c04: "输出核心", c07: "护盾核心", c28: "治疗核心" })[id]}</small></button>`; }).join("")}</div><p class="mode-note">${p.starter_claimed ? "本账号首核心奖励已领取。" : "终身只可领取一次，请先确认阵容需要。"}</p></article>`;
+    <h4 class="growth-subhead">首核心SSR自选</h4><p class="mode-note">通关第一章冰晶殿堂后选择输出、盾卫或治疗核心，附带入门经验。已拥有时转为该角色碎片，不覆盖原培养。</p><div class="growth-starters">${GIRLS.filter(girl => cardSources(girl).includes("starter")).map(girl => `<button type="button" class="growth-starter" onclick="confirmGrowthStarter('${girl.id}')" ${p.starter_claimed || !SAVE.cleared.s2 ? "disabled" : ""}><img src="${girl.img}" alt="" loading="lazy"><b>${esc(girl.name)}</b><small>${({ c04: "输出核心", c07: "护盾核心", c28: "治疗核心" })[girl.id] || "入门核心"}</small></button>`).join("")}</div><p class="mode-note">${p.starter_claimed ? "本账号首核心奖励已领取。" : "终身只可领取一次，请先确认阵容需要。"}</p></article>`;
 }
 
 function growthDualMarkup() {
@@ -285,13 +286,14 @@ async function unlockShardGirl(id) {
   if (!result) return;
   if (document.body.dataset.page === "page-squad") renderSquad();
   if (document.body.dataset.page === "page-bag") renderBag();
+  if (document.body.dataset.page === "page-gacha") renderGacha();
   openGirl(id);
 }
 
 function confirmGrowthStarter(id) {
   if (!requireGame()) return;
   const girl = GIRLS.find(g => g.id === id);
-  if (!girl) return;
+  if (!girl || !cardSources(girl).includes("starter")) return;
   showModal(`<h3>选择${esc(girl.name)}？</h3><div class="social-confirm"><p>每个账号只可自选一次SSR核心，已有角色不会覆盖，会获得其专属碎片与入门经验。</p></div><div class="modal-btns"><button class="gbtn" onclick="closeModal()"><span>再想想</span></button><button class="gbtn gbtn-primary" onclick="growthMutate('starter_select',{girl_id:'${id}'})"><span>确认选择</span></button></div>`);
 }
 

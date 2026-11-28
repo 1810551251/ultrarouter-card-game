@@ -6,7 +6,7 @@
 const RARITY = {
   R:   { name: "R",   color: "#6d7f9a", shardToUnlock: 20,  baseStar: 1 },
   SR:  { name: "SR",  color: "#4a7dff", shardToUnlock: 50,  baseStar: 2 },
-  SSR: { name: "SSR", color: "#d9a94a", shardToUnlock: 100, baseStar: 3 },
+  SSR: { name: "SSR", color: "#d9a94a", shardToUnlock: 80,  baseStar: 3 },
 };
 
 /* ---------- 元素 ---------- */
@@ -29,6 +29,13 @@ const ELEM = {
 const GIRLS = [
   {
     "id": "c01",
+    "sources": [
+      "crew",
+      "summon",
+      "world",
+      "voyage",
+      "growth"
+    ],
     "name": "灯里",
     "rarity": "R",
     "elem": "fire",
@@ -106,6 +113,13 @@ const GIRLS = [
   },
   {
     "id": "c06",
+    "sources": [
+      "crew",
+      "summon",
+      "world",
+      "voyage",
+      "growth"
+    ],
     "name": "铃羽",
     "rarity": "R",
     "elem": "plant",
@@ -144,6 +158,13 @@ const GIRLS = [
   },
   {
     "id": "c08",
+    "sources": [
+      "crew",
+      "summon",
+      "world",
+      "voyage",
+      "growth"
+    ],
     "name": "小椛",
     "rarity": "R",
     "elem": "plant",
@@ -184,6 +205,13 @@ const GIRLS = [
   },
   {
     "id": "c12",
+    "sources": [
+      "crew",
+      "summon",
+      "world",
+      "voyage",
+      "growth"
+    ],
     "name": "苺",
     "rarity": "R",
     "elem": "plant",
@@ -223,6 +251,10 @@ const GIRLS = [
   },
   {
     "id": "c20",
+    "sources": [
+      "world",
+      "voyage"
+    ],
     "name": "暖弦",
     "rarity": "R",
     "elem": "plant",
@@ -304,6 +336,10 @@ const GIRLS = [
   },
   {
     "id": "c22",
+    "sources": [
+      "world",
+      "growth"
+    ],
     "name": "榛果",
     "rarity": "R",
     "elem": "plant",
@@ -384,6 +420,11 @@ const GIRLS = [
   },
   {
     "id": "c05",
+    "sources": [
+      "summon",
+      "voyage",
+      "growth"
+    ],
     "name": "霜音",
     "rarity": "SR",
     "elem": "water",
@@ -424,6 +465,11 @@ const GIRLS = [
   },
   {
     "id": "c13",
+    "sources": [
+      "summon",
+      "voyage",
+      "growth"
+    ],
     "name": "圣愈",
     "rarity": "SR",
     "elem": "water",
@@ -543,6 +589,10 @@ const GIRLS = [
   },
   {
     "id": "c17",
+    "sources": [
+      "voyage",
+      "growth"
+    ],
     "name": "澄汐",
     "rarity": "SR",
     "elem": "water",
@@ -664,6 +714,11 @@ const GIRLS = [
   },
   {
     "id": "c23",
+    "sources": [
+      "summon",
+      "voyage",
+      "growth"
+    ],
     "name": "夜萤",
     "rarity": "SR",
     "elem": "dark",
@@ -744,6 +799,9 @@ const GIRLS = [
   },
   {
     "id": "c25",
+    "sources": [
+      "growth"
+    ],
     "name": "苏兰",
     "rarity": "SR",
     "elem": "plant",
@@ -825,6 +883,12 @@ const GIRLS = [
   },
   {
     "id": "c04",
+    "sources": [
+      "summon",
+      "starter",
+      "voyage",
+      "growth"
+    ],
     "name": "龙音",
     "rarity": "SSR",
     "elem": "fire",
@@ -864,6 +928,12 @@ const GIRLS = [
   },
   {
     "id": "c07",
+    "sources": [
+      "summon",
+      "starter",
+      "voyage",
+      "growth"
+    ],
     "name": "星墙",
     "rarity": "SSR",
     "elem": "star",
@@ -945,6 +1015,9 @@ const GIRLS = [
   },
   {
     "id": "c03",
+    "sources": [
+      "world"
+    ],
     "name": "寻宝女王",
     "rarity": "SSR",
     "elem": "water",
@@ -986,6 +1059,9 @@ const GIRLS = [
   },
   {
     "id": "c15",
+    "sources": [
+      "world"
+    ],
     "name": "月璃",
     "rarity": "SSR",
     "elem": "dark",
@@ -1067,6 +1143,9 @@ const GIRLS = [
   },
   {
     "id": "c27",
+    "sources": [
+      "world"
+    ],
     "name": "雪翎",
     "rarity": "SSR",
     "elem": "star",
@@ -1106,6 +1185,11 @@ const GIRLS = [
   },
   {
     "id": "c28",
+    "sources": [
+      "summon",
+      "starter",
+      "growth"
+    ],
     "name": "海璃",
     "rarity": "SSR",
     "elem": "water",
@@ -1147,6 +1231,12 @@ const GIRLS = [
 ];
 // END GENERATED GIRLS
 
+function cardSources(girl) { return girl.sources || ["summon"]; }
+function cardSourceDescription(girl) {
+  const labels = {summon:"常驻召唤",world:girl.rarity === "SSR" ? "强者世界轮值碎片（召唤、积分箱、排名奖）" : "强者世界 R 整卡",voyage:"副本碎片",growth:"成长许愿与周常自选碎片",starter:"首核心自选",crew:"初始队伍"};
+  return cardSources(girl).map(key => labels[key]).join("、");
+}
+
 /* ---------- 突破材料 ----------
  * 三档材料按关卡产出，升星时与碎片一起消耗（按少女稀有度对应档位）。
  */
@@ -1161,13 +1251,13 @@ const MAT_BY_RARITY = { R: "mat_r", SR: "mat_sr", SSR: "mat_ssr" };
 const MAT_STAR_COST = { R: 20, SR: 30, SSR: 50 };
 
 const CULTIVATION_ITEMS = {
-  forge_ore: { name: "星锻矿", from: "主线、裂隙通关", use: "专武强化、铭刻、召唤券兑换与个体洗练" },
+  forge_ore: { name: "星锻矿", from: "主线、裂隙通关及碎片回收", use: "专武强化、铭刻与宝石芯片养成；可兑换宝石券或芯片券" },
   weapon_core: { name: "觉醒棱芯", from: "通关有首领的主线或裂隙", use: "专武觉醒" },
   training_manual: { name: "历练手记", from: "通关有首领的主线或裂隙", use: "单人经验" },
 };
 const ARTIFACT_TICKETS = {
-  gem_ticket: { name: "宝石召唤券", color: "#b16a74", from: "主线首领胜利或用星锻矿兑换", use: "宝石召唤池 · 一券抽一颗" },
-  chip_ticket: { name: "芯片召唤券", color: "#557ca1", from: "任意裂隙胜利或用星锻矿兑换", use: "芯片召唤池 · 一券抽一枚" },
+  gem_ticket: { name: "宝石召唤券", color: "#b16a74", from: "主线首领、棱镜打捞湾、50分日常宝箱或星锻矿兑换等", use: "宝石召唤池 · 一券抽一颗" },
+  chip_ticket: { name: "芯片召唤券", color: "#557ca1", from: "裂隙、棱镜打捞湾、75分日常宝箱或星锻矿兑换等", use: "芯片召唤池 · 一券抽一枚" },
 };
 const CULTIVATION_STATS = { hp: "生命", atk: "攻击", def: "防御", spd: "速度" };
 
@@ -1271,628 +1361,918 @@ const CHAPTERS = [
 /* ---------- 24 个副本 ----------
  * cost: 单次出战消耗体力
  * enemyLv: 敌人等级（决定防御与生命成长）
- * tokenRange: [最小, 最大] 单次掉落范围（受每日预算池约束）
+ * tokenRange: [最小, 最大] 单次掉落范围（没有每日上限）
  * unlockStage: 解锁条件（通关某副本序号）
  * starRound: 三星中的「速通」回合上限（超过只能拿两星）
  */
+// BEGIN GENERATED STAGES — run python scripts/sync-catalog.py
 const STAGES = [
   {
-    id: "s1", lootFamily: "grove", name: "林中圣所", type: "普通本", img: "assets/d04-forest.webp",
-    cost: 2, enemyLv: 10, waves: 1, enemyCount: 3, starRound: 4,
-    tokenRange: [10, 20], gold: [80, 150], exp: 40,
-    shardR: 0.20, shardSR: 0.04, shardSSR: 0.008, mat: [2, 4], matKey: "mat_r",
-    unlockStage: null, desc: "新手练级地，掉落基础材料。",
+    "id": "s1",
+    "name": "林中圣所",
+    "type": "普通本",
+    "img": "assets/d04-forest.webp",
+    "cost": 2,
+    "enemyLv": 10,
+    "waves": 1,
+    "enemyCount": 3,
+    "starRound": 4,
+    "tokenRange": [
+      1,
+      1
+    ],
+    "gold": [
+      28,
+      48
+    ],
+    "exp": 40,
+    "shardR": 0.2,
+    "shardSR": 0.04,
+    "shardSSR": 0.008,
+    "mat": [
+      2,
+      4
+    ],
+    "matKey": "mat_r",
+    "unlockStage": null,
+    "desc": "新手练级地，掉落基础材料。",
+    "lootFamily": "grove"
   },
   {
-    id: "s5", lootFamily: "grove", name: "溪谷哨站", type: "普通本", img: "assets/d04-forest.webp",
-    cost: 3, enemyLv: 18, waves: 2, enemyCount: 2, starRound: 5,
-    tokenRange: [12, 22], gold: [120, 200], exp: 60,
-    shardR: 0.22, shardSR: 0.06, shardSSR: 0.012, mat: [3, 5], matKey: "mat_r",
-    unlockStage: "s1", desc: "林间哨站，两波敌人。练级与攒碎片的稳定来源。",
+    "id": "s5",
+    "name": "溪谷哨站",
+    "type": "普通本",
+    "img": "assets/d04-forest.webp",
+    "cost": 3,
+    "enemyLv": 18,
+    "waves": 2,
+    "enemyCount": 2,
+    "starRound": 5,
+    "tokenRange": [
+      1,
+      1
+    ],
+    "gold": [
+      42,
+      72
+    ],
+    "exp": 60,
+    "shardR": 0.22,
+    "shardSR": 0.06,
+    "shardSSR": 0.012,
+    "mat": [
+      3,
+      5
+    ],
+    "matKey": "mat_r",
+    "unlockStage": "s1",
+    "desc": "林间哨站，两波敌人。练级与攒碎片的稳定来源。",
+    "lootFamily": "grove"
   },
   {
-    id: "s2", lootFamily: "tide", name: "冰晶殿堂", type: "精英本", img: "assets/d03-ice.webp",
-    cost: 5, enemyLv: 25, waves: 2, enemyCount: 3, starRound: 7,
-    tokenRange: [15, 30], gold: [180, 320], exp: 90,
-    shardR: 0.25, shardSR: 0.10, shardSSR: 0.02, mat: [4, 7], matKey: "mat_sr",
-    unlockStage: "s5", desc: "第一章终点。碎片掉率更高，产出元素结晶。",
+    "id": "s2",
+    "name": "冰晶殿堂",
+    "type": "精英本",
+    "img": "assets/d03-ice.webp",
+    "cost": 5,
+    "enemyLv": 25,
+    "waves": 2,
+    "enemyCount": 3,
+    "starRound": 7,
+    "tokenRange": [
+      1,
+      2
+    ],
+    "gold": [
+      70,
+      120
+    ],
+    "exp": 90,
+    "shardR": 0.25,
+    "shardSR": 0.1,
+    "shardSSR": 0.02,
+    "mat": [
+      4,
+      7
+    ],
+    "matKey": "mat_sr",
+    "unlockStage": "s5",
+    "desc": "第一章终点。碎片掉率更高，产出元素结晶。",
+    "lootFamily": "tide"
   },
   {
-    id: "s4", lootFamily: "astral", name: "天空遗迹", type: "活动本", img: "assets/d02-sky.webp",
-    cost: 6, enemyLv: 35, waves: 2, enemyCount: 4, starRound: 7,
-    tokenRange: [10, 50], gold: [200, 500], exp: 120,
-    shardR: 0.28, shardSR: 0.12, shardSSR: 0.03, mat: [5, 10], matKey: "mat_sr",
-    unlockStage: "s2", desc: "限时活动本。代币浮动范围最大。",
+    "id": "s4",
+    "name": "天空遗迹",
+    "type": "活动本",
+    "img": "assets/d02-sky.webp",
+    "cost": 6,
+    "enemyLv": 35,
+    "waves": 2,
+    "enemyCount": 4,
+    "starRound": 7,
+    "tokenRange": [
+      1,
+      3
+    ],
+    "gold": [
+      84,
+      144
+    ],
+    "exp": 120,
+    "shardR": 0.28,
+    "shardSR": 0.12,
+    "shardSSR": 0.03,
+    "mat": [
+      5,
+      10
+    ],
+    "matKey": "mat_sr",
+    "unlockStage": "s2",
+    "desc": "限时活动本。代币浮动范围最大。",
+    "lootFamily": "astral"
   },
   {
-    id: "s3", lootFamily: "ember", name: "熔岩要塞", type: "Boss本", img: "assets/d01-volcano.webp",
-    cost: 9, enemyLv: 45, waves: 3, enemyCount: 2, hasBoss: true, starRound: 10,
-    tokenRange: [25, 50], gold: [400, 700], exp: 180,
-    shardR: 0.30, shardSR: 0.16, shardSSR: 0.045, mat: [7, 12], matKey: "mat_ssr",
-    unlockStage: "s4", desc: "最终波为Boss战，产出星屑与高阶碎片。",
+    "id": "s3",
+    "name": "熔岩要塞",
+    "type": "Boss本",
+    "img": "assets/d01-volcano.webp",
+    "cost": 9,
+    "enemyLv": 45,
+    "waves": 3,
+    "enemyCount": 2,
+    "hasBoss": true,
+    "starRound": 10,
+    "tokenRange": [
+      2,
+      5
+    ],
+    "gold": [
+      126,
+      216
+    ],
+    "exp": 180,
+    "shardR": 0.3,
+    "shardSR": 0.16,
+    "shardSSR": 0.045,
+    "mat": [
+      7,
+      12
+    ],
+    "matKey": "mat_ssr",
+    "unlockStage": "s4",
+    "desc": "最终波为Boss战，产出星屑与高阶碎片。",
+    "lootFamily": "ember"
   },
   {
-    id: "s6", lootFamily: "umbra", name: "深渊回廊", type: "Boss本", img: "assets/d01-volcano.webp",
-    cost: 11, enemyLv: 55, waves: 3, enemyCount: 2, hasBoss: true, starRound: 11,
-    tokenRange: [30, 60], gold: [500, 900], exp: 220,
-    shardR: 0.32, shardSR: 0.18, shardSSR: 0.05, mat: [9, 15], matKey: "mat_ssr",
-    unlockStage: "s3", desc: "第二章终点。三星需要压到 11 回合内，通关后开启潮汐与月影。",
+    "id": "s6",
+    "name": "深渊回廊",
+    "type": "Boss本",
+    "img": "assets/d01-volcano.webp",
+    "cost": 11,
+    "enemyLv": 55,
+    "waves": 3,
+    "enemyCount": 2,
+    "hasBoss": true,
+    "starRound": 11,
+    "tokenRange": [
+      3,
+      6
+    ],
+    "gold": [
+      154,
+      264
+    ],
+    "exp": 220,
+    "shardR": 0.32,
+    "shardSR": 0.18,
+    "shardSSR": 0.05,
+    "mat": [
+      9,
+      15
+    ],
+    "matKey": "mat_ssr",
+    "unlockStage": "s3",
+    "desc": "第二章终点。三星需要压到 11 回合内，通关后开启潮汐与月影。",
+    "lootFamily": "umbra"
   },
   {
-    id: "s7", lootFamily: "tide", name: "夜潮栈道", type: "精英本", img: "assets/d05-tide.webp",
-    cost: 10, enemyLv: 58, waves: 2, enemyCount: 3, starRound: 8,
-    tokenRange: [30, 60], gold: [550, 950], exp: 230,
-    shardR: 0.34, shardSR: 0.18, shardSSR: 0.05, mat: [12, 18], matKey: "mat_r",
-    unlockStage: "s6", desc: "海灯照亮夜潮中的栈道。两波精英守卫，适合补充微光结晶。",
+    "id": "s7",
+    "name": "夜潮栈道",
+    "type": "精英本",
+    "img": "assets/d05-tide.webp",
+    "cost": 10,
+    "enemyLv": 58,
+    "waves": 2,
+    "enemyCount": 3,
+    "starRound": 8,
+    "tokenRange": [
+      3,
+      5
+    ],
+    "gold": [
+      140,
+      240
+    ],
+    "exp": 230,
+    "shardR": 0.34,
+    "shardSR": 0.18,
+    "shardSSR": 0.05,
+    "mat": [
+      12,
+      18
+    ],
+    "matKey": "mat_r",
+    "unlockStage": "s6",
+    "desc": "海灯照亮夜潮中的栈道。两波精英守卫，适合补充微光结晶。",
+    "lootFamily": "tide"
   },
   {
-    id: "s8", lootFamily: "tide", name: "潮汐神殿", type: "精英本", img: "assets/d05-tide.webp",
-    cost: 12, enemyLv: 62, waves: 3, enemyCount: 3, starRound: 11,
-    tokenRange: [32, 65], gold: [650, 1100], exp: 260,
-    shardR: 0.34, shardSR: 0.20, shardSSR: 0.055, mat: [10, 16], matKey: "mat_sr",
-    unlockStage: "s7", desc: "潮水退去，神殿现身。连续三波守卫，考验全队的持续作战能力。",
+    "id": "s8",
+    "name": "潮汐神殿",
+    "type": "精英本",
+    "img": "assets/d05-tide.webp",
+    "cost": 12,
+    "enemyLv": 62,
+    "waves": 3,
+    "enemyCount": 3,
+    "starRound": 11,
+    "tokenRange": [
+      3,
+      6
+    ],
+    "gold": [
+      168,
+      288
+    ],
+    "exp": 260,
+    "shardR": 0.34,
+    "shardSR": 0.2,
+    "shardSSR": 0.055,
+    "mat": [
+      10,
+      16
+    ],
+    "matKey": "mat_sr",
+    "unlockStage": "s7",
+    "desc": "潮水退去，神殿现身。连续三波守卫，考验全队的持续作战能力。",
+    "lootFamily": "tide"
   },
   {
-    id: "s9", lootFamily: "umbra", name: "月影王庭", type: "Boss本", img: "assets/d05-tide.webp",
-    cost: 14, enemyLv: 66, waves: 3, enemyCount: 3, hasBoss: true, starRound: 12,
-    tokenRange: [35, 70], gold: [800, 1300], exp: 300,
-    shardR: 0.35, shardSR: 0.22, shardSSR: 0.06, mat: [12, 18], matKey: "mat_ssr",
-    unlockStage: "s8", desc: "第三章终点。月色之下迎战Boss，通关后开启星穹终境。",
+    "id": "s9",
+    "name": "月影王庭",
+    "type": "Boss本",
+    "img": "assets/d05-tide.webp",
+    "cost": 14,
+    "enemyLv": 66,
+    "waves": 3,
+    "enemyCount": 3,
+    "hasBoss": true,
+    "starRound": 12,
+    "tokenRange": [
+      4,
+      7
+    ],
+    "gold": [
+      196,
+      336
+    ],
+    "exp": 300,
+    "shardR": 0.35,
+    "shardSR": 0.22,
+    "shardSSR": 0.06,
+    "mat": [
+      12,
+      18
+    ],
+    "matKey": "mat_ssr",
+    "unlockStage": "s8",
+    "desc": "第三章终点。月色之下迎战Boss，通关后开启星穹终境。",
+    "lootFamily": "umbra"
   },
   {
-    id: "s10", lootFamily: "astral", name: "逐星长阶", type: "精英本", img: "assets/d06-observatory.webp",
-    cost: 14, enemyLv: 70, waves: 3, enemyCount: 3, starRound: 11,
-    tokenRange: [35, 70], gold: [850, 1400], exp: 320,
-    shardR: 0.35, shardSR: 0.23, shardSSR: 0.065, mat: [14, 20], matKey: "mat_sr",
-    unlockStage: "s9", desc: "踏上云端星阶，突破三波守卫。高阶元素结晶的稳定来源。",
+    "id": "s10",
+    "name": "逐星长阶",
+    "type": "精英本",
+    "img": "assets/d06-observatory.webp",
+    "cost": 14,
+    "enemyLv": 70,
+    "waves": 3,
+    "enemyCount": 3,
+    "starRound": 11,
+    "tokenRange": [
+      4,
+      7
+    ],
+    "gold": [
+      196,
+      336
+    ],
+    "exp": 320,
+    "shardR": 0.35,
+    "shardSR": 0.23,
+    "shardSSR": 0.065,
+    "mat": [
+      14,
+      20
+    ],
+    "matKey": "mat_sr",
+    "unlockStage": "s9",
+    "desc": "踏上云端星阶，突破三波守卫。高阶元素结晶的稳定来源。",
+    "lootFamily": "astral"
   },
   {
-    id: "s11", lootFamily: "chrono", name: "观星禁域", type: "精英本", img: "assets/d06-observatory.webp",
-    cost: 16, enemyLv: 75, waves: 3, enemyCount: 4, starRound: 13,
-    tokenRange: [38, 75], gold: [950, 1600], exp: 350,
-    shardR: 0.36, shardSR: 0.24, shardSSR: 0.07, mat: [14, 21], matKey: "mat_ssr",
-    unlockStage: "s10", desc: "观星台的禁制尚未散去。每波四名敌人，群体伤害与治疗尤为关键。",
+    "id": "s11",
+    "name": "观星禁域",
+    "type": "精英本",
+    "img": "assets/d06-observatory.webp",
+    "cost": 16,
+    "enemyLv": 75,
+    "waves": 3,
+    "enemyCount": 4,
+    "starRound": 13,
+    "tokenRange": [
+      5,
+      8
+    ],
+    "gold": [
+      224,
+      384
+    ],
+    "exp": 350,
+    "shardR": 0.36,
+    "shardSR": 0.24,
+    "shardSSR": 0.07,
+    "mat": [
+      14,
+      21
+    ],
+    "matKey": "mat_ssr",
+    "unlockStage": "s10",
+    "desc": "观星台的禁制尚未散去。每波四名敌人，群体伤害与治疗尤为关键。",
+    "lootFamily": "chrono"
   },
   {
-    id: "s12", lootFamily: "astral", name: "星穹圣座", type: "Boss本", img: "assets/d06-observatory.webp",
-    cost: 18, enemyLv: 80, waves: 4, enemyCount: 3, hasBoss: true, starRound: 15,
-    tokenRange: [40, 80], gold: [1200, 2000], exp: 400,
-    shardR: 0.38, shardSR: 0.26, shardSSR: 0.08, mat: [16, 24], matKey: "mat_ssr",
-    unlockStage: "s11", desc: "当前最高难度。四波连续试炼，最终波迎战Boss；三星需在15回合内完成。",
+    "id": "s12",
+    "name": "星穹圣座",
+    "type": "Boss本",
+    "img": "assets/d06-observatory.webp",
+    "cost": 18,
+    "enemyLv": 80,
+    "waves": 4,
+    "enemyCount": 3,
+    "hasBoss": true,
+    "starRound": 15,
+    "tokenRange": [
+      5,
+      10
+    ],
+    "gold": [
+      252,
+      432
+    ],
+    "exp": 400,
+    "shardR": 0.38,
+    "shardSR": 0.26,
+    "shardSSR": 0.08,
+    "mat": [
+      16,
+      24
+    ],
+    "matKey": "mat_ssr",
+    "unlockStage": "s11",
+    "desc": "当前最高难度。四波连续试炼，最终波迎战Boss；三星需在15回合内完成。",
+    "lootFamily": "astral"
   },
-
-{
-  "id": "r1",
-  "name": "灼焰地宫",
-  "type": "元素裂隙",
-  "img": "assets/d01-volcano.webp",
-  "cost": 12,
-  "enemyLv": 84,
-  "waves": 2,
-  "enemyCount": 3,
-  "starRound": 12,
-  "exp": 280,
-  "hasBoss": true,
-  "tokenRange": [
-    20,
-    35
-  ],
-  "gold": [
-    700,
-    1100
-  ],
-  "mat": [
-    9,
-    15
-  ],
-  "shardR": 0,
-  "shardSR": 0.2,
-  "shardSSR": 0.08,
-  "matKey": "mat_sr",
-  "unlockStage": "s6",
-  "lootFamily": "ember",
-  "enemyElem": "fire",
-  "mechanic": "fury",
-  "hpScale": 2.4,
-  "atkScale": 1.25,
-  "defScale": 1.15,
-  "enemyRes": 15,
-  "relicTier": 1,
-  "relicChance": 0.45,
-  "essence": [
-    2,
-    4
-  ],
-  "desc": "灼怒：敌人随回合提高攻击，拖得越久越危险；适合爆发与先手控制。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "r2",
-  "name": "潮壁圣殿",
-  "type": "元素裂隙",
-  "img": "assets/d05-tide.webp",
-  "cost": 12,
-  "enemyLv": 86,
-  "waves": 2,
-  "enemyCount": 3,
-  "starRound": 12,
-  "exp": 280,
-  "hasBoss": true,
-  "tokenRange": [
-    20,
-    35
-  ],
-  "gold": [
-    700,
-    1100
-  ],
-  "mat": [
-    9,
-    15
-  ],
-  "shardR": 0,
-  "shardSR": 0.2,
-  "shardSSR": 0.08,
-  "matKey": "mat_sr",
-  "unlockStage": "s6",
-  "lootFamily": "tide",
-  "enemyElem": "water",
-  "mechanic": "barrier",
-  "hpScale": 2.4,
-  "atkScale": 1.25,
-  "defScale": 1.15,
-  "enemyRes": 15,
-  "relicTier": 1,
-  "relicChance": 0.45,
-  "essence": [
-    2,
-    4
-  ],
-  "desc": "结界：敌人自带护盾，每三回合补充护盾；侵蚀可越过护盾，吸血不会从护盾获取恢复。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "r3",
-  "name": "复苏秘林",
-  "type": "元素裂隙",
-  "img": "assets/d04-forest.webp",
-  "cost": 12,
-  "enemyLv": 88,
-  "waves": 2,
-  "enemyCount": 3,
-  "starRound": 12,
-  "exp": 280,
-  "hasBoss": true,
-  "tokenRange": [
-    20,
-    35
-  ],
-  "gold": [
-    700,
-    1100
-  ],
-  "mat": [
-    9,
-    15
-  ],
-  "shardR": 0,
-  "shardSR": 0.2,
-  "shardSSR": 0.08,
-  "matKey": "mat_sr",
-  "unlockStage": "s6",
-  "lootFamily": "grove",
-  "enemyElem": "plant",
-  "mechanic": "regrowth",
-  "hpScale": 2.4,
-  "atkScale": 1.25,
-  "defScale": 1.15,
-  "enemyRes": 15,
-  "relicTier": 1,
-  "relicChance": 0.45,
-  "essence": [
-    2,
-    4
-  ],
-  "desc": "复苏：敌人每次行动恢复8%最大生命；侵蚀会把复苏压制到四分之一。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "r4",
-  "name": "折光星殿",
-  "type": "元素裂隙",
-  "img": "assets/d02-sky.webp",
-  "cost": 12,
-  "enemyLv": 90,
-  "waves": 2,
-  "enemyCount": 3,
-  "starRound": 12,
-  "exp": 280,
-  "hasBoss": true,
-  "tokenRange": [
-    20,
-    35
-  ],
-  "gold": [
-    700,
-    1100
-  ],
-  "mat": [
-    9,
-    15
-  ],
-  "shardR": 0,
-  "shardSR": 0.2,
-  "shardSSR": 0.08,
-  "matKey": "mat_sr",
-  "unlockStage": "s6",
-  "lootFamily": "astral",
-  "enemyElem": "star",
-  "mechanic": "reflection",
-  "hpScale": 2.4,
-  "atkScale": 1.25,
-  "defScale": 1.15,
-  "enemyRes": 15,
-  "relicTier": 1,
-  "relicChance": 0.45,
-  "essence": [
-    2,
-    4
-  ],
-  "desc": "映伤：生命伤害的12%反弹给攻击者，堆纯攻击会更脆；需要护盾、吸血或治疗。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "r5",
-  "name": "毒雾墓城",
-  "type": "元素裂隙",
-  "img": "assets/d01-volcano.webp",
-  "cost": 12,
-  "enemyLv": 92,
-  "waves": 2,
-  "enemyCount": 3,
-  "starRound": 12,
-  "exp": 280,
-  "hasBoss": true,
-  "tokenRange": [
-    20,
-    35
-  ],
-  "gold": [
-    700,
-    1100
-  ],
-  "mat": [
-    9,
-    15
-  ],
-  "shardR": 0,
-  "shardSR": 0.2,
-  "shardSSR": 0.08,
-  "matKey": "mat_sr",
-  "unlockStage": "s6",
-  "lootFamily": "umbra",
-  "enemyElem": "dark",
-  "mechanic": "venom",
-  "hpScale": 2.4,
-  "atkScale": 1.25,
-  "defScale": 1.15,
-  "enemyRes": 15,
-  "relicTier": 1,
-  "relicChance": 0.45,
-  "essence": [
-    2,
-    4
-  ],
-  "desc": "毒雾：敌人攻击附带侵蚀，侵蚀期间治疗与吸血减半；抵抗与净化有实战价值。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "r6",
-  "name": "封时钟塔",
-  "type": "元素裂隙",
-  "img": "assets/d06-observatory.webp",
-  "cost": 12,
-  "enemyLv": 94,
-  "waves": 2,
-  "enemyCount": 3,
-  "starRound": 12,
-  "exp": 280,
-  "hasBoss": true,
-  "tokenRange": [
-    20,
-    35
-  ],
-  "gold": [
-    700,
-    1100
-  ],
-  "mat": [
-    9,
-    15
-  ],
-  "shardR": 0,
-  "shardSR": 0.2,
-  "shardSSR": 0.08,
-  "matKey": "mat_sr",
-  "unlockStage": "s6",
-  "lootFamily": "chrono",
-  "enemyElem": "time",
-  "mechanic": "silence",
-  "hpScale": 2.4,
-  "atkScale": 1.25,
-  "defScale": 1.15,
-  "enemyRes": 15,
-  "relicTier": 1,
-  "relicChance": 0.45,
-  "essence": [
-    2,
-    4
-  ],
-  "desc": "封怒：偶数回合敌人命中后削减15怒气；追风、时序灵印或不依赖技能的反击更合适。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "n1",
-  "name": "灼焰地宫·噩梦",
-  "type": "噩梦裂隙",
-  "img": "assets/d01-volcano.webp",
-  "cost": 24,
-  "enemyLv": 113,
-  "waves": 3,
-  "enemyCount": 3,
-  "starRound": 18,
-  "exp": 650,
-  "hasBoss": true,
-  "tokenRange": [
-    35,
-    55
-  ],
-  "gold": [
-    1400,
-    2200
-  ],
-  "mat": [
-    18,
-    28
-  ],
-  "shardR": 0,
-  "shardSR": 0.28,
-  "shardSSR": 0.16,
-  "matKey": "mat_ssr",
-  "unlockStage": "r1",
-  "lootFamily": "ember",
-  "enemyElem": "fire",
-  "mechanic": "fury",
-  "hpScale": 6.4,
-  "atkScale": 2.0,
-  "defScale": 1.5,
-  "enemyRes": 35,
-  "relicTier": 2,
-  "relicChance": 0.75,
-  "essence": [
-    6,
-    10
-  ],
-  "desc": "灼怒：敌人随回合提高攻击，拖得越久越危险；适合爆发与先手控制。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "n2",
-  "name": "潮壁圣殿·噩梦",
-  "type": "噩梦裂隙",
-  "img": "assets/d05-tide.webp",
-  "cost": 24,
-  "enemyLv": 116,
-  "waves": 3,
-  "enemyCount": 3,
-  "starRound": 18,
-  "exp": 650,
-  "hasBoss": true,
-  "tokenRange": [
-    35,
-    55
-  ],
-  "gold": [
-    1400,
-    2200
-  ],
-  "mat": [
-    18,
-    28
-  ],
-  "shardR": 0,
-  "shardSR": 0.28,
-  "shardSSR": 0.16,
-  "matKey": "mat_ssr",
-  "unlockStage": "r2",
-  "lootFamily": "tide",
-  "enemyElem": "water",
-  "mechanic": "barrier",
-  "hpScale": 6.4,
-  "atkScale": 2.0,
-  "defScale": 1.5,
-  "enemyRes": 35,
-  "relicTier": 2,
-  "relicChance": 0.75,
-  "essence": [
-    6,
-    10
-  ],
-  "desc": "结界：敌人自带护盾，每三回合补充护盾；侵蚀可越过护盾，吸血不会从护盾获取恢复。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "n3",
-  "name": "复苏秘林·噩梦",
-  "type": "噩梦裂隙",
-  "img": "assets/d04-forest.webp",
-  "cost": 24,
-  "enemyLv": 119,
-  "waves": 3,
-  "enemyCount": 3,
-  "starRound": 18,
-  "exp": 650,
-  "hasBoss": true,
-  "tokenRange": [
-    35,
-    55
-  ],
-  "gold": [
-    1400,
-    2200
-  ],
-  "mat": [
-    18,
-    28
-  ],
-  "shardR": 0,
-  "shardSR": 0.28,
-  "shardSSR": 0.16,
-  "matKey": "mat_ssr",
-  "unlockStage": "r3",
-  "lootFamily": "grove",
-  "enemyElem": "plant",
-  "mechanic": "regrowth",
-  "hpScale": 6.4,
-  "atkScale": 2.0,
-  "defScale": 1.5,
-  "enemyRes": 35,
-  "relicTier": 2,
-  "relicChance": 0.75,
-  "essence": [
-    6,
-    10
-  ],
-  "desc": "复苏：敌人每次行动恢复8%最大生命；侵蚀会把复苏压制到四分之一。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "n4",
-  "name": "折光星殿·噩梦",
-  "type": "噩梦裂隙",
-  "img": "assets/d02-sky.webp",
-  "cost": 24,
-  "enemyLv": 122,
-  "waves": 3,
-  "enemyCount": 3,
-  "starRound": 18,
-  "exp": 650,
-  "hasBoss": true,
-  "tokenRange": [
-    35,
-    55
-  ],
-  "gold": [
-    1400,
-    2200
-  ],
-  "mat": [
-    18,
-    28
-  ],
-  "shardR": 0,
-  "shardSR": 0.28,
-  "shardSSR": 0.16,
-  "matKey": "mat_ssr",
-  "unlockStage": "r4",
-  "lootFamily": "astral",
-  "enemyElem": "star",
-  "mechanic": "reflection",
-  "hpScale": 6.4,
-  "atkScale": 2.0,
-  "defScale": 1.5,
-  "enemyRes": 35,
-  "relicTier": 2,
-  "relicChance": 0.75,
-  "essence": [
-    6,
-    10
-  ],
-  "desc": "映伤：生命伤害的12%反弹给攻击者，堆纯攻击会更脆；需要护盾、吸血或治疗。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "n5",
-  "name": "毒雾墓城·噩梦",
-  "type": "噩梦裂隙",
-  "img": "assets/d01-volcano.webp",
-  "cost": 24,
-  "enemyLv": 125,
-  "waves": 3,
-  "enemyCount": 3,
-  "starRound": 18,
-  "exp": 650,
-  "hasBoss": true,
-  "tokenRange": [
-    35,
-    55
-  ],
-  "gold": [
-    1400,
-    2200
-  ],
-  "mat": [
-    18,
-    28
-  ],
-  "shardR": 0,
-  "shardSR": 0.28,
-  "shardSSR": 0.16,
-  "matKey": "mat_ssr",
-  "unlockStage": "r5",
-  "lootFamily": "umbra",
-  "enemyElem": "dark",
-  "mechanic": "venom",
-  "hpScale": 6.4,
-  "atkScale": 2.0,
-  "defScale": 1.5,
-  "enemyRes": 35,
-  "relicTier": 2,
-  "relicChance": 0.75,
-  "essence": [
-    6,
-    10
-  ],
-  "desc": "毒雾：敌人攻击附带侵蚀，侵蚀期间治疗与吸血减半；抵抗与净化有实战价值。 专属产出本系精华与灵印，不发放站点额度。"
-},
-{
-  "id": "n6",
-  "name": "封时钟塔·噩梦",
-  "type": "噩梦裂隙",
-  "img": "assets/d06-observatory.webp",
-  "cost": 24,
-  "enemyLv": 128,
-  "waves": 3,
-  "enemyCount": 3,
-  "starRound": 18,
-  "exp": 650,
-  "hasBoss": true,
-  "tokenRange": [
-    35,
-    55
-  ],
-  "gold": [
-    1400,
-    2200
-  ],
-  "mat": [
-    18,
-    28
-  ],
-  "shardR": 0,
-  "shardSR": 0.28,
-  "shardSSR": 0.16,
-  "matKey": "mat_ssr",
-  "unlockStage": "r6",
-  "lootFamily": "chrono",
-  "enemyElem": "time",
-  "mechanic": "silence",
-  "hpScale": 6.4,
-  "atkScale": 2.0,
-  "defScale": 1.5,
-  "enemyRes": 35,
-  "relicTier": 2,
-  "relicChance": 0.75,
-  "essence": [
-    6,
-    10
-  ],
-  "desc": "封怒：偶数回合敌人命中后削减15怒气；追风、时序灵印或不依赖技能的反击更合适。 专属产出本系精华与灵印，不发放站点额度。"
-}
+  {
+    "id": "r1",
+    "name": "灼焰地宫",
+    "type": "元素裂隙",
+    "img": "assets/d01-volcano.webp",
+    "cost": 12,
+    "enemyLv": 84,
+    "waves": 2,
+    "enemyCount": 3,
+    "starRound": 12,
+    "exp": 280,
+    "hasBoss": true,
+    "tokenRange": [
+      4,
+      7
+    ],
+    "gold": [
+      252,
+      384
+    ],
+    "mat": [
+      9,
+      15
+    ],
+    "shardR": 0,
+    "shardSR": 0.2,
+    "shardSSR": 0.08,
+    "matKey": "mat_sr",
+    "unlockStage": "s6",
+    "lootFamily": "ember",
+    "enemyElem": "fire",
+    "mechanic": "fury",
+    "hpScale": 2.4,
+    "atkScale": 1.25,
+    "defScale": 1.15,
+    "enemyRes": 15,
+    "relicTier": 1,
+    "relicChance": 0.45,
+    "essence": [
+      2,
+      4
+    ],
+    "desc": "灼怒：敌人随回合提高攻击，拖得越久越危险；适合爆发与先手控制。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "r2",
+    "name": "潮壁圣殿",
+    "type": "元素裂隙",
+    "img": "assets/d05-tide.webp",
+    "cost": 12,
+    "enemyLv": 86,
+    "waves": 2,
+    "enemyCount": 3,
+    "starRound": 12,
+    "exp": 280,
+    "hasBoss": true,
+    "tokenRange": [
+      4,
+      7
+    ],
+    "gold": [
+      252,
+      384
+    ],
+    "mat": [
+      9,
+      15
+    ],
+    "shardR": 0,
+    "shardSR": 0.2,
+    "shardSSR": 0.08,
+    "matKey": "mat_sr",
+    "unlockStage": "s6",
+    "lootFamily": "tide",
+    "enemyElem": "water",
+    "mechanic": "barrier",
+    "hpScale": 2.4,
+    "atkScale": 1.25,
+    "defScale": 1.15,
+    "enemyRes": 15,
+    "relicTier": 1,
+    "relicChance": 0.45,
+    "essence": [
+      2,
+      4
+    ],
+    "desc": "结界：敌人自带护盾，每三回合补充护盾；侵蚀可越过护盾，吸血不会从护盾获取恢复。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "r3",
+    "name": "复苏秘林",
+    "type": "元素裂隙",
+    "img": "assets/d04-forest.webp",
+    "cost": 12,
+    "enemyLv": 88,
+    "waves": 2,
+    "enemyCount": 3,
+    "starRound": 12,
+    "exp": 280,
+    "hasBoss": true,
+    "tokenRange": [
+      4,
+      7
+    ],
+    "gold": [
+      252,
+      384
+    ],
+    "mat": [
+      9,
+      15
+    ],
+    "shardR": 0,
+    "shardSR": 0.2,
+    "shardSSR": 0.08,
+    "matKey": "mat_sr",
+    "unlockStage": "s6",
+    "lootFamily": "grove",
+    "enemyElem": "plant",
+    "mechanic": "regrowth",
+    "hpScale": 2.4,
+    "atkScale": 1.25,
+    "defScale": 1.15,
+    "enemyRes": 15,
+    "relicTier": 1,
+    "relicChance": 0.45,
+    "essence": [
+      2,
+      4
+    ],
+    "desc": "复苏：敌人每次行动恢复8%最大生命；侵蚀会把复苏压制到四分之一。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "r4",
+    "name": "折光星殿",
+    "type": "元素裂隙",
+    "img": "assets/d02-sky.webp",
+    "cost": 12,
+    "enemyLv": 90,
+    "waves": 2,
+    "enemyCount": 3,
+    "starRound": 12,
+    "exp": 280,
+    "hasBoss": true,
+    "tokenRange": [
+      4,
+      7
+    ],
+    "gold": [
+      252,
+      384
+    ],
+    "mat": [
+      9,
+      15
+    ],
+    "shardR": 0,
+    "shardSR": 0.2,
+    "shardSSR": 0.08,
+    "matKey": "mat_sr",
+    "unlockStage": "s6",
+    "lootFamily": "astral",
+    "enemyElem": "star",
+    "mechanic": "reflection",
+    "hpScale": 2.4,
+    "atkScale": 1.25,
+    "defScale": 1.15,
+    "enemyRes": 15,
+    "relicTier": 1,
+    "relicChance": 0.45,
+    "essence": [
+      2,
+      4
+    ],
+    "desc": "映伤：生命伤害的12%反弹给攻击者，堆纯攻击会更脆；需要护盾、吸血或治疗。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "r5",
+    "name": "毒雾墓城",
+    "type": "元素裂隙",
+    "img": "assets/d01-volcano.webp",
+    "cost": 12,
+    "enemyLv": 92,
+    "waves": 2,
+    "enemyCount": 3,
+    "starRound": 12,
+    "exp": 280,
+    "hasBoss": true,
+    "tokenRange": [
+      4,
+      7
+    ],
+    "gold": [
+      252,
+      384
+    ],
+    "mat": [
+      9,
+      15
+    ],
+    "shardR": 0,
+    "shardSR": 0.2,
+    "shardSSR": 0.08,
+    "matKey": "mat_sr",
+    "unlockStage": "s6",
+    "lootFamily": "umbra",
+    "enemyElem": "dark",
+    "mechanic": "venom",
+    "hpScale": 2.4,
+    "atkScale": 1.25,
+    "defScale": 1.15,
+    "enemyRes": 15,
+    "relicTier": 1,
+    "relicChance": 0.45,
+    "essence": [
+      2,
+      4
+    ],
+    "desc": "毒雾：敌人攻击附带侵蚀，侵蚀期间治疗与吸血减半；抵抗与净化有实战价值。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "r6",
+    "name": "封时钟塔",
+    "type": "元素裂隙",
+    "img": "assets/d06-observatory.webp",
+    "cost": 12,
+    "enemyLv": 94,
+    "waves": 2,
+    "enemyCount": 3,
+    "starRound": 12,
+    "exp": 280,
+    "hasBoss": true,
+    "tokenRange": [
+      4,
+      7
+    ],
+    "gold": [
+      252,
+      384
+    ],
+    "mat": [
+      9,
+      15
+    ],
+    "shardR": 0,
+    "shardSR": 0.2,
+    "shardSSR": 0.08,
+    "matKey": "mat_sr",
+    "unlockStage": "s6",
+    "lootFamily": "chrono",
+    "enemyElem": "time",
+    "mechanic": "silence",
+    "hpScale": 2.4,
+    "atkScale": 1.25,
+    "defScale": 1.15,
+    "enemyRes": 15,
+    "relicTier": 1,
+    "relicChance": 0.45,
+    "essence": [
+      2,
+      4
+    ],
+    "desc": "封怒：偶数回合敌人命中后削减15怒气；追风、时序灵印或不依赖技能的反击更合适。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "n1",
+    "name": "灼焰地宫·噩梦",
+    "type": "噩梦裂隙",
+    "img": "assets/d01-volcano.webp",
+    "cost": 24,
+    "enemyLv": 113,
+    "waves": 3,
+    "enemyCount": 3,
+    "starRound": 18,
+    "exp": 650,
+    "hasBoss": true,
+    "tokenRange": [
+      11,
+      15
+    ],
+    "gold": [
+      672,
+      960
+    ],
+    "mat": [
+      18,
+      28
+    ],
+    "shardR": 0,
+    "shardSR": 0.28,
+    "shardSSR": 0.16,
+    "matKey": "mat_ssr",
+    "unlockStage": "r1",
+    "lootFamily": "ember",
+    "enemyElem": "fire",
+    "mechanic": "fury",
+    "hpScale": 6.4,
+    "atkScale": 2.0,
+    "defScale": 1.5,
+    "enemyRes": 35,
+    "relicTier": 2,
+    "relicChance": 0.75,
+    "essence": [
+      6,
+      10
+    ],
+    "desc": "灼怒：敌人随回合提高攻击，拖得越久越危险；适合爆发与先手控制。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "n2",
+    "name": "潮壁圣殿·噩梦",
+    "type": "噩梦裂隙",
+    "img": "assets/d05-tide.webp",
+    "cost": 24,
+    "enemyLv": 116,
+    "waves": 3,
+    "enemyCount": 3,
+    "starRound": 18,
+    "exp": 650,
+    "hasBoss": true,
+    "tokenRange": [
+      11,
+      15
+    ],
+    "gold": [
+      672,
+      960
+    ],
+    "mat": [
+      18,
+      28
+    ],
+    "shardR": 0,
+    "shardSR": 0.28,
+    "shardSSR": 0.16,
+    "matKey": "mat_ssr",
+    "unlockStage": "r2",
+    "lootFamily": "tide",
+    "enemyElem": "water",
+    "mechanic": "barrier",
+    "hpScale": 6.4,
+    "atkScale": 2.0,
+    "defScale": 1.5,
+    "enemyRes": 35,
+    "relicTier": 2,
+    "relicChance": 0.75,
+    "essence": [
+      6,
+      10
+    ],
+    "desc": "结界：敌人自带护盾，每三回合补充护盾；侵蚀可越过护盾，吸血不会从护盾获取恢复。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "n3",
+    "name": "复苏秘林·噩梦",
+    "type": "噩梦裂隙",
+    "img": "assets/d04-forest.webp",
+    "cost": 24,
+    "enemyLv": 119,
+    "waves": 3,
+    "enemyCount": 3,
+    "starRound": 18,
+    "exp": 650,
+    "hasBoss": true,
+    "tokenRange": [
+      11,
+      15
+    ],
+    "gold": [
+      672,
+      960
+    ],
+    "mat": [
+      18,
+      28
+    ],
+    "shardR": 0,
+    "shardSR": 0.28,
+    "shardSSR": 0.16,
+    "matKey": "mat_ssr",
+    "unlockStage": "r3",
+    "lootFamily": "grove",
+    "enemyElem": "plant",
+    "mechanic": "regrowth",
+    "hpScale": 6.4,
+    "atkScale": 2.0,
+    "defScale": 1.5,
+    "enemyRes": 35,
+    "relicTier": 2,
+    "relicChance": 0.75,
+    "essence": [
+      6,
+      10
+    ],
+    "desc": "复苏：敌人每次行动恢复8%最大生命；侵蚀会把复苏压制到四分之一。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "n4",
+    "name": "折光星殿·噩梦",
+    "type": "噩梦裂隙",
+    "img": "assets/d02-sky.webp",
+    "cost": 24,
+    "enemyLv": 122,
+    "waves": 3,
+    "enemyCount": 3,
+    "starRound": 18,
+    "exp": 650,
+    "hasBoss": true,
+    "tokenRange": [
+      11,
+      15
+    ],
+    "gold": [
+      672,
+      960
+    ],
+    "mat": [
+      18,
+      28
+    ],
+    "shardR": 0,
+    "shardSR": 0.28,
+    "shardSSR": 0.16,
+    "matKey": "mat_ssr",
+    "unlockStage": "r4",
+    "lootFamily": "astral",
+    "enemyElem": "star",
+    "mechanic": "reflection",
+    "hpScale": 6.4,
+    "atkScale": 2.0,
+    "defScale": 1.5,
+    "enemyRes": 35,
+    "relicTier": 2,
+    "relicChance": 0.75,
+    "essence": [
+      6,
+      10
+    ],
+    "desc": "映伤：生命伤害的12%反弹给攻击者，堆纯攻击会更脆；需要护盾、吸血或治疗。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "n5",
+    "name": "毒雾墓城·噩梦",
+    "type": "噩梦裂隙",
+    "img": "assets/d01-volcano.webp",
+    "cost": 24,
+    "enemyLv": 125,
+    "waves": 3,
+    "enemyCount": 3,
+    "starRound": 18,
+    "exp": 650,
+    "hasBoss": true,
+    "tokenRange": [
+      11,
+      15
+    ],
+    "gold": [
+      672,
+      960
+    ],
+    "mat": [
+      18,
+      28
+    ],
+    "shardR": 0,
+    "shardSR": 0.28,
+    "shardSSR": 0.16,
+    "matKey": "mat_ssr",
+    "unlockStage": "r5",
+    "lootFamily": "umbra",
+    "enemyElem": "dark",
+    "mechanic": "venom",
+    "hpScale": 6.4,
+    "atkScale": 2.0,
+    "defScale": 1.5,
+    "enemyRes": 35,
+    "relicTier": 2,
+    "relicChance": 0.75,
+    "essence": [
+      6,
+      10
+    ],
+    "desc": "毒雾：敌人攻击附带侵蚀，侵蚀期间治疗与吸血减半；抵抗与净化有实战价值。 专属产出本系精华与灵印，不发放站点额度。"
+  },
+  {
+    "id": "n6",
+    "name": "封时钟塔·噩梦",
+    "type": "噩梦裂隙",
+    "img": "assets/d06-observatory.webp",
+    "cost": 24,
+    "enemyLv": 128,
+    "waves": 3,
+    "enemyCount": 3,
+    "starRound": 18,
+    "exp": 650,
+    "hasBoss": true,
+    "tokenRange": [
+      11,
+      15
+    ],
+    "gold": [
+      672,
+      960
+    ],
+    "mat": [
+      18,
+      28
+    ],
+    "shardR": 0,
+    "shardSR": 0.28,
+    "shardSSR": 0.16,
+    "matKey": "mat_ssr",
+    "unlockStage": "r6",
+    "lootFamily": "chrono",
+    "enemyElem": "time",
+    "mechanic": "silence",
+    "hpScale": 6.4,
+    "atkScale": 2.0,
+    "defScale": 1.5,
+    "enemyRes": 35,
+    "relicTier": 2,
+    "relicChance": 0.75,
+    "essence": [
+      6,
+      10
+    ],
+    "desc": "封怒：偶数回合敌人命中后削减15怒气；追风、时序灵印或不依赖技能的反击更合适。 专属产出本系精华与灵印，不发放站点额度。"
+  }
 ];
-
-/* ---------- 每日代币预算池 ---------- */
-const TOKEN_BUDGET = 100;   // 每天最多从战斗中获取 100 代币
+// END GENERATED STAGES
 
 /* ---------- 抽卡配置 ---------- */
 const GACHA = {
@@ -2247,7 +2627,7 @@ function finalStats(girlId, includeBonds = false) {
   let cd = b.cd, ehr = b.ehr, res = b.res;
   const artifacts = artifactBonuses(own), individual = individualBonuses(own), gear = boundGearBonuses(girlId, own);
   const carried = own?.star > 0 && Store.profile?.carry?.items?.[own.carry];
-  const combined = stat => artifacts[stat] + individual[stat] + gear[stat] + (carried?.stat === stat ? carried.value : 0);
+  const combined = stat => artifacts[stat] + individual[stat] + gear[stat] + (carried?.stat === stat ? carried.value + (typeof carryLevel === "function" ? carryLevel(own.carry_xp || 0) - 1 : 0) : 0);
   hp *= 1 + combined("hp") / 100; atk *= 1 + combined("atk") / 100; def *= 1 + combined("def") / 100;
   spd += combined("spd"); cr += combined("cr"); cd += combined("cd");
   if (own?.training && typeof trainingBonuses === "function" && Store.profile?.training) {

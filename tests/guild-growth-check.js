@@ -206,9 +206,11 @@ test("failed and stale claim responses cannot fabricate grants or paint another 
 
 test("all five raid stages display named cultivation resources and preserve server claim eligibility",async context=>{
   const h=harness(context);
+  h.Store.profile.market={guild:{raid:59,raid_xp:73,raid_ink:11}};
   await h.w.renderFleet();await h.click('[data-fleet-tab="raid"]');
   assert.equal(h.document.querySelectorAll('.guild-raid-card').length,5);
   const pane=h.document.getElementById("fleet-pane");
+  assert.match(pane.textContent,/公会币 59、公会经验 73、研训墨 11/);
   for(const name of ["<专用训练手册>","研训墨","晋阶章","元素结晶","星锻矿","星屑","远征图鉴","觉醒核心","宝石券","芯片券"])assert.ok(pane.textContent.includes(name),name);
   assert.doesNotMatch(pane.textContent,/training_manual|training_ink|break_seal|expedition_atlas|weapon_core|gem_ticket|chip_ticket|mat_ssr|mat_sr|forge_ore/);
   assert.equal(pane.querySelectorAll('.guild-materials img').length,0);

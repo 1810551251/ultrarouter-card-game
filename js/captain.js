@@ -1,6 +1,6 @@
 let captainBoundaryTimer = null;
 
-const captainDestinations = {voyage:["page-stage","去出航"],drill:["page-growth","去训练","#growth-contracts [data-growth-run]"],wish:["page-growth","去许愿","#growth-wish"],outfit:["page-growth","去培养","#growth-cultivation"]};
+const captainDestinations = {voyage:["page-stage","去出航"],drill:["page-growth","去训练","#growth-contracts [data-growth-run]"],wish:["page-growth","去许愿","#growth-wish"],outfit:["page-growth","去培养","#growth-cultivation"],ladder:["page-arena","去挑战"],equipment:["page-growth","去强化","[data-growth-gear]"],skill:["page-growth","去学技能"],festival:["page-festival","去集章"]};
 const captainXPSource = "每实际消耗 1 点体力，获得 1 点船长经验。每日任务还可领取额外经验。";
 
 function captainGrowth() {
@@ -106,6 +106,30 @@ function captainTasksReady(journal) {
   return journal.current ? journal.rules.tasks.filter(task => !journal.log.claimed[task.id] && (journal.log.progress[task.id] || 0) >= task.target).length : 0;
 }
 
+function captainPoints(journal) {
+  return journal.rules.tasks.reduce((total,task) => total + ((journal.log.progress[task.id] || 0) >= task.target ? task.points || 0 : 0),0);
+}
+
+function captainChestReady(journal, chest) {
+  return journal.current && !journal.log.chests?.[chest.id] && captainPoints(journal) >= chest.points;
+}
+
+function captainTaskDestination(id, log) {
+  if (id === "equipment" && log.gear_review || id === "skill" && log.skill_review || id === "outfit" && (log.gear_review || log.skill_review)) return ["page-stage","去实战复盘"];
+  return captainDestinations[id];
+}
+
+function captainChests(journal) {
+  if (!journal.rules.chests?.length) return "";
+  const labels = {token:"代币",stamina_pack_30:"30体力礼包",limited_ticket:"限定券",gem_ticket:"宝石券",chip_ticket:"芯片券"};
+  const points = captainPoints(journal), maximum = journal.rules.chests.at(-1).points;
+  return `<section class="captain-duties" aria-labelledby="captain-chests"><header class="mode-card-head"><div><p class="social-kicker">完成任务即获得积分，不必先领单项奖励。每日北京时间 00:00 重置。</p><h3 id="captain-chests">任务积分宝箱 · ${points}/${maximum}</h3></div></header>${journal.rules.chests.map(chest => {
+    const taken = journal.log.chests?.[chest.id], ready = captainChestReady(journal,chest);
+    const rewards = Object.entries(chest.resources).map(([id,count]) => `${esc(Store.profile?.items?.items?.[id]?.name || labels[id] || id)} ×${esc(count)}`).join(" · ");
+    return `<article class="captain-duty"><div><h4>${esc(chest.points)} 积分宝箱</h4><p>${rewards}</p></div><button type="button" class="gbtn gbtn-sm${ready ? " gbtn-primary" : ""}" data-captain-chest="${esc(chest.id)}" ${ready ? "" : "disabled"}><span>${taken ? "已领取" : ready ? "领取宝箱" : journal.current ? `还差 ${Math.max(0,chest.points-points)} 积分` : "待同步"}</span></button></article>`;
+  }).join("")}</section>`;
+}
+
 function captainWatchBoundary(journal) {
   clearTimeout(captainBoundaryTimer);
   if (!journal?.current || !["page-captain","page-home"].includes(document.body.dataset.page)) return;
@@ -129,7 +153,8 @@ function renderCaptainSummary() {
     else {
       const supply = journal.rules.supplies.find(slot => captainSupplyState(journal,slot) === "领取体力");
       const ready = captainTasksReady(journal), sent = journal.rules.tasks.filter(task => journal.log.claimed[task.id]).length;
-      summary.textContent = !journal.current ? "新航日已到 · 同步日志" : `${ready ? `${ready} 项任务可领取` : sent ? `${sent} 项任务奖励已领取` : "今日任务已登记"} · ${supply ? `${supply.name}可领` : "查看三餐补给"}`;
+      const chests = journal.rules.chests?.filter(chest => captainChestReady(journal,chest)).length || 0;
+      summary.textContent = !journal.current ? "新航日已到 · 同步日志" : `${ready ? `${ready} 项任务可领取` : sent ? `${sent} 项任务奖励已领取` : "今日任务已登记"}${chests ? ` · ${chests} 个宝箱可领` : ""} · ${supply ? `${supply.name}可领` : "查看三餐补给"}`;
     }
   }
   captainWatchBoundary(journal);
@@ -151,11 +176,11 @@ function renderCaptain() {
     ${!current ? '<p role="status">已进入新的航海日，同步后可查看今日航务。</p>' : ""}<div class="captain-meals">${rules.supplies.map(slot => {
       const status = captainSupplyState(journal,slot), open = status === "领取体力";
       return `<article class="captain-meal" data-supply-state="${open ? "ready" : "closed"}"><small>${String(slot.start).padStart(2,"0")}:00–${String(slot.end).padStart(2,"0")}:00</small><h4>${esc(slot.name)}</h4><p>体力 +${slot.stamina}</p><button type="button" class="gbtn gbtn-sm${open ? " gbtn-primary" : ""}" data-captain-supply="${esc(slot.id)}" ${open ? "" : "disabled"}><span>${status}</span></button></article>`;
-    }).join("")}</div></section>
+    }).join("")}</div></section>${captainChests(journal)}
     <section class="captain-duties" aria-labelledby="captain-orders"><header class="mode-card-head"><div><p class="social-kicker">每日 00:00 换日 · 奖励领取进度 ${claimed}/${rules.tasks.length}</p><h3 id="captain-orders">每日任务</h3></div></header>${rules.tasks.map(task => {
       const progress = log.progress[task.id] || 0, taken = log.claimed[task.id], ready = current && !taken && progress >= task.target;
-      const destination = !ready && !taken && current && captainDestinations[task.id];
-      return `<article class="captain-duty"><div><h4>${esc(task.name)} <small>${progress}/${task.target}</small></h4><p>${esc(task.goal)}</p><small>船长经验 +${task.xp} · 金币 +${task.gold}</small></div><button type="button" class="gbtn gbtn-sm${ready ? " gbtn-primary" : ""}" ${destination ? `data-captain-visit="${esc(task.id)}"` : `data-captain-task="${esc(task.id)}"`} ${ready || destination ? "" : "disabled"}><span>${taken ? "已领取" : ready ? "领取奖励" : destination ? destination[1] : current ? "进行中" : "待同步"}</span></button></article>`;
+      const destination = !ready && !taken && current && captainTaskDestination(task.id, log);
+      return `<article class="captain-duty"><div><h4>${esc(task.name)} <small>${progress}/${task.target}</small></h4><p>${esc(task.goal)}</p><small>船长经验 +${task.xp} · 金币 +${task.gold}${task.points ? ` · 积分 +${task.points}` : ""}</small></div><button type="button" class="gbtn gbtn-sm${ready ? " gbtn-primary" : ""}" ${destination ? `data-captain-visit="${esc(task.id)}"` : `data-captain-task="${esc(task.id)}"`} ${ready || destination ? "" : "disabled"}><span>${taken ? "已领取" : ready ? "领取奖励" : destination ? destination[1] : current ? "进行中" : "待同步"}</span></button></article>`;
     }).join("")}</section>`;
   captainWatchBoundary(journal);
 }
@@ -166,9 +191,16 @@ async function captainJournalClick(event) {
   const epoch = Store.sessionEpoch, journal = captainJournal();
   const body = button.closest("#captain-body");
   if (!body || body.dataset.captainEpoch !== String(epoch)) return;
-  const visit = captainDestinations[button.dataset.captainVisit];
+  const visit = journal && captainTaskDestination(button.dataset.captainVisit,journal.log);
   if (visit) {
     nav(visit[0]);
+    if (visit[0] === "page-growth" && button.dataset.captainVisit === "skill" && typeof openWorkshop === "function") {
+      const girl = SAVE.squad.find(id => SAVE.girls[id]?.star > 0) || Object.keys(SAVE.girls).find(id => SAVE.girls[id].star > 0);
+      if (girl) {
+        openWorkshop(girl,"training");
+        if (typeof selectTrainingPanel === "function") selectTrainingPanel("skills");
+      }
+    }
     if (visit[2]) {
       const destination = document.querySelector(visit[2]);
       destination?.scrollIntoView?.({block:"center"});
@@ -183,7 +215,10 @@ async function captainJournalClick(event) {
     else if (journal?.current && body.dataset.captainDay === journal.day) {
       const taskID = button.dataset.captainTask, supplyID = button.dataset.captainSupply;
       const task = journal.rules.tasks.find(rule => rule.id === taskID), supply = journal.rules.supplies.find(rule => rule.id === supplyID);
-      if (task && !journal.log.claimed[taskID] && journal.log.progress[taskID] >= task.target) {
+      const chest = journal.rules.chests?.find(rule => rule.id === button.dataset.captainChest);
+      if (chest && captainChestReady(journal,chest)) {
+        receipt = await Store.mutate("captain_chest",{item_id:`${journal.day}:${chest.id}`});
+      } else if (task && !journal.log.claimed[taskID] && journal.log.progress[taskID] >= task.target) {
         receipt = await Store.mutate("captain_task",{item_id:`${journal.day}:${taskID}`});
       } else if (supply && captainSupplyState(journal,supply) === "领取体力") {
         receipt = await Store.mutate("captain_supply",{item_id:`${journal.day}:${supplyID}`});

@@ -1,5 +1,6 @@
 {
   "id": "c07",
+  "sources": ["summon", "starter", "voyage", "growth"],
   "name": "星墙",
   "rarity": "SSR",
   "elem": "star",

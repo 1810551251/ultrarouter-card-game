@@ -1,5 +1,6 @@
 {
   "id": "c05",
+  "sources": ["summon", "voyage", "growth"],
   "name": "霜音",
   "rarity": "SR",
   "elem": "water",

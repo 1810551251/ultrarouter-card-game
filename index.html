@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>星霜少女</title>
-<link rel="stylesheet" href="style.css?v=20261127-consolidated">
+<link rel="stylesheet" href="style.css?v=20261128-workshop">
 <link rel="stylesheet" href="mobile.css?v=20261117-mobile5" media="(max-width: 700px), (max-width: 1000px) and (max-height: 500px) and (orientation: landscape)">
 <link rel="stylesheet" href="harbor.css?v=20261127-captain">
 <link rel="stylesheet" href="voyage.css?v=20261127-dungeons">
@@ -56,8 +56,8 @@
       <span class="res-val" id="res-multi">x1</span>
     </div>
     <div class="res">
-      <span class="res-label">今日代币池</span>
-      <span class="res-val" id="res-budget">100</span>
+      <span class="res-label">今日战斗代币</span>
+      <span class="res-val" id="res-budget">—</span>
     </div>
     <div class="res res-site">
       <span class="res-label">站点余额</span>
@@ -94,7 +94,8 @@
           </section>
           <section><h2>伙伴驻地</h2>
             <button class="harbor-route" type="button" data-nav="page-growth"><b>成长工坊</b><small>升级 · 突破 · 装备</small></button>
-            <button class="harbor-route" type="button" data-nav="page-gacha"><b>召唤少女</b><small>招募券 · 宝石 · 芯片</small></button>
+            <button class="harbor-route primary" type="button" data-nav="page-gacha" data-home-pool="world"><b>强者世界</b><small>每周限定 SSR · 仅用限定券</small></button>
+            <button class="harbor-route" type="button" data-nav="page-gacha" data-home-pool="heroes"><b>召唤少女</b><small>常驻角色 · 宝石 · 芯片</small></button>
             <button class="harbor-route" type="button" data-nav="page-bag"><b>物资背包</b><small>工料库存 · 养成来源</small></button>
           </section>
           <section><h2>同伴广场</h2>
@@ -104,7 +105,7 @@
             <button class="harbor-route" type="button" data-nav="page-arena" data-arena-mode="queue"><b>匹配对战</b><small>双方自愿 · 每场 1～5 E</small></button>
           </section>
         </div>
-        <details class="harbor-ledger"><summary>港务账本 · 余额与今日产出</summary><div id="home-info"></div><div id="site-account"></div><button class="harbor-link" type="button" data-nav="page-shop">前往代币商店 ›</button></details>
+        <details class="harbor-ledger"><summary>港务账本 · 余额与今日产出</summary><div id="home-info"></div><div id="site-account"></div><button class="harbor-link" type="button" data-nav="page-shop">前往补给商店 ›</button></details>
         <div id="home-growth"></div>
       </div>
       <footer class="source-notice">
@@ -114,7 +115,7 @@
     </section>
 
     <section class="page social-page" id="page-shop">
-      <div class="social-heading"><div><p class="social-kicker">星霜补给站</p><h2>代币商店</h2><p>1 E 兑换 1 代币 · 补给每天共可兑换 20 次</p></div><button class="gbtn gbtn-sm" data-nav="page-bag"><span>查看背包</span></button></div>
+      <div class="social-heading"><div><p class="social-kicker">星霜补给站</p><h2>补给商店</h2><p>个人库存 · 每天北京时间 09:00、14:00、21:00 补货</p></div><button class="gbtn gbtn-sm" data-nav="page-bag"><span>查看背包</span></button></div>
       <div id="shop-body" aria-live="polite"></div>
     </section>
 
@@ -128,6 +129,7 @@
             <button type="button" onclick="pickArenaTab('ladder-board')" data-arena-tab="ladder-board">竞技排名</button>
             <button type="button" onclick="pickArenaTab('ladder-rewards')" data-arena-tab="ladder-rewards">排名奖励<small>历史最佳 · 每日 21:00</small></button>
             <button type="button" onclick="pickArenaTab('ladder-records')" data-arena-tab="ladder-records">攻防战报</button>
+            <button type="button" onclick="openGameMarket('arena')">竞技场商店</button>
             <button type="button" onclick="pickArenaTab('queue')" data-arena-tab="queue">余额匹配</button>
             <button type="button" onclick="pickArenaTab('rooms')" data-arena-tab="rooms">自定义大厅</button>
             <button type="button" onclick="pickArenaTab('power')" data-arena-tab="power">战力排行</button>
@@ -307,29 +309,31 @@
 
 </div>
 
-<script src="js/config.js?v=20261127-consolidated"></script>
-<script src="js/store.js?v=20261123-progression1"></script>
-<script src="js/data.js?v=20261127-six"></script>
-<script src="js/ui.js?v=20261127-squad-drag"></script>
-<script src="js/ladder.js?v=20261127-direct-claim"></script>
-<script src="js/progression.js?v=20261127-six"></script>
+<script src="js/config.js?v=20261128-economy"></script>
+<script src="js/store.js?v=20261128-economy"></script>
+<script src="js/data.js?v=20261128-economy"></script>
+<script src="js/ui.js?v=20261128-economy"></script>
+<script src="js/market.js?v=20261128-economy"></script>
+<script src="js/ladder.js?v=20261128-economy"></script>
+<script src="js/progression.js?v=20261128-economy"></script>
 <script src="js/atelier.js?v=20261127-harbor"></script>
-<script src="js/training.js?v=20261126-v8"></script>
+<script src="js/training.js?v=20261128-economy"></script>
 <script src="js/experience.js?v=20261127-harbor"></script>
 <script src="js/vigil.js?v=20261126-v8"></script>
 <script src="js/cases.js?v=20261126-v8"></script>
 <script src="js/cipher.js?v=20261126-v8"></script>
 <script src="js/dispatch.js?v=20261127-consolidated"></script>
-<script src="js/carry.js?v=20261127-progression"></script>
-<script src="js/workshop.js?v=20261127-progression"></script>
+<script src="js/carry.js?v=20261128-economy"></script>
+<script src="js/world.js?v=20261128-economy"></script>
+<script src="js/workshop.js?v=20261128-economy"></script>
 <script src="js/battle-motion.js?v=20261127-immersive"></script>
 <script src="js/battle.js?v=20261127-progression"></script>
 <script src="js/festival.js?v=20261127"></script>
-<script src="js/captain.js?v=20261127-progression"></script>
+<script src="js/captain.js?v=20261128-economy"></script>
 <script src="js/voyage-map.js?v=20261127-dungeons"></script>
-<script src="js/voyage.js?v=20261127-progression"></script>
-<script src="js/fleet.js?v=20261127-guild-growth"></script>
+<script src="js/voyage.js?v=20261128-economy"></script>
+<script src="js/fleet.js?v=20261128-raid"></script>
 <script src="js/mail.js?v=20261127-direct-claim"></script>
-<script src="js/main.js?v=20261127-consolidated"></script>
+<script src="js/main.js?v=20261128-world-entry"></script>
 </body>
 </html>

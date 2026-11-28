@@ -1,5 +1,6 @@
 {
   "id": "c13",
+  "sources": ["summon", "voyage", "growth"],
   "name": "圣愈",
   "rarity": "SR",
   "elem": "water",

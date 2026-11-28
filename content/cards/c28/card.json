@@ -1,5 +1,6 @@
 {
   "id": "c28",
+  "sources": ["summon", "starter", "growth"],
   "name": "海璃",
   "rarity": "SSR",
   "elem": "water",

@@ -289,7 +289,7 @@ func gachaSquadUnits(state *GachaGameState, side, prefix string) ([]*gachaCombat
 				if !ok {
 					return nil, ErrGachaRunState
 				}
-				bonus.addCultivationStat(item.Stat, item.Value)
+				bonus.addCultivationStat(item.Stat, item.Value+gachaCarryLevel(own.CarryXP)-1)
 			}
 			hp *= 1 + float64(bonus.HP)/100
 			atk *= 1 + float64(bonus.Atk)/100

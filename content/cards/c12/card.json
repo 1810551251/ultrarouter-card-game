@@ -1,5 +1,6 @@
 {
   "id": "c12",
+  "sources": ["crew", "summon", "world", "voyage", "growth"],
   "name": "苺",
   "rarity": "R",
   "elem": "plant",

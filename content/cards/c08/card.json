@@ -1,5 +1,6 @@
 {
   "id": "c08",
+  "sources": ["crew", "summon", "world", "voyage", "growth"],
   "name": "小椛",
   "rarity": "R",
   "elem": "plant",

@@ -1,5 +1,6 @@
 {
   "id": "c03",
+  "sources": ["world"],
   "name": "寻宝女王",
   "rarity": "SSR",
   "elem": "water",

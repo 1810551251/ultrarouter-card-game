@@ -2,6 +2,13 @@
   "GIRLS": [
     {
       "id": "c01",
+      "sources": [
+        "crew",
+        "summon",
+        "world",
+        "voyage",
+        "growth"
+      ],
       "name": "灯里",
       "rarity": "R",
       "elem": "fire",
@@ -79,6 +86,13 @@
     },
     {
       "id": "c06",
+      "sources": [
+        "crew",
+        "summon",
+        "world",
+        "voyage",
+        "growth"
+      ],
       "name": "铃羽",
       "rarity": "R",
       "elem": "plant",
@@ -117,6 +131,13 @@
     },
     {
       "id": "c08",
+      "sources": [
+        "crew",
+        "summon",
+        "world",
+        "voyage",
+        "growth"
+      ],
       "name": "小椛",
       "rarity": "R",
       "elem": "plant",
@@ -157,6 +178,13 @@
     },
     {
       "id": "c12",
+      "sources": [
+        "crew",
+        "summon",
+        "world",
+        "voyage",
+        "growth"
+      ],
       "name": "苺",
       "rarity": "R",
       "elem": "plant",
@@ -196,6 +224,10 @@
     },
     {
       "id": "c20",
+      "sources": [
+        "world",
+        "voyage"
+      ],
       "name": "暖弦",
       "rarity": "R",
       "elem": "plant",
@@ -277,6 +309,10 @@
     },
     {
       "id": "c22",
+      "sources": [
+        "world",
+        "growth"
+      ],
       "name": "榛果",
       "rarity": "R",
       "elem": "plant",
@@ -357,6 +393,11 @@
     },
     {
       "id": "c05",
+      "sources": [
+        "summon",
+        "voyage",
+        "growth"
+      ],
       "name": "霜音",
       "rarity": "SR",
       "elem": "water",
@@ -397,6 +438,11 @@
     },
     {
       "id": "c13",
+      "sources": [
+        "summon",
+        "voyage",
+        "growth"
+      ],
       "name": "圣愈",
       "rarity": "SR",
       "elem": "water",
@@ -516,6 +562,10 @@
     },
     {
       "id": "c17",
+      "sources": [
+        "voyage",
+        "growth"
+      ],
       "name": "澄汐",
       "rarity": "SR",
       "elem": "water",
@@ -637,6 +687,11 @@
     },
     {
       "id": "c23",
+      "sources": [
+        "summon",
+        "voyage",
+        "growth"
+      ],
       "name": "夜萤",
       "rarity": "SR",
       "elem": "dark",
@@ -717,6 +772,9 @@
     },
     {
       "id": "c25",
+      "sources": [
+        "growth"
+      ],
       "name": "苏兰",
       "rarity": "SR",
       "elem": "plant",
@@ -798,6 +856,12 @@
     },
     {
       "id": "c04",
+      "sources": [
+        "summon",
+        "starter",
+        "voyage",
+        "growth"
+      ],
       "name": "龙音",
       "rarity": "SSR",
       "elem": "fire",
@@ -837,6 +901,12 @@
     },
     {
       "id": "c07",
+      "sources": [
+        "summon",
+        "starter",
+        "voyage",
+        "growth"
+      ],
       "name": "星墙",
       "rarity": "SSR",
       "elem": "star",
@@ -918,6 +988,9 @@
     },
     {
       "id": "c03",
+      "sources": [
+        "world"
+      ],
       "name": "寻宝女王",
       "rarity": "SSR",
       "elem": "water",
@@ -959,6 +1032,9 @@
     },
     {
       "id": "c15",
+      "sources": [
+        "world"
+      ],
       "name": "月璃",
       "rarity": "SSR",
       "elem": "dark",
@@ -1040,6 +1116,9 @@
     },
     {
       "id": "c27",
+      "sources": [
+        "world"
+      ],
       "name": "雪翎",
       "rarity": "SSR",
       "elem": "star",
@@ -1079,6 +1158,11 @@
     },
     {
       "id": "c28",
+      "sources": [
+        "summon",
+        "starter",
+        "growth"
+      ],
       "name": "海璃",
       "rarity": "SSR",
       "elem": "water",
@@ -1130,12 +1214,12 @@
       "enemyCount": 3,
       "starRound": 4,
       "tokenRange": [
-        10,
-        20
+        1,
+        1
       ],
       "gold": [
-        80,
-        150
+        28,
+        48
       ],
       "exp": 40,
       "shardR": 0.2,
@@ -1161,12 +1245,12 @@
       "enemyCount": 2,
       "starRound": 5,
       "tokenRange": [
-        12,
-        22
+        1,
+        1
       ],
       "gold": [
-        120,
-        200
+        42,
+        72
       ],
       "exp": 60,
       "shardR": 0.22,
@@ -1192,12 +1276,12 @@
       "enemyCount": 3,
       "starRound": 7,
       "tokenRange": [
-        15,
-        30
+        1,
+        2
       ],
       "gold": [
-        180,
-        320
+        70,
+        120
       ],
       "exp": 90,
       "shardR": 0.25,
@@ -1223,12 +1307,12 @@
       "enemyCount": 4,
       "starRound": 7,
       "tokenRange": [
-        10,
-        50
+        1,
+        3
       ],
       "gold": [
-        200,
-        500
+        84,
+        144
       ],
       "exp": 120,
       "shardR": 0.28,
@@ -1255,12 +1339,12 @@
       "hasBoss": true,
       "starRound": 10,
       "tokenRange": [
-        25,
-        50
+        2,
+        5
       ],
       "gold": [
-        400,
-        700
+        126,
+        216
       ],
       "exp": 180,
       "shardR": 0.3,
@@ -1287,12 +1371,12 @@
       "hasBoss": true,
       "starRound": 11,
       "tokenRange": [
-        30,
-        60
+        3,
+        6
       ],
       "gold": [
-        500,
-        900
+        154,
+        264
       ],
       "exp": 220,
       "shardR": 0.32,
@@ -1318,12 +1402,12 @@
       "enemyCount": 3,
       "starRound": 8,
       "tokenRange": [
-        30,
-        60
+        3,
+        5
       ],
       "gold": [
-        550,
-        950
+        140,
+        240
       ],
       "exp": 230,
       "shardR": 0.34,
@@ -1349,12 +1433,12 @@
       "enemyCount": 3,
       "starRound": 11,
       "tokenRange": [
-        32,
-        65
+        3,
+        6
       ],
       "gold": [
-        650,
-        1100
+        168,
+        288
       ],
       "exp": 260,
       "shardR": 0.34,
@@ -1381,12 +1465,12 @@
       "hasBoss": true,
       "starRound": 12,
       "tokenRange": [
-        35,
-        70
+        4,
+        7
       ],
       "gold": [
-        800,
-        1300
+        196,
+        336
       ],
       "exp": 300,
       "shardR": 0.35,
@@ -1412,12 +1496,12 @@
       "enemyCount": 3,
       "starRound": 11,
       "tokenRange": [
-        35,
-        70
+        4,
+        7
       ],
       "gold": [
-        850,
-        1400
+        196,
+        336
       ],
       "exp": 320,
       "shardR": 0.35,
@@ -1443,12 +1527,12 @@
       "enemyCount": 4,
       "starRound": 13,
       "tokenRange": [
-        38,
-        75
+        5,
+        8
       ],
       "gold": [
-        950,
-        1600
+        224,
+        384
       ],
       "exp": 350,
       "shardR": 0.36,
@@ -1475,12 +1559,12 @@
       "hasBoss": true,
       "starRound": 15,
       "tokenRange": [
-        40,
-        80
+        5,
+        10
       ],
       "gold": [
-        1200,
-        2000
+        252,
+        432
       ],
       "exp": 400,
       "shardR": 0.38,
@@ -1508,12 +1592,12 @@
       "exp": 280,
       "hasBoss": true,
       "tokenRange": [
-        20,
-        35
+        4,
+        7
       ],
       "gold": [
-        700,
-        1100
+        252,
+        384
       ],
       "mat": [
         9,
@@ -1552,12 +1636,12 @@
       "exp": 280,
       "hasBoss": true,
       "tokenRange": [
-        20,
-        35
+        4,
+        7
       ],
       "gold": [
-        700,
-        1100
+        252,
+        384
       ],
       "mat": [
         9,
@@ -1596,12 +1680,12 @@
       "exp": 280,
       "hasBoss": true,
       "tokenRange": [
-        20,
-        35
+        4,
+        7
       ],
       "gold": [
-        700,
-        1100
+        252,
+        384
       ],
       "mat": [
         9,
@@ -1640,12 +1724,12 @@
       "exp": 280,
       "hasBoss": true,
       "tokenRange": [
-        20,
-        35
+        4,
+        7
       ],
       "gold": [
-        700,
-        1100
+        252,
+        384
       ],
       "mat": [
         9,
@@ -1684,12 +1768,12 @@
       "exp": 280,
       "hasBoss": true,
       "tokenRange": [
-        20,
-        35
+        4,
+        7
       ],
       "gold": [
-        700,
-        1100
+        252,
+        384
       ],
       "mat": [
         9,
@@ -1728,12 +1812,12 @@
       "exp": 280,
       "hasBoss": true,
       "tokenRange": [
-        20,
-        35
+        4,
+        7
       ],
       "gold": [
-        700,
-        1100
+        252,
+        384
       ],
       "mat": [
         9,
@@ -1772,12 +1856,12 @@
       "exp": 650,
       "hasBoss": true,
       "tokenRange": [
-        35,
-        55
+        11,
+        15
       ],
       "gold": [
-        1400,
-        2200
+        672,
+        960
       ],
       "mat": [
         18,
@@ -1816,12 +1900,12 @@
       "exp": 650,
       "hasBoss": true,
       "tokenRange": [
-        35,
-        55
+        11,
+        15
       ],
       "gold": [
-        1400,
-        2200
+        672,
+        960
       ],
       "mat": [
         18,
@@ -1860,12 +1944,12 @@
       "exp": 650,
       "hasBoss": true,
       "tokenRange": [
-        35,
-        55
+        11,
+        15
       ],
       "gold": [
-        1400,
-        2200
+        672,
+        960
       ],
       "mat": [
         18,
@@ -1904,12 +1988,12 @@
       "exp": 650,
       "hasBoss": true,
       "tokenRange": [
-        35,
-        55
+        11,
+        15
       ],
       "gold": [
-        1400,
-        2200
+        672,
+        960
       ],
       "mat": [
         18,
@@ -1948,12 +2032,12 @@
       "exp": 650,
       "hasBoss": true,
       "tokenRange": [
-        35,
-        55
+        11,
+        15
       ],
       "gold": [
-        1400,
-        2200
+        672,
+        960
       ],
       "mat": [
         18,
@@ -1992,12 +2076,12 @@
       "exp": 650,
       "hasBoss": true,
       "tokenRange": [
-        35,
-        55
+        11,
+        15
       ],
       "gold": [
-        1400,
-        2200
+        672,
+        960
       ],
       "mat": [
         18,
@@ -2040,7 +2124,7 @@
     "SSR": {
       "name": "SSR",
       "color": "#d9a94a",
-      "shardToUnlock": 100,
+      "shardToUnlock": 80,
       "baseStar": 3
     }
   },
@@ -2155,6 +2239,68 @@
     "SR": 30,
     "SSR": 50
   },
-  "TOKEN_BUDGET": 100,
-  "STAMINA_REGEN_MIN": 5
+  "STAMINA_REGEN_MIN": 5,
+  "ACTIVITY_PAYOUTS": {
+    "caravan_gold": 1200,
+    "boss_gold": 500,
+    "dual_gold": 1500,
+    "expedition_gold": [
+      40,
+      60
+    ],
+    "expedition_gold_step": 15,
+    "expedition_tokens": [
+      8,
+      12
+    ],
+    "expedition_token_step": 2,
+    "festival_album": {
+      "3": {
+        "forge_ore": 10,
+        "iv_solvent": 2
+      },
+      "7": {
+        "gem_ticket": 2,
+        "chip_ticket": 2,
+        "limited_ticket": 1
+      },
+      "11": {
+        "astral_treatise": 2,
+        "break_seal": 3,
+        "limited_ticket": 2
+      }
+    }
+  },
+  "REPEAT_REWARDS": {
+    "s": {
+      "gold_per_stamina": [
+        14,
+        24
+      ],
+      "token_per_100_stamina": [
+        32,
+        56
+      ]
+    },
+    "r": {
+      "gold_per_stamina": [
+        21,
+        32
+      ],
+      "token_per_100_stamina": [
+        38,
+        61
+      ]
+    },
+    "n": {
+      "gold_per_stamina": [
+        28,
+        40
+      ],
+      "token_per_100_stamina": [
+        48,
+        66
+      ]
+    }
+  }
 }

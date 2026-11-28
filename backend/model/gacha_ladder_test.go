@@ -16,6 +16,20 @@ import (
 	"gorm.io/gorm"
 )
 
+type preMarketLadderMail struct {
+	UserID      int    `gorm:"primaryKey;autoIncrement:false"`
+	Day         string `gorm:"type:varchar(10);primaryKey"`
+	Rank        int
+	Materials   model.GachaLadderMaterials `gorm:"embedded;embeddedPrefix:reward_"`
+	Kind        string                     `gorm:"type:varchar(16);not null;default:daily"`
+	Token       int                        `gorm:"not null;default:0"`
+	SettledAt   int64
+	Claimed     bool  `gorm:"not null;default:false"`
+	DeliveredAt int64 `gorm:"not null;default:0"`
+}
+
+func (preMarketLadderMail) TableName() string { return "gacha_ladder_mails" }
+
 // Invoked inside the existing disposable SQLite/MySQL/PostgreSQL host matrix.
 // No substitute account model or in-memory database is used by these cases.
 func runGachaLadderMatrix(t *testing.T, clock time.Time) {
@@ -31,11 +45,21 @@ func runGachaLadderMatrix(t *testing.T, clock time.Time) {
 		var before model.GachaPlayer
 		require.NoError(t, model.DB.First(&before, "user_id = ?", user.Id).Error)
 		require.NoError(t, model.DB.Migrator().DropTable(tables...))
+		require.NoError(t, model.DB.AutoMigrate(&preMarketLadderMail{}))
+		legacyOwner := gachaUser(t)
+		legacyRow := preMarketLadderMail{UserID: legacyOwner.Id, Day: "2026-01-01", Rank: 10, Token: 180, Materials: model.GachaLadderMaterials{R: 80, SR: 40, SSR: 12}, SettledAt: now.AddDate(0, 0, -1).UnixMilli()}
+		require.NoError(t, model.DB.Create(&legacyRow).Error)
 		require.NoError(t, model.DB.AutoMigrate(tables...))
 		require.NoError(t, model.InitializeGachaLadder(now))
 		require.NoError(t, model.DB.AutoMigrate(tables...))
 		require.NoError(t, model.InitializeGachaLadder(now))
 		var after model.GachaPlayer
+		var preserved model.GachaLadderMail
+		require.NoError(t, model.DB.First(&preserved, "user_id = ? AND day = ?", legacyOwner.Id, legacyRow.Day).Error)
+		assert.Equal(t, legacyRow.Token, preserved.Token)
+		assert.Equal(t, legacyRow.Materials, preserved.Materials)
+		assert.Zero(t, preserved.Tickets)
+		assert.Zero(t, preserved.ArenaCoin)
 		require.NoError(t, model.DB.First(&after, "user_id = ?", user.Id).Error)
 		assert.Equal(t, before, after, "fresh/upgrade ladder migration preserves game resources")
 		var count int64
@@ -90,6 +114,7 @@ func runGachaLadderMatrix(t *testing.T, clock time.Time) {
 		require.NoError(t, err)
 		require.NotNil(t, out.Ladder)
 		require.True(t, out.Ladder.Win)
+		assert.Equal(t, 1, out.Save.Daily.CaptainLog.Progress["ladder"])
 		assert.Equal(t, 101, out.Ladder.OwnBefore)
 		assert.Equal(t, 100, out.Ladder.OwnAfter)
 		assert.Equal(t, state.Token, out.Save.Token, "historical rewards wait for explicit direct collection")
@@ -115,10 +140,14 @@ func runGachaLadderMatrix(t *testing.T, clock time.Time) {
 		replay, err := model.GetGachaLadderReplay(user.Id, out.Ladder.ID)
 		require.NoError(t, err)
 		assert.Equal(t, out.Ladder.Report, replay.Report)
+		assert.Equal(t, 16, out.Ladder.ArenaCoin)
+		assert.Equal(t, 16, out.Save.Mats["arena_coin"])
+		assert.Zero(t, replay.ArenaCoin, "historical playback is not a new payout")
 		defendedRank := 100
 		defenseBattle, err := model.ApplyGachaAction(other.Id, model.GachaActionIntent{RequestID: uuid.NewString(), Action: "ladder_challenge", OpponentID: &user.Id, Count: &defendedRank}, now.Add(3*time.Second))
 		require.NoError(t, err)
 		require.False(t, defenseBattle.Ladder.Win, "weak attack cannot beat the registered strong defense")
+		assert.Equal(t, 1, defenseBattle.Save.Daily.CaptainLog.Progress["ladder"])
 		defenderReplay, err := model.GetGachaLadderReplay(user.Id, defenseBattle.Ladder.ID)
 		require.NoError(t, err)
 		assert.True(t, defenderReplay.Win)
@@ -177,6 +206,8 @@ func runGachaLadderMatrix(t *testing.T, clock time.Time) {
 		claimed, err := model.ApplyGachaAction(user.Id, claim, boundary.Add(4*time.Second))
 		require.NoError(t, err)
 		assert.Equal(t, oldR+40, claimed.Save.Mats["mat_r"])
+		assert.Equal(t, legacy.Save.Mats["arena_coin"]+40, claimed.Save.Mats["arena_coin"])
+		assert.Equal(t, legacy.Save.Mats["limited_ticket"]+1, claimed.Save.Mats["limited_ticket"])
 		assert.Equal(t, oldToken+80, claimed.Save.Token)
 		again, err := model.ApplyGachaAction(user.Id, claim, boundary.Add(5*time.Second))
 		require.NoError(t, err)
@@ -199,6 +230,14 @@ func runGachaLadderMatrix(t *testing.T, clock time.Time) {
 		_, err = model.ApplyGachaAction(user.Id, challenge, boundary.Add(time.Minute))
 		assert.ErrorIs(t, err, model.ErrGachaLadderLimit)
 		reset := boundary.Add(8 * time.Hour)
+		assert.Equal(t, 5, gachaState(t, user.Id, boundary.Add(time.Minute)).Daily.CaptainLog.Progress["ladder"])
+		legacyJournal := gachaState(t, user.Id, boundary.Add(time.Minute))
+		legacyJournal.Daily.CaptainLog.Edition = 0
+		delete(legacyJournal.Daily.CaptainLog.Progress, "ladder")
+		seedGachaState(t, user.Id, legacyJournal)
+		upgraded := gachaState(t, user.Id, boundary.Add(time.Minute))
+		require.Equal(t, 1, upgraded.Daily.CaptainLog.Edition)
+		require.Equal(t, 5, upgraded.Daily.CaptainLog.Progress["ladder"])
 		view, err = model.GetGachaLadder(user.Id, reset.Add(-time.Second))
 		require.NoError(t, err)
 		assert.Zero(t, view.Remaining)

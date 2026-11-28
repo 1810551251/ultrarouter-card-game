@@ -1,5 +1,6 @@
 {
   "id": "c17",
+  "sources": ["voyage", "growth"],
   "name": "澄汐",
   "rarity": "SR",
   "elem": "water",

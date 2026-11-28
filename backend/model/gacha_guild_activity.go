@@ -53,10 +53,10 @@ type GachaGuildActivityView struct {
 }
 
 var guildDailyTasks = []GachaGuildActivityTask{
-	{ID: "checkin", Name: "母港签到", Goal: "每日回到公会报到", Target: 1, XP: 20, Coins: 20},
-	{ID: "sortie", Name: "协力巡航", Goal: "赢得 3 场消耗体力的副本战斗", Target: 3, XP: 60, Coins: 45},
-	{ID: "training", Name: "整备伙伴", Goal: "完成 3 次消耗材料的伙伴或装备培养", Target: 3, XP: 40, Coins: 30},
-	{ID: "arena", Name: "演武交流", Goal: "完成 2 场排名竞技挑战，胜负均计", Target: 2, XP: 50, Coins: 35},
+	{ID: "checkin", Name: "母港签到", Goal: "每日回到公会报到", Target: 1, XP: 20, Coins: gachaMarket.Guild.Checkin},
+	{ID: "sortie", Name: "协力巡航", Goal: "赢得 3 场消耗体力的副本战斗", Target: 3, XP: 60, Coins: gachaMarket.Guild.Sortie},
+	{ID: "training", Name: "整备伙伴", Goal: "完成 3 次消耗材料的伙伴或装备培养", Target: 3, XP: 40, Coins: gachaMarket.Guild.Training},
+	{ID: "arena", Name: "演武交流", Goal: "完成 2 场排名竞技挑战，胜负均计", Target: 2, XP: 50, Coins: gachaMarket.Guild.Arena},
 }
 
 var guildWeeklyMissions = []GachaGuildActivityTask{
@@ -178,7 +178,7 @@ func recordGuildPersonalActivity(state *GachaGameState, kind string, now time.Ti
 }
 
 func recordGuildTrainingAction(state *GachaGameState, action string, now time.Time) error {
-	if slices.Contains([]string{"card_feed", "use_manual", "card_breakthrough", "effort_train", "effort_train_max", "effort_promote", "gear_upgrade", "gear_auto", "gear_star", "weapon_upgrade"}, action) {
+	if slices.Contains([]string{"card_feed", "use_manual", "card_breakthrough", "effort_train", "effort_train_max", "effort_promote", "gear_upgrade", "gear_auto", "gear_star", "weapon_upgrade", "carry_enhance"}, action) {
 		return recordGuildPersonalActivity(state, "training", now)
 	}
 	return nil
@@ -240,12 +240,12 @@ func guildActivityView(state *GachaGameState, owner *GachaGuildState, now time.T
 		v.Missions = append(v.Missions, rule)
 	}
 	v.Sources = []GachaGuildXPSource{
-		{Name: "每日签到", Detail: "每账号每日一次", XP: 20, Coins: 20},
-		{Name: "母港共建", Detail: "每日任选一种物资交付", XP: 40, Coins: 35},
-		{Name: "协力巡航", Detail: "三场付费副本胜利后领取", XP: 60, Coins: 45},
-		{Name: "整备伙伴", Detail: "三次消耗材料的培养后领取", XP: 40, Coins: 30},
-		{Name: "演武交流", Detail: "两场排名挑战后领取", XP: 50, Coins: 35},
-		{Name: "首领讨伐", Detail: "每次挑战即得，每日两次", XP: 30, Coins: 25},
+		{Name: "每日签到", Detail: "每账号每日一次", XP: 20, Coins: gachaMarket.Guild.Checkin},
+		{Name: "母港共建", Detail: "每日任选一种物资交付", XP: 40, Coins: gachaMarket.Guild.Contribution},
+		{Name: "协力巡航", Detail: "三场付费副本胜利后领取", XP: 60, Coins: gachaMarket.Guild.Sortie},
+		{Name: "整备伙伴", Detail: "三次消耗材料的培养后领取", XP: 40, Coins: gachaMarket.Guild.Training},
+		{Name: "演武交流", Detail: "两场排名挑战后领取", XP: 50, Coins: gachaMarket.Guild.Arena},
+		{Name: "首领讨伐", Detail: "每次挑战即得，每日两次", XP: gachaMarket.Guild.RaidXP, Coins: gachaMarket.Guild.Raid},
 		{Name: "集体周目标", Detail: "三项目标额外提供 3800 公会经验", XP: 3800},
 	}
 	return v

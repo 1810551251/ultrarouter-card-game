@@ -1,5 +1,6 @@
 {
   "id": "c22",
+  "sources": ["world", "growth"],
   "name": "榛果",
   "rarity": "R",
   "elem": "plant",

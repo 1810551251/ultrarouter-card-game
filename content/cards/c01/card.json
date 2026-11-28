@@ -1,5 +1,6 @@
 {
   "id": "c01",
+  "sources": ["crew", "summon", "world", "voyage", "growth"],
   "name": "灯里",
   "rarity": "R",
   "elem": "fire",

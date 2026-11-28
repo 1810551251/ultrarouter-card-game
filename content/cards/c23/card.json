@@ -1,5 +1,6 @@
 {
   "id": "c23",
+  "sources": ["summon", "voyage", "growth"],
   "name": "夜萤",
   "rarity": "SR",
   "elem": "dark",

@@ -27,6 +27,17 @@ const (
 	gachaGuildMemberLimit = 10
 )
 
+type GachaActivityPayouts struct {
+	FestivalAlbum       map[int]map[string]int `json:"festival_album"`
+	CaravanGold         int                    `json:"caravan_gold"`
+	BossGold            int                    `json:"boss_gold"`
+	DualGold            int                    `json:"dual_gold"`
+	ExpeditionGold      [2]int                 `json:"expedition_gold"`
+	ExpeditionGoldStep  int                    `json:"expedition_gold_step"`
+	ExpeditionTokens    [2]int                 `json:"expedition_tokens"`
+	ExpeditionTokenStep int                    `json:"expedition_token_step"`
+}
+
 type GachaExpeditionState struct {
 	Week  string `json:"week"`
 	Floor int    `json:"floor"`
@@ -192,9 +203,10 @@ func specialGachaStageFromSnapshot(snapshot GachaRunSnapshot, stageID string) (*
 		if floor < 1 || floor > gachaExpeditionFloors || !slices.Contains([]string{"assault", "bastion", "fortune"}, snapshot.Route) {
 			return nil, ErrGachaRunState
 		}
+		payout := gachaCatalog.ActivityPayouts
 		stage := &GachaStage{ID: stageID, Name: fmt.Sprintf("星穹远征 · 第 %d 层", floor), Img: "assets/d06-observatory.webp", Cost: 12 + floor,
 			EnemyLv: 10 + floor*3, Waves: 1, EnemyCount: 2 + floor/4, StarRound: 4 + floor, Exp: 20 + floor*10,
-			HasBoss: floor%5 == 0, TokenRange: [2]int{8 + floor*2, 12 + floor*2}, Gold: [2]int{40 + floor*15, 60 + floor*15}, Mat: [2]int{1, 2}, MatKey: "mat_r"}
+			HasBoss: floor%5 == 0, TokenRange: [2]int{payout.ExpeditionTokens[0] + floor*payout.ExpeditionTokenStep, payout.ExpeditionTokens[1] + floor*payout.ExpeditionTokenStep}, Gold: [2]int{payout.ExpeditionGold[0] + floor*payout.ExpeditionGoldStep, payout.ExpeditionGold[1] + floor*payout.ExpeditionGoldStep}, Mat: [2]int{1, 2}, MatKey: "mat_r"}
 		if floor >= 4 && floor <= 6 {
 			stage.MatKey = "mat_sr"
 		} else if floor >= 7 {
@@ -226,15 +238,16 @@ func settleGachaMode(state *GachaGameState, stage *GachaStage, snapshot *GachaRu
 		if !result.Win {
 			return nil
 		}
-		if state.Gold > gachaMaxResource-500 || state.Mats["mat_ssr"] > gachaMaxResource-8 {
+		gold := gachaCatalog.ActivityPayouts.BossGold
+		if state.Gold > gachaMaxResource-gold || state.Mats["mat_ssr"] > gachaMaxResource-8 {
 			return ErrGachaFunds
 		}
-		state.Gold += 500
+		state.Gold += gold
 		state.Mats["mat_ssr"] += 8
 		if state.WeeklyBoss.Week == snapshot.Week {
 			state.WeeklyBoss.Cleared = true
 		}
-		result.Drops = append(result.Drops, "首领首通奖励：金币 +500、星屑 x8")
+		result.Drops = append(result.Drops, fmt.Sprintf("首领首通奖励：金币 +%d、星屑 x8", gold))
 		return nil
 	}
 	if snapshot.Mode != "expedition" {
@@ -245,6 +258,10 @@ func settleGachaMode(state *GachaGameState, stage *GachaStage, snapshot *GachaRu
 	}
 	if state.Expedition.Week == snapshot.Week && state.Expedition.Floor != snapshot.Floor {
 		return ErrGachaRunState
+	}
+	coins := gachaMarket.ExpeditionBase + gachaMarket.ExpeditionPerFloor*snapshot.Floor
+	if snapshot.Floor < 1 || snapshot.Floor > gachaExpeditionFloors || state.Mats["expedition_coin"] > gachaMaxResource-coins {
+		return ErrGachaCapacity
 	}
 	token, err := gachaRandomRange(stage.TokenRange)
 	if err != nil {
@@ -261,18 +278,20 @@ func settleGachaMode(state *GachaGameState, stage *GachaStage, snapshot *GachaRu
 	if snapshot.MultiUsed {
 		token *= 2
 	}
-	token = min(token, max(0, gachaCatalog.TokenBudget-state.Daily.TokenGained))
 	material, err := gachaRandomRange(stage.Mat)
 	if err != nil {
 		return err
 	}
-	if state.Token > gachaMaxResource-token || state.Gold > gachaMaxResource-gold || state.Mats[stage.MatKey] > gachaMaxResource-material {
+	if state.Gold > gachaMaxResource-gold || state.Mats[stage.MatKey] > gachaMaxResource-material {
 		return ErrGachaFunds
 	}
-	state.Token += token
-	state.Daily.TokenGained += token
+	if err := earnGachaBattleTokens(state, token); err != nil {
+		return err
+	}
 	state.Gold += gold
 	state.Mats[stage.MatKey] += material
+	state.Mats["expedition_coin"] += coins
+	result.Drops = append(result.Drops, fmt.Sprintf("远征币 +%d", coins))
 	if token > 0 {
 		result.Drops = append(result.Drops, fmt.Sprintf("游戏代币 +%d", token))
 	}

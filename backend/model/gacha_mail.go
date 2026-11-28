@@ -53,6 +53,13 @@ var gachaGiftCodes = func() []gachaGiftCode {
 	if err := common.Unmarshal(gachaGiftJSON, &codes); err != nil {
 		panic(err)
 	}
+	for _, gift := range codes {
+		for id := range gift.Resources {
+			if strings.HasPrefix(id, "shard:") {
+				panic("gift codes cannot replace card acquisition sources")
+			}
+		}
+	}
 	return codes
 }()
 
@@ -70,7 +77,7 @@ func syncGachaMailbox(state *GachaGameState) error {
 		}
 		seen[message.ID] = true
 		for resource, amount := range message.Resources {
-			if _, ok := gachaMailResource(state, resource); !ok || amount < 1 || amount > gachaMaxResource {
+			if _, ok := gachaIssuedResource(state, resource); !ok || amount < 1 || amount > gachaMaxResource {
 				return ErrGachaRunState
 			}
 		}
@@ -79,6 +86,13 @@ func syncGachaMailbox(state *GachaGameState) error {
 }
 
 func gachaMailResource(state *GachaGameState, id string) (int, bool) {
+	if strings.HasPrefix(id, "shard:") {
+		return 0, false
+	}
+	return gachaIssuedResource(state, id)
+}
+
+func gachaIssuedResource(state *GachaGameState, id string) (int, bool) {
 	switch id {
 	case "gold":
 		return state.Gold, true
@@ -308,7 +322,7 @@ func applyGachaMail(state *GachaGameState, intent GachaActionIntent, receipt *Ga
 			resources[resource] += amount
 		}
 	}
-	if err := grantGachaDirectResources(state, resources, receipt, now); err != nil {
+	if err := grantGachaIssuedResources(state, resources, receipt, now); err != nil {
 		return err
 	}
 	grantGachaCaptainXP(state, xp, &receipt.Drops)
@@ -321,8 +335,17 @@ func applyGachaMail(state *GachaGameState, intent GachaActionIntent, receipt *Ga
 // Validate the whole bundle before changing any balance. Used by explicit
 // claims and gift redemption; old mail attachments keep the same semantics.
 func grantGachaDirectResources(state *GachaGameState, resources map[string]int, receipt *GachaActionResult, now time.Time) error {
+	for resource := range resources {
+		if strings.HasPrefix(resource, "shard:") {
+			return ErrGachaCardSource
+		}
+	}
+	return grantGachaIssuedResources(state, resources, receipt, now)
+}
+
+func grantGachaIssuedResources(state *GachaGameState, resources map[string]int, receipt *GachaActionResult, now time.Time) error {
 	for resource, amount := range resources {
-		current, ok := gachaMailResource(state, resource)
+		current, ok := gachaIssuedResource(state, resource)
 		if !ok || amount < 1 || amount > gachaMaxResource || current < 0 || current > gachaMaxResource-amount {
 			return ErrGachaCapacity
 		}
@@ -333,18 +356,9 @@ func grantGachaDirectResources(state *GachaGameState, resources map[string]int, 
 	}
 	sort.Strings(keys)
 	for _, resource := range keys {
-		current, _ := gachaMailResource(state, resource)
+		current, _ := gachaIssuedResource(state, resource)
 		setGachaMailResource(state, resource, current+resources[resource])
 		receipt.Drops = append(receipt.Drops, fmt.Sprintf("%s +%d", gachaMailResourceName(resource), resources[resource]))
-		if cardID, shard := strings.CutPrefix(resource, "shard:"); shard {
-			girl, own := gachaGirl(cardID), state.Girls[cardID]
-			rarity := gachaCatalog.Rarity[girl.Rarity]
-			if own.Star == 0 && own.Shards >= rarity.ShardToUnlock {
-				own.Shards -= rarity.ShardToUnlock
-				own.Star, own.Level = rarity.BaseStar, 1
-				receipt.Drops = append(receipt.Drops, "新少女解锁："+girl.Name)
-			}
-		}
 	}
 	if resources["stamina"] > 0 && state.Stamina >= state.StaminaMax {
 		state.StaminaTs = now.UnixMilli()

@@ -20,6 +20,7 @@ type GachaGuildProgress struct {
 	Week          string              `json:"week"`
 	Claims        int                 `json:"claims"`
 	Bought        map[string]int      `json:"bought"`
+	ShopSlot      int64               `json:"shop_slot,omitempty"`
 	Participation map[string]int      `json:"participation"`
 	Day           string              `json:"day"`
 	Attempts      int                 `json:"attempts"`
@@ -187,7 +188,7 @@ type GachaGuildShopItem struct {
 }
 
 var guildShop = [...]GachaGuildShopItem{
-	{ID: "tokens", Name: "招募代币补给", Level: 1, Cost: 80, Resource: "token", Amount: 40, Limit: 3},
+	{ID: "tokens", Name: "招募代币补给", Level: 1, Cost: gachaMarket.Guild.TokenPrice, Resource: "token", Amount: gachaMarket.Guild.TokenAmount, Limit: gachaMarket.Guild.TokenLimit},
 	{ID: "ore", Name: "星锻矿箱", Level: 1, Cost: 75, Resource: "forge_ore", Amount: 15, Limit: 2},
 	{ID: "crystal", Name: "元素结晶箱", Level: 2, Cost: 60, Resource: "mat_sr", Amount: 3, Limit: 3},
 	{ID: "stardust", Name: "星屑珍藏", Level: 4, Cost: 100, Resource: "mat_ssr", Amount: 2, Limit: 2},
@@ -358,12 +359,13 @@ func guildProgress(state *GachaGameState, now time.Time) *GachaGuildProgress {
 	week, day := gachaWeekKey(now), gachaDay(now)
 	if p.Week != week {
 		p.Week, p.Claims = week, 0
-		p.Bought = map[string]int{}
 		p.Participation = map[string]int{}
 	}
-	if p.Bought == nil {
+	slot, _ := gachaMarketWindow(now)
+	if p.Bought == nil || p.ShopSlot != 0 && p.ShopSlot != slot {
 		p.Bought = map[string]int{}
 	}
+	p.ShopSlot = slot
 	if p.Participation == nil {
 		p.Participation = map[string]int{}
 	}
@@ -397,6 +399,10 @@ func syncGachaGuildProgress(state *GachaGameState, now time.Time) error {
 		return ErrGachaRunState
 	}
 	if !validGachaWeek(p.Week) || p.Week > gachaWeekKey(now) {
+		return ErrGachaRunState
+	}
+	slot, _ := gachaMarketWindow(now)
+	if p.ShopSlot > slot || p.ShopSlot < 0 {
 		return ErrGachaRunState
 	}
 	if _, err := time.Parse("2006-01-02", p.Day); err != nil || p.Day > gachaDay(now) {
@@ -507,11 +513,15 @@ func guildRaidViews(state *GachaGameState, owner *GachaGuildState, now time.Time
 		participated := p.Participation[owner.Code]&(1<<i) != 0
 		claimed := p.Claims&(1<<i) != 0
 		unlocked := guildLevel(owner) >= rule.Level
+		resources := maps.Clone(rule.Resources)
+		for key := range resources {
+			resources[key] *= gachaMarket.Guild.RaidClear
+		}
 		views = append(views, GachaGuildRaidView{
 			Stage: i + 1, Name: rule.Name, RequiredLevel: rule.Level, HP: hp, MaxHP: rule.HP,
 			Cleared: cleared, Unlocked: unlocked, Active: i == active, Participated: participated,
 			Claimed: claimed, CanClaim: cleared && participated && !claimed && unlocked,
-			Resources: maps.Clone(rule.Resources), Coins: rule.Coins, Mechanic: rule.Mechanic, Description: rule.Description,
+			Resources: resources, Coins: rule.Coins * gachaMarket.Guild.RaidClear, Mechanic: rule.Mechanic, Description: rule.Description,
 		})
 	}
 	return views
@@ -598,12 +608,11 @@ func applyGuildClaim(state *GachaGameState, owner *GachaGuildState, tier *int, r
 			}
 			continue
 		}
-		rule := guildRaids[i]
-		if p.Coins > gachaMaxResource-rule.Coins {
+		if p.Coins > gachaMaxResource-view.Coins {
 			return ErrGachaCapacity
 		}
-		keys := make([]string, 0, len(rule.Resources))
-		for resource, amount := range rule.Resources {
+		keys := make([]string, 0, len(view.Resources))
+		for resource, amount := range view.Resources {
 			if state.Mats[resource] < 0 || state.Mats[resource] > gachaMaxResource-amount {
 				return ErrGachaCapacity
 			}
@@ -611,15 +620,15 @@ func applyGuildClaim(state *GachaGameState, owner *GachaGuildState, tier *int, r
 		}
 		slices.Sort(keys)
 		for _, resource := range keys {
-			state.Mats[resource] += rule.Resources[resource]
-			result.Drops = append(result.Drops, fmt.Sprintf("%s +%d", gachaMailResourceName(resource), rule.Resources[resource]))
+			state.Mats[resource] += view.Resources[resource]
+			result.Drops = append(result.Drops, fmt.Sprintf("%s +%d", gachaMailResourceName(resource), view.Resources[resource]))
 		}
-		p.Coins += rule.Coins
+		p.Coins += view.Coins
 		p.Claims |= 1 << i
 		if i == 0 {
 			state.GuildRewardWeek = gachaWeekKey(now)
 		}
-		result.Drops = append(result.Drops, fmt.Sprintf("%s · 公会币 +%d", rule.Name, rule.Coins))
+		result.Drops = append(result.Drops, fmt.Sprintf("%s · 公会币 +%d", view.Name, view.Coins))
 		return nil
 	}
 	return ErrGachaGuildLimit
@@ -682,7 +691,8 @@ func applyGuildRaid(state *GachaGameState, owner *GachaGuildState, userID int, r
 	if state.Stamina < 10 {
 		return ErrGachaFunds
 	}
-	if p.Coins > gachaMaxResource-25 || state.Mats["training_ink"] > gachaMaxResource-3 {
+	rewards := gachaMarket.Guild
+	if p.Coins > gachaMaxResource-rewards.Raid || state.Mats["training_ink"] > gachaMaxResource-rewards.RaidInk {
 		return ErrGachaCapacity
 	}
 	var seed [16]byte
@@ -707,8 +717,8 @@ func applyGuildRaid(state *GachaGameState, owner *GachaGuildState, userID int, r
 	state.Guild.MyDamage += damage
 	owner.BossHP -= damage
 	owner.TotalDamage += damage
-	state.Mats["training_ink"] += 3
-	if err := guildAddProgress(state, owner, 30, 25, now); err != nil {
+	state.Mats["training_ink"] += rewards.RaidInk
+	if err := guildAddProgress(state, owner, rewards.RaidXP, rewards.Raid, now); err != nil {
 		return err
 	}
 	cleared := owner.BossHP == 0
@@ -716,7 +726,7 @@ func applyGuildRaid(state *GachaGameState, owner *GachaGuildState, userID int, r
 		Report: report, Stage: index + 1, StageName: guildRaids[index].Name, Damage: damage,
 		BossHP: owner.BossHP, BossMaxHP: guildRaids[index].HP, Cleared: cleared,
 	}
-	result.Drops = append(result.Drops, fmt.Sprintf("对%s造成 %d 伤害 · 训练墨 +3 · 公会币 +25 · 公会经验 +30", guildRaids[index].Name, damage))
+	result.Drops = append(result.Drops, fmt.Sprintf("对%s造成 %d 伤害 · 研训墨 +%d · 公会币 +%d · 公会经验 +%d", guildRaids[index].Name, damage, rewards.RaidInk, rewards.Raid, rewards.RaidXP))
 	if cleared {
 		owner.RaidCleared |= 1 << index
 		owner.XP = min(guildLevelXP[len(guildLevelXP)-1], owner.XP+guildRaids[index].XP)

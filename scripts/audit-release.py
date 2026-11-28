@@ -29,6 +29,8 @@ SCOPED_FILES = {
         'backend/model/gacha_ladder.go', 'backend/model/gacha_ladder_test.go', 'backend/model/gacha_contract_database_test.go',
         'backend/model/gacha_game_test.go', 'backend/model/gacha_game_battle_test.go',
         'backend/model/gacha_formation_test.go',
+        'backend/model/gacha_world.go', 'backend/model/gacha_world.json', 'backend/model/gacha_world_test.go', 'backend/model/gacha_world_database_test.go',
+        'backend/model/gacha_market.go', 'backend/model/gacha_market.json', 'backend/model/gacha_market_test.go', 'backend/model/gacha_captain.json',
         'backend/model/gacha_cultivation.go', 'backend/model/gacha_cultivation.json',
         'backend/model/gacha_cultivation_test.go', 'backend/model/gacha_artifacts.go', 'backend/model/gacha_artifacts_test.go',
         'backend/model/gacha_items.go', 'backend/model/gacha_items.json',
@@ -57,6 +59,7 @@ SCOPED_FILES = {
     'scripts': {
         'scripts/audit-release.py', 'scripts/package-release.py',
         'scripts/build-half-cpu.sh', 'scripts/preview.py', 'scripts/sync-catalog.py',
+        'scripts/simulate-economy.js',
     },
     'tests': {
         'tests/server-ui-check.js', 'tests/server-authority-check.js',
@@ -67,8 +70,9 @@ SCOPED_FILES = {
         'tests/festival-check.js', 'tests/captain-check.js', 'tests/voyage-check.js', 'tests/fleet-check.js', 'tests/mail-check.js',
         'tests/ladder-rewards-check.js', 'tests/squad-drag-check.js', 'tests/guild-growth-check.js',
         'tests/unit-catalog-check.js', 'tests/battle-formation-check.js', 'tests/battle-motion-check.js', 'tests/battle-menu-check.js',
+        'tests/world-check.js', 'tests/economy-check.js',
     },
-    'js': {'js/'+name+'.js' for name in ('config', 'store', 'data', 'ui', 'ladder', 'progression', 'atelier', 'carry', 'training', 'experience', 'cases', 'vigil', 'dispatch', 'cipher', 'workshop', 'battle', 'battle-motion', 'captain', 'voyage', 'voyage-map', 'fleet', 'festival', 'mail', 'main')},
+    'js': {'js/'+name+'.js' for name in ('config', 'store', 'data', 'ui', 'market', 'world', 'ladder', 'progression', 'atelier', 'carry', 'training', 'experience', 'cases', 'vigil', 'dispatch', 'cipher', 'workshop', 'battle', 'battle-motion', 'captain', 'voyage', 'voyage-map', 'fleet', 'festival', 'mail', 'main')},
     '.github': {'.github/workflows/game-checks.yml'},
 }
 IGNORED_PARTS = {'node_modules', 'dist', '__pycache__', '.git', '.local', '.cache'}

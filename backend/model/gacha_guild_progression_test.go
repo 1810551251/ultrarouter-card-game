@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -51,6 +52,34 @@ func TestGuildLevelsPersistWhileWeeklyRaidAndPersonalLimitsReset(t *testing.T) {
 	assert.Empty(t, p.Participation)
 }
 
+func TestGuildMarketStockSurvivesMidnightAndRefreshesSeparately(t *testing.T) {
+	sunday := time.Date(2026, 11, 29, 21, 1, 0, 0, gameZone)
+	monday := sunday.Add(4 * time.Hour)
+	state, owner := guildTestState(sunday)
+	state.GuildProgress.Coins, state.Token = 1000, 100
+	require.NoError(t, syncGachaMarket(state, sunday))
+	state.Market.Bought["gold"] = 2
+	for range 3 {
+		require.NoError(t, applyGuildShop(state, owner, "tokens", &GachaActionResult{}, sunday))
+	}
+	require.NoError(t, syncGachaMarket(state, monday))
+	require.NoError(t, syncGachaGuildProgress(state, monday))
+	require.ErrorIs(t, applyGuildShop(state, owner, "tokens", &GachaActionResult{}, monday), ErrGachaGuildLimit)
+	shop, period := "guild", strconv.FormatInt(state.Market.Slot, 10)
+	intent := GachaActionIntent{Action: "shop_refresh", ItemID: &shop, Choice: &period}
+	before := state.Token
+	require.NoError(t, validateGachaMarketIntent(intent))
+	require.NoError(t, applyGachaMarketIntent(state, intent, &GachaActionResult{}, monday))
+	assert.Equal(t, before-gachaMarket.RefreshPrice, state.Token)
+	assert.Empty(t, state.GuildProgress.Bought)
+	assert.Equal(t, 2, state.Market.Bought["gold"])
+	require.ErrorIs(t, applyGachaMarketIntent(state, intent, &GachaActionResult{}, monday), ErrGachaShopLimit)
+	require.NoError(t, applyGuildShop(state, owner, "tokens", &GachaActionResult{}, monday))
+	opening := time.Date(2026, 11, 30, 9, 0, 0, 0, gameZone)
+	require.NoError(t, syncGachaGuildProgress(state, opening))
+	assert.Empty(t, state.GuildProgress.Bought)
+}
+
 func TestGuildRoleAuthorityAndPositionLimits(t *testing.T) {
 	now := time.Date(2026, 11, 27, 12, 0, 0, 0, gameZone)
 	_, owner := guildTestState(now)
@@ -90,8 +119,8 @@ func TestGuildClaimsRequireThisGuildStageAndStayClaimedAcrossMembership(t *testi
 	require.NoError(t, applyGuildClaim(state, owner, &two, &GachaActionResult{}, now))
 	assert.Equal(t, token, state.Token)
 	assert.Equal(t, gold, state.Gold)
-	assert.Equal(t, 8, state.Mats["mat_ssr"])
-	assert.Equal(t, 500, state.GuildProgress.Coins)
+	assert.Equal(t, 16, state.Mats["mat_ssr"])
+	assert.Equal(t, 1000, state.GuildProgress.Coins)
 	other := *owner
 	other.Code, other.LeaderID = "00000003", 3
 	state.Guild = &GachaGuildState{Code: other.Code, LeaderID: 3, ContributionWeek: owner.Week}
@@ -260,15 +289,16 @@ func TestGuildRaidParticipationAwardsSurviveAnUnfinishedBoss(t *testing.T) {
 	state.StaminaMax = 120
 	state.StaminaTs = now.UnixMilli()
 	state.Captain = &GachaCaptain{Level: 1}
-	beforeGold, beforeStamina := state.Gold, state.Stamina
+	beforeGold, beforeStamina, beforeXP := state.Gold, state.Stamina, owner.XP
 	result := &GachaActionResult{}
 	require.NoError(t, applyGuildRaid(state, owner, 2, result, now))
 	require.NotNil(t, result.GuildBattle)
 	assert.LessOrEqual(t, result.GuildBattle.Report.Rounds, 20)
 	assert.Equal(t, beforeGold, state.Gold)
 	assert.Equal(t, beforeStamina-10, state.Stamina)
-	assert.Equal(t, 25, state.GuildProgress.Coins)
-	assert.Equal(t, 3, state.Mats["training_ink"])
+	assert.Equal(t, 50, state.GuildProgress.Coins)
+	assert.Equal(t, 8, state.Mats["training_ink"])
+	assert.Equal(t, beforeXP+60, owner.XP)
 	assert.Equal(t, 1, state.GuildProgress.Attempts)
 	assert.Equal(t, 1, state.GuildProgress.Participation[owner.Code])
 	assert.Equal(t, 1, owner.Missions.Progress["raid"])
@@ -276,6 +306,22 @@ func TestGuildRaidParticipationAwardsSurviveAnUnfinishedBoss(t *testing.T) {
 	assert.Equal(t, result.GuildBattle.Damage, owner.TotalDamage)
 	assert.Equal(t, result.GuildBattle.Damage, owner.RaidDamage[1][2].Damage)
 	assert.Equal(t, 1, owner.RaidDamage[1][2].Attempts)
+}
+
+func TestGuildRaidCapacityIsCheckedBeforeSpendingStamina(t *testing.T) {
+	now := time.Date(2026, 11, 27, 12, 0, 0, 0, gameZone)
+	for _, balances := range [][2]int{{gachaMaxResource - 49, 0}, {0, gachaMaxResource - 7}} {
+		state, owner := guildTestState(now)
+		state.GuildProgress.Coins, state.Mats["training_ink"] = balances[0], balances[1]
+		stamina, hp, xp := state.Stamina, owner.BossHP, owner.XP
+		require.ErrorIs(t, applyGuildRaid(state, owner, 2, &GachaActionResult{}, now), ErrGachaCapacity)
+		assert.Equal(t, stamina, state.Stamina)
+		assert.Equal(t, hp, owner.BossHP)
+		assert.Equal(t, xp, owner.XP)
+		assert.Zero(t, state.GuildProgress.Attempts)
+		assert.Equal(t, balances[0], state.GuildProgress.Coins)
+		assert.Equal(t, balances[1], state.Mats["training_ink"])
+	}
 }
 
 func TestGuildKickPermissionAndTargetMembershipAreCheckedBeforeMutation(t *testing.T) {
@@ -324,10 +370,12 @@ func TestGuildFiveStageRewardsAreDirectAndCapacityFailureIsAtomic(t *testing.T) 
 	require.NoError(t, applyGuildClaim(state, owner, &four, &GachaActionResult{}, now))
 	require.NoError(t, applyGuildClaim(state, owner, &five, &GachaActionResult{}, now))
 	assert.Equal(t, 31, state.GuildProgress.Claims)
-	assert.Equal(t, 3000, state.GuildProgress.Coins)
-	assert.Equal(t, 300, state.Mats["training_ink"])
-	assert.Equal(t, 32, state.Mats["weapon_core"])
-	assert.Equal(t, 12, state.Mats["chip_ticket"])
+	assert.Equal(t, 6000, state.GuildProgress.Coins)
+	assert.Equal(t, 600, state.Mats["training_ink"])
+	assert.Equal(t, 64, state.Mats["weapon_core"])
+	assert.Equal(t, 24, state.Mats["chip_ticket"])
+	require.ErrorIs(t, applyGuildClaim(state, owner, &five, &GachaActionResult{}, now), ErrGachaGuildLimit)
+	assert.Equal(t, 6000, state.GuildProgress.Coins)
 	require.NoError(t, syncGachaGuildProgress(state, now))
 }
 

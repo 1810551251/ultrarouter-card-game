@@ -131,7 +131,7 @@ func applyFleetCargo(state *GachaGameState, owner *GachaGuildState, intent Gacha
 		if fleetResource(state, rule.Resource) < rule.Cost {
 			return ErrGachaFunds
 		}
-		if err := guildAddProgress(state, owner, 40, 35, now); err != nil {
+		if err := guildAddProgress(state, owner, 40, gachaMarket.Guild.Contribution, now); err != nil {
 			return err
 		}
 		switch rule.Resource {
@@ -150,7 +150,7 @@ func applyFleetCargo(state *GachaGameState, owner *GachaGuildState, intent Gacha
 		if err := recordGuildSharedActivity(state, owner, "supply", 1, now); err != nil {
 			return err
 		}
-		result.Drops = append(result.Drops, rule.Name+"已完成，公会航绩 +2 · 公会经验 +40 · 公会币 +35")
+		result.Drops = append(result.Drops, fmt.Sprintf("%s已完成，公会航绩 +2 · 公会经验 +40 · 公会币 +%d", rule.Name, gachaMarket.Guild.Contribution))
 		return nil
 	}
 	index := *intent.Count - 1
